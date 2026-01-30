@@ -3208,13 +3208,13 @@ def get_draft_recommendations(team_name, draft_pick, weak_positions, weak_catego
 
 
 def get_buy_low_sell_high_alerts(team_name, team):
-    """Identify buy-low and sell-high candidates based on age, value curves."""
+    """Identify sell-high candidates on your team and buy-low targets on OTHER teams."""
     alerts = {'buy_low': [], 'sell_high': []}
 
+    # Sell-high: Players on YOUR team that you should consider selling
     players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
 
     for p, v in players_with_value:
-        # Sell-high: aging players still producing well
         if p.age >= 32 and v >= 40:
             alerts['sell_high'].append({
                 'name': p.name,
@@ -3228,19 +3228,42 @@ def get_buy_low_sell_high_alerts(team_name, team):
                 'urgency': 'medium'
             })
 
-        # Buy-low: young players with upside not reflected in current value
-        if p.age <= 24 and 20 <= v <= 45:
-            alerts['buy_low'].append({
-                'name': p.name,
-                'reason': f"Only {v:.0f} value at age {p.age} - upside play",
-                'type': 'youth'
-            })
-        elif p.is_prospect and p.prospect_rank and p.prospect_rank <= 50 and v < 70:
-            alerts['buy_low'].append({
-                'name': p.name,
-                'reason': f"Top {p.prospect_rank} prospect undervalued at {v:.0f}",
-                'type': 'prospect'
-            })
+    # Buy-low: Players on OTHER teams that you could target for acquisition
+    for other_team_name, other_team in teams.items():
+        if other_team_name == team_name:
+            continue  # Skip your own team
+
+        for p in other_team.players:
+            v = calculator.calculate_player_value(p)
+
+            # Young players with upside not reflected in current value
+            if p.age <= 24 and 20 <= v <= 45:
+                alerts['buy_low'].append({
+                    'name': p.name,
+                    'team': other_team_name,
+                    'reason': f"Only {v:.0f} value at age {p.age} - upside play",
+                    'type': 'youth'
+                })
+            # Top prospects who might be undervalued
+            elif p.is_prospect and p.prospect_rank and p.prospect_rank <= 50 and v < 70:
+                alerts['buy_low'].append({
+                    'name': p.name,
+                    'team': other_team_name,
+                    'reason': f"Top {p.prospect_rank} prospect at {v:.0f}",
+                    'type': 'prospect'
+                })
+
+    # Sort buy-low by prospect rank first (if applicable), then by value
+    def sort_key(x):
+        if x['type'] == 'prospect':
+            # Extract prospect rank from reason
+            return (0, int(x['reason'].split()[1]))
+        else:
+            # For youth, sort by lower value = better opportunity
+            return (1, int(x['reason'].split()[1]))
+
+    alerts['buy_low'].sort(key=sort_key)
+    alerts['buy_low'] = alerts['buy_low'][:6]  # Limit to top 6 targets
 
     return alerts
 
@@ -3576,8 +3599,9 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             sell_list = ", ".join([f"<span style='color:#f87171'>{a['name']}</span>" for a in alerts['sell_high'][:2]])
             alerts_text += f"⬆️ <b>Sell-high:</b> {sell_list} (maximize return before decline)<br>"
         if alerts['buy_low']:
-            buy_list = ", ".join([f"<span style='color:#4ade80'>{a['name']}</span>" for a in alerts['buy_low'][:2]])
-            alerts_text += f"⬇️ <b>Buy-low:</b> {buy_list} (upside not reflected in current value)"
+            # Show team name for buy-low targets since they're on other teams
+            buy_list = ", ".join([f"<span style='color:#4ade80'>{a['name']}</span> ({a.get('team', 'FA')[:10]})" for a in alerts['buy_low'][:3]])
+            alerts_text += f"⬇️ <b>Buy-low targets:</b> {buy_list}"
         analysis_parts.append(alerts_text.rstrip('<br>'))
 
     # Draft Pick Recommendations
