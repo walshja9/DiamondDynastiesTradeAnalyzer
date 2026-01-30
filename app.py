@@ -2413,10 +2413,11 @@ def load_prospect_rankings():
     print(f"Filtered {len(sorted_prospects) - len(filtered_prospects) - excluded_count} players over age {MAX_PROSPECT_AGE}")
 
     # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
-    # IMPORTANT: Only keep the top 200 prospects to ensure a complete 1-200 ranking
+    # Include up to 500 prospects so value caps apply to fringe prospects too
+    # (The UI only shows top 200, but the value calculator uses ranks 201-500 for caps)
     PROSPECT_RANKINGS.clear()
     PROSPECT_METADATA.clear()
-    for new_rank, (name, _) in enumerate(filtered_prospects[:200], start=1):
+    for new_rank, (name, _) in enumerate(filtered_prospects[:500], start=1):
         PROSPECT_RANKINGS[name] = new_rank
         # Store metadata if available from CSV
         if name in csv_metadata:
@@ -2430,7 +2431,7 @@ def load_prospect_rankings():
                 'level': 'N/A'
             }
 
-    print(f"Prospect rankings merged and re-ranked: {len(PROSPECT_RANKINGS)} total (limited to top 200)")
+    print(f"Prospect rankings merged and re-ranked: {len(PROSPECT_RANKINGS)} total (up to 500 for value caps)")
     print(f"Prospect metadata stored for {len(PROSPECT_METADATA)} prospects")
 
     # Debug: Print top 10 prospects to verify correct ordering
