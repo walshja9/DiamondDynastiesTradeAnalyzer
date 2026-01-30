@@ -270,6 +270,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <button class="tab" onclick="showPanel('teams')">Teams</button>
             <button class="tab" onclick="showPanel('prospects')">Top Prospects</button>
             <button class="tab" onclick="showPanel('suggest')">Trade Suggestions</button>
+            <button class="tab" onclick="showPanel('freeagents')">Free Agents</button>
             <button class="tab" onclick="showPanel('search')">Player Search</button>
             <button class="tab" onclick="showPanel('league')">League</button>
         </div>
@@ -340,20 +341,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
 
         <div id="teams-panel" class="panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin:0;">All Teams</h3>
-                <button class="btn" onclick="showDraftOrderConfig()" style="font-size: 0.85rem; padding: 8px 16px;">Configure Draft Order</button>
-            </div>
-            <div id="draftOrderConfig" style="display:none; background:#1a1a2e; border-radius:10px; padding:20px; margin-bottom:20px;">
-                <h4 style="color:#ffd700; margin-bottom:15px;">2026 Draft Order</h4>
-                <p style="color:#888; font-size:0.85rem; margin-bottom:15px;">Set each team's draft pick position (1 = first pick). Leave empty to use calculated order based on team value.</p>
-                <div id="draftOrderInputs" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px;"></div>
-                <div style="margin-top:15px; display:flex; gap:10px;">
-                    <button class="btn" onclick="saveDraftOrder()">Save Draft Order</button>
-                    <button class="btn" onclick="clearDraftOrder()" style="background:#444;">Use Calculated Order</button>
-                    <button class="btn" onclick="hideDraftOrderConfig()" style="background:#444;">Cancel</button>
-                </div>
-            </div>
+            <h3 style="margin-bottom: 15px;">All Teams</h3>
             <div id="teams-loading" class="loading">Loading teams...</div>
             <div id="teams-grid" class="team-grid"></div>
         </div>
@@ -388,6 +376,36 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 </div>
             </div>
             <div id="suggestions-results"></div>
+        </div>
+
+        <div id="freeagents-panel" class="panel">
+            <h3 style="margin-bottom: 15px;">Free Agent Recommendations</h3>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
+                <div class="form-group" style="flex: 1; min-width: 180px;">
+                    <label>Your Team</label>
+                    <select id="faTeamSelect" onchange="loadFASuggestions()">
+                        <option value="">Select Team</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 150px;">
+                    <label>Position Filter</label>
+                    <select id="faPosFilter" onchange="loadFASuggestions()">
+                        <option value="">All Positions</option>
+                        <option value="C">C</option>
+                        <option value="1B">1B</option>
+                        <option value="2B">2B</option>
+                        <option value="SS">SS</option>
+                        <option value="3B">3B</option>
+                        <option value="OF">OF</option>
+                        <option value="SP">SP</option>
+                        <option value="RP">RP</option>
+                    </select>
+                </div>
+            </div>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">AI-powered recommendations based on your team's needs and weaknesses.</p>
+            <div id="fa-results">
+                <p style="color: #888; padding: 20px;">Select your team to see personalized free agent recommendations.</p>
+            </div>
         </div>
 
         <div id="search-panel" class="panel">
@@ -432,6 +450,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         let tradePicksA = [];
         let tradePicksB = [];
         let currentSuggestOffset = 0;
+        let currentTeamDepth = {};  // Store current team's positional depth for modal
         let currentSuggestLimit = 8;
         let allCurrentSuggestions = [];
 
@@ -491,9 +510,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
         }
 
         function populateTeamSelects() {
-            const selects = ['teamASelect', 'teamBSelect', 'suggestTeamSelect', 'suggestTargetSelect'];
+            const selects = ['teamASelect', 'teamBSelect', 'suggestTeamSelect', 'suggestTargetSelect', 'faTeamSelect'];
             selects.forEach(id => {
                 const select = document.getElementById(id);
+                if (!select) return;
                 const currentValue = select.value;
                 const isTarget = id === 'suggestTargetSelect';
                 select.innerHTML = isTarget ? '<option value="">All Teams</option>' : '<option value="">Select team...</option>';
@@ -524,66 +544,6 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </div>
                 </div>
             `).join('');
-        }
-
-        async function showDraftOrderConfig() {
-            document.getElementById('draftOrderConfig').style.display = 'block';
-            const inputs = document.getElementById('draftOrderInputs');
-            try {
-                const res = await fetch(`${API_BASE}/draft-order`);
-                const data = await res.json();
-                inputs.innerHTML = teamsData.map(t => `
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="flex:1; font-size:0.9rem;">${t.name}</span>
-                        <input type="number" id="pick_${t.name.replace(/[^a-zA-Z0-9]/g,'_')}" min="1" max="${teamsData.length}"
-                            value="${data.draft_order[t.name] || ''}" placeholder="${t.draft_pick}"
-                            style="width:60px; padding:6px; border-radius:4px; border:1px solid #444; background:#252540; color:#e4e4e4;">
-                    </div>
-                `).join('');
-            } catch (err) { inputs.innerHTML = `<div style="color:#f87171">Error loading draft order</div>`; }
-        }
-
-        function hideDraftOrderConfig() {
-            document.getElementById('draftOrderConfig').style.display = 'none';
-        }
-
-        async function saveDraftOrder() {
-            const draftOrder = {};
-            teamsData.forEach(t => {
-                const input = document.getElementById(`pick_${t.name.replace(/[^a-zA-Z0-9]/g,'_')}`);
-                if (input && input.value) {
-                    draftOrder[t.name] = parseInt(input.value);
-                }
-            });
-            try {
-                const res = await fetch(`${API_BASE}/draft-order`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({draft_order: draftOrder})
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert(data.message);
-                    hideDraftOrderConfig();
-                    loadTeams();
-                } else {
-                    alert(data.error || 'Failed to save');
-                }
-            } catch (err) { alert('Error saving draft order: ' + err.message); }
-        }
-
-        async function clearDraftOrder() {
-            try {
-                const res = await fetch(`${API_BASE}/draft-order`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({draft_order: {}})
-                });
-                const data = await res.json();
-                alert(data.message);
-                hideDraftOrderConfig();
-                loadTeams();
-            } catch (err) { alert('Error: ' + err.message); }
         }
 
         function showPanel(panel) {
@@ -941,6 +901,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 const cats = data.category_details || {};
                 const comp = data.roster_composition || {};
                 const posDepth = data.positional_depth || {};
+                currentTeamDepth = posDepth;  // Store for position modal
 
                 content.innerHTML = `
                     <h2 style="color: #ffd700; margin-bottom: 5px;">#${data.power_rank} ${data.name}</h2>
@@ -1018,13 +979,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                     <!-- Positional Depth -->
                     <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #3a3a5a;">
-                        <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">POSITIONAL DEPTH</h4>
+                        <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">POSITIONAL DEPTH <span style="color: #888; font-size: 0.75rem;">(click to view all)</span></h4>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
                             ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
                                 const players = posDepth[pos] || [];
                                 const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
                                 return `
-                                    <div style="background: #2a2a3e; padding: 10px; border-radius: 6px;">
+                                    <div onclick="showPositionDepth('${pos}')" style="background: #2a2a3e; padding: 10px; border-radius: 6px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 12px rgba(0,212,255,0.2)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                                             <span style="color: #00d4ff; font-weight: bold;">${pos}</span>
                                             <span style="color: ${depthColor}; font-size: 0.8rem;">${players.length} deep</span>
@@ -1068,6 +1029,38 @@ HTML_CONTENT = '''<!DOCTYPE html>
             } catch (e) {
                 content.innerHTML = `<p style="color: #f87171;">Failed to load team details: ${e.message}</p>`;
             }
+        }
+
+        function showPositionDepth(position) {
+            const players = currentTeamDepth[position] || [];
+            const modal = document.getElementById('player-modal');
+            const content = document.getElementById('player-modal-content');
+
+            if (players.length === 0) {
+                content.innerHTML = `
+                    <h3 style="color: #00d4ff; margin-bottom: 15px;">${position} Depth</h3>
+                    <p style="color: #888;">No players at this position.</p>
+                `;
+            } else {
+                content.innerHTML = `
+                    <h3 style="color: #00d4ff; margin-bottom: 15px;">${position} Depth (${players.length} players)</h3>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        ${players.map((p, i) => `
+                            <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}'); event.stopPropagation();" style="cursor: pointer;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="color: #888; font-size: 0.8rem; width: 24px;">#${i + 1}</span>
+                                    <div>
+                                        <div class="name player-link">${p.name}</div>
+                                        <div style="color: #888; font-size: 0.8rem;">Age ${p.age || '?'}</div>
+                                    </div>
+                                </div>
+                                <div class="value">${p.value}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            modal.classList.add('active');
         }
 
         async function showPlayerModal(playerName) {
@@ -1388,6 +1381,94 @@ HTML_CONTENT = '''<!DOCTYPE html>
             loadSuggestions(true);
         }
 
+        async function loadFASuggestions() {
+            const myTeam = document.getElementById('faTeamSelect').value;
+            const posFilter = document.getElementById('faPosFilter').value;
+            const results = document.getElementById('fa-results');
+
+            if (!myTeam) {
+                results.innerHTML = '<p style="color: #888; padding: 20px;">Select your team to see personalized free agent recommendations.</p>';
+                return;
+            }
+
+            results.innerHTML = '<div class="loading">Analyzing free agents for your team needs...</div>';
+
+            try {
+                let url = `${API_BASE}/free-agents?team=${encodeURIComponent(myTeam)}`;
+                if (posFilter) url += `&position=${encodeURIComponent(posFilter)}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.error) {
+                    results.innerHTML = `<p style="color: #f87171; padding: 20px;">${data.error}</p>`;
+                    return;
+                }
+
+                if (!data.suggestions || data.suggestions.length === 0) {
+                    results.innerHTML = '<p style="color: #888; padding: 20px;">No free agent recommendations found.</p>';
+                    return;
+                }
+
+                // Show team needs summary
+                let needsHtml = '';
+                if (data.team_needs) {
+                    const needs = data.team_needs;
+                    needsHtml = `
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                                <div>
+                                    <span style="color: #888; font-size: 0.85rem;">Team Window:</span>
+                                    <span style="color: #ffd700; font-weight: bold; margin-left: 8px; text-transform: capitalize;">${needs.window}</span>
+                                </div>
+                                ${needs.weaknesses && needs.weaknesses.length > 0 ? `
+                                    <div>
+                                        <span style="color: #888; font-size: 0.85rem;">Category Needs:</span>
+                                        <span style="color: #f87171; margin-left: 8px;">${needs.weaknesses.join(', ')}</span>
+                                    </div>
+                                ` : ''}
+                                ${needs.positional_needs && needs.positional_needs.length > 0 ? `
+                                    <div>
+                                        <span style="color: #888; font-size: 0.85rem;">Position Needs:</span>
+                                        <span style="color: #60a5fa; margin-left: 8px;">${needs.positional_needs.join(', ')}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                let html = needsHtml + data.suggestions.map(fa => {
+                    const fitLabel = fa.fit_score >= 90 ? 'Excellent Fit' : (fa.fit_score >= 75 ? 'Great Fit' : (fa.fit_score >= 60 ? 'Good Fit' : 'Fair'));
+                    const fitColor = fa.fit_score >= 90 ? '#4ade80' : (fa.fit_score >= 75 ? '#ffd700' : (fa.fit_score >= 60 ? '#60a5fa' : '#888'));
+                    const reasonsHtml = fa.reasons && fa.reasons.length > 0
+                        ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+                            ${fa.reasons.map(r => `<span style="background: rgba(74, 222, 128, 0.15); color: #4ade80; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem;">${r}</span>`).join('')}
+                           </div>`
+                        : '';
+                    return `
+                        <div class="player-card" onclick="showPlayerModal('${fa.name.replace(/'/g, "\\'")}')">
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="name player-link">${fa.name}</div>
+                                    <span style="background: rgba(255,215,0,0.15); color: ${fitColor}; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold;">${fitLabel}</span>
+                                </div>
+                                <div style="color: #888; font-size: 0.8rem; margin-top: 2px;">${fa.position} | ${fa.mlb_team} | Age ${fa.age}</div>
+                                ${reasonsHtml}
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="value">${fa.dynasty_value}</div>
+                                <div style="color: #888; font-size: 0.7rem;">${fa.roster_pct}% rostered</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                results.innerHTML = html;
+            } catch (e) {
+                results.innerHTML = `<p style="color: #f87171; padding: 20px;">Failed to load free agents: ${e.message}</p>`;
+            }
+        }
+
         function applySuggestion(idx) {
             const s = allCurrentSuggestions[idx];
             if (!s) return;
@@ -1482,12 +1563,17 @@ HTML_CONTENT = '''<!DOCTYPE html>
             const datalist = document.getElementById('draftPicksList');
             if (!datalist) return;
 
-            const years = [2025, 2026, 2027, 2028, 2029];
-            const rounds = ['1st', '2nd', '3rd', '4th', '5th'];
             const numTeams = teamsData.length || 12;
-
+            const rounds = ['1st', '2nd', '3rd', '4th'];
             let options = [];
-            years.forEach(year => {
+
+            // 2026: Just picks 1-12 (no rounds)
+            for (let pick = 1; pick <= numTeams; pick++) {
+                options.push(`2026 #${pick}`);
+            }
+
+            // 2027 and 2028: Rounds 1-4 with picks 1-12
+            [2027, 2028].forEach(year => {
                 rounds.forEach(round => {
                     for (let pick = 1; pick <= numTeams; pick++) {
                         options.push(`${year} ${round} Rd #${pick}`);
@@ -1512,6 +1598,94 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
 # Cache for player ages from Fantrax CSV
 fantrax_ages = {}
+
+# Free agents data
+FREE_AGENTS = []
+
+
+def load_free_agents():
+    """Load available free agents from fantrax_available_players.csv."""
+    import csv
+    global FREE_AGENTS
+    FREE_AGENTS = []
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(script_dir, 'fantrax_available_players.csv')
+
+    if not os.path.exists(csv_path):
+        print("Warning: fantrax_available_players.csv not found")
+        return
+
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    # Parse the Score field (fantasy value)
+                    score = float(row.get('Score', 0) or 0)
+                    age = int(row.get('Age', 0) or 0)
+                    rank = int(row.get('RkOv', 9999) or 9999)
+                    ros_pct = row.get('Ros', '0%').replace('%', '')
+                    ros = float(ros_pct) if ros_pct else 0
+
+                    fa = {
+                        'id': row.get('ID', ''),
+                        'name': row.get('Player', ''),
+                        'mlb_team': row.get('Team', ''),
+                        'position': row.get('Position', ''),
+                        'rank': rank,
+                        'age': age,
+                        'score': score,
+                        'roster_pct': ros,
+                        'adp': float(row.get('ADP', 999) or 999),
+                    }
+
+                    # Calculate dynasty value for FA
+                    fa['dynasty_value'] = calculate_fa_dynasty_value(fa)
+                    FREE_AGENTS.append(fa)
+                except (ValueError, TypeError) as e:
+                    continue
+
+        # Sort by dynasty value
+        FREE_AGENTS.sort(key=lambda x: x['dynasty_value'], reverse=True)
+        print(f"Loaded {len(FREE_AGENTS)} free agents")
+    except Exception as e:
+        print(f"Error loading free agents: {e}")
+
+
+def calculate_fa_dynasty_value(fa):
+    """Calculate dynasty value for a free agent based on score, age, and rank."""
+    base_value = fa['score']
+
+    # Age adjustment (younger players more valuable in dynasty)
+    age = fa['age']
+    if age <= 25:
+        age_mult = 1.15
+    elif age <= 28:
+        age_mult = 1.05
+    elif age <= 30:
+        age_mult = 1.0
+    elif age <= 33:
+        age_mult = 0.9
+    else:
+        age_mult = 0.75
+
+    # Rank adjustment
+    rank = fa['rank']
+    if rank <= 100:
+        rank_bonus = 10
+    elif rank <= 200:
+        rank_bonus = 5
+    elif rank <= 400:
+        rank_bonus = 2
+    else:
+        rank_bonus = 0
+
+    # Roster percentage indicates demand
+    ros_bonus = fa['roster_pct'] * 0.1  # Up to 10 points for 100% rostered
+
+    value = (base_value * age_mult) + rank_bonus + ros_bonus
+    return round(value, 1)
 
 
 def load_ages_from_fantrax_csv():
@@ -2433,7 +2607,7 @@ def get_team(team_name):
 
 
 def generate_team_analysis(team_name, team, players_with_value=None, power_rank=None, total_teams=12):
-    """Generate a comprehensive text analysis/description of a team."""
+    """Generate a comprehensive, personalized text analysis/description of a team."""
     if players_with_value is None:
         players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
         players_with_value.sort(key=lambda x: x[1], reverse=True)
@@ -2452,11 +2626,23 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     veteran_players = len([a for a in ages if a > 30])
     prospects = [p for p in team.players if p.is_prospect]
 
-    # Calculate team totals
+    # Calculate team totals and category analysis
     total_hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p, _ in players_with_value)
     total_sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p, _ in players_with_value)
+    total_rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p, _ in players_with_value)
     total_k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p, _ in players_with_value)
     total_sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p, _ in players_with_value)
+
+    # Identify strengths and weaknesses
+    cat_strengths, cat_weaknesses = [], []
+    if total_hr >= 220: cat_strengths.append("HR")
+    elif total_hr < 160: cat_weaknesses.append("HR")
+    if total_sb >= 120: cat_strengths.append("SB")
+    elif total_sb < 70: cat_weaknesses.append("SB")
+    if total_k >= 1300: cat_strengths.append("K")
+    elif total_k < 900: cat_weaknesses.append("K")
+    if total_sv_hld >= 70: cat_strengths.append("SV+HLD")
+    elif total_sv_hld < 35: cat_weaknesses.append("SV+HLD")
 
     # Determine competitive window
     top_third = total_teams // 3
@@ -2467,117 +2653,145 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     if power_rank <= top_third:
         if is_young_roster:
             window = "dynasty"
-            window_desc = "a dynasty powerhouse with elite young talent and a long competitive window"
+            window_desc = f"{team_name} is a dynasty powerhouse with elite young talent and a championship window that extends for years"
         elif is_old_roster:
             window = "win-now"
-            window_desc = "a win-now contender that should push for a championship while their window is open"
+            window_desc = f"{team_name} is in win-now mode - a veteran-laden contender that needs to push all chips to the middle"
         else:
             window = "contender"
-            window_desc = "a legitimate contender with a strong, balanced roster"
+            window_desc = f"{team_name} is a legitimate title contender with a balanced, competitive roster"
     elif power_rank >= bottom_third:
         if is_old_roster:
             window = "teardown"
-            window_desc = "an aging roster in need of a full rebuild"
+            window_desc = f"{team_name} needs a full teardown - an aging roster with limited path to contention"
         elif is_young_roster:
             window = "rebuilding"
-            window_desc = "a rebuilding team on the right track with young talent to develop"
+            window_desc = f"{team_name} is rebuilding the right way - stockpiling young talent for future success"
         else:
             window = "retooling"
-            window_desc = "a team that needs to retool - stuck in the middle with no clear direction"
+            window_desc = f"{team_name} is stuck in the middle and needs to commit to a clear direction"
     else:
         if is_young_roster:
             window = "rising"
-            window_desc = "a rising team with young talent that could emerge as a contender soon"
+            window_desc = f"{team_name} is on the rise - young talent developing that could push into contention soon"
         elif is_old_roster:
             window = "declining"
-            window_desc = "a declining roster that may need to sell aging assets before they lose value"
+            window_desc = f"{team_name} is trending downward - aging assets should be sold before values crater"
         else:
             window = "competitive"
-            window_desc = "a competitive team in the mix but not a true frontrunner"
+            window_desc = f"{team_name} is competitive but not a frontrunner - needs a move or two to break through"
 
-    analysis_parts.append(f"<b>TEAM IDENTITY:</b> Ranked #{power_rank} in the league. {window_desc.capitalize()}.")
+    analysis_parts.append(f"<b>🏆 TEAM IDENTITY:</b> {window_desc}. Currently ranked <span style='color:#ffd700'>#{power_rank}</span> of {total_teams}.")
 
-    # Roster composition
-    roster_desc = f"<b>ROSTER PROFILE:</b> Averages {avg_age:.1f} years old"
-    if young_players > veteran_players:
-        roster_desc += f" (skews young with {young_players} players 25 or under)"
-    elif veteran_players > young_players:
-        roster_desc += f" (skews veteran with {veteran_players} players 31+)"
+    # Roster composition with character
+    if young_players > veteran_players + 3:
+        roster_vibe = "This is a youth movement in full swing"
+    elif veteran_players > young_players + 3:
+        roster_vibe = "Experience runs deep on this roster"
+    elif prime_players >= young_players and prime_players >= veteran_players:
+        roster_vibe = "The core is locked into their prime years"
     else:
-        roster_desc += f" ({young_players} young, {prime_players} prime, {veteran_players} veteran)"
-    analysis_parts.append(roster_desc + ".")
+        roster_vibe = "A balanced mix across all age groups"
+    analysis_parts.append(f"<b>👥 ROSTER PROFILE:</b> {roster_vibe}. Average age {avg_age:.1f} with {young_players} young (≤25), {prime_players} prime (26-30), {veteran_players} veteran (31+).")
 
-    # Top assets with trajectory
+    # Cornerstone players with commentary
     top_3 = players_with_value[:3]
     if top_3:
-        asset_strs = []
-        for p, v in top_3:
-            if p.age <= 25:
-                trajectory = "ascending"
-            elif p.age <= 28:
-                trajectory = "prime"
-            elif p.age <= 31:
-                trajectory = "peak"
-            else:
-                trajectory = "declining"
-            asset_strs.append(f"{p.name} ({v:.0f}, {trajectory})")
-        analysis_parts.append(f"<b>CORNERSTONE PLAYERS:</b> {', '.join(asset_strs)}.")
+        mvp = top_3[0]
+        if mvp[0].age <= 25:
+            mvp_note = "is the franchise cornerstone with elite upside"
+        elif mvp[0].age <= 28:
+            mvp_note = "is in his prime and driving this team"
+        elif mvp[0].age <= 31:
+            mvp_note = "remains the alpha but the clock is ticking"
+        else:
+            mvp_note = "is still producing but won't be forever"
+        others = ", ".join([f"{p.name} ({v:.0f})" for p, v in top_3[1:3]])
+        analysis_parts.append(f"<b>⭐ CORE ASSETS:</b> {mvp[0].name} ({mvp[1]:.0f}) {mvp_note}. Supported by {others}.")
 
-    # Prospects
+    # Prospect pipeline
     if prospects:
         top_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)[:3]
         if top_prospects:
-            prospect_strs = []
-            for p in top_prospects:
-                eta = "MLB-ready" if p.age >= 22 else f"ETA {2026 + (22 - p.age) if p.age else '?'}"
-                prospect_strs.append(f"{p.name} (#{p.prospect_rank}, {eta})")
-            analysis_parts.append(f"<b>PROSPECT PIPELINE:</b> {', '.join(prospect_strs)}.")
+            top_p = top_prospects[0]
+            if top_p.prospect_rank <= 20:
+                farm_note = "An elite prospect anchors this farm system"
+            elif top_p.prospect_rank <= 50:
+                farm_note = "Quality prospect capital in the pipeline"
+            else:
+                farm_note = "Some upside brewing in the minors"
+            prospect_list = ", ".join([f"{p.name} (#{p.prospect_rank})" for p in top_prospects])
+            analysis_parts.append(f"<b>🌟 FARM SYSTEM:</b> {farm_note}. Top prospects: {prospect_list}.")
+        elif len(prospects) > 3:
+            analysis_parts.append(f"<b>🌟 FARM SYSTEM:</b> Quantity over quality - {len(prospects)} prospects but none cracking the top 100.")
+    else:
+        analysis_parts.append("<b>🌟 FARM SYSTEM:</b> Bare cupboard - no ranked prospects on the roster.")
 
-    # Category outlook
-    analysis_parts.append(f"<b>CATEGORY OUTLOOK:</b> Projected totals: {total_hr} HR, {total_sb} SB, {total_k} K, {total_sv_hld} SV+HLD.")
+    # Category outlook with specific analysis
+    cat_text = f"<b>📊 CATEGORY OUTLOOK:</b> Projected {total_hr} HR, {total_sb} SB, {total_rbi} RBI, {total_k} K, {total_sv_hld} SV+HLD."
+    if cat_strengths:
+        cat_text += f" <span style='color:#4ade80'>Strong in {', '.join(cat_strengths)}</span>."
+    if cat_weaknesses:
+        cat_text += f" <span style='color:#f87171'>Needs help in {', '.join(cat_weaknesses)}</span>."
+    analysis_parts.append(cat_text)
 
-    # Risk factors
+    # Risk factors with specific players
     risk_factors = []
-    regression_candidates = []
-    for p, v in players_with_value[:15]:
-        if p.age >= 33 and v >= 25:
-            regression_candidates.append(f"{p.name} (age {p.age})")
-        elif p.age >= 35:
-            regression_candidates.append(f"{p.name} (age {p.age})")
-    if regression_candidates:
-        risk_factors.append(f"Regression watch: {', '.join(regression_candidates[:3])}")
+    sell_candidates = []
+    for p, v in players_with_value[:20]:
+        if p.age >= 33 and v >= 30:
+            sell_candidates.append(f"{p.name} (age {p.age}, value {v:.0f})")
+        elif p.age >= 35 and v >= 20:
+            sell_candidates.append(f"{p.name} (age {p.age})")
 
-    # Concentration risk
+    if sell_candidates and window in ['rebuilding', 'teardown', 'declining', 'retooling']:
+        risk_factors.append(f"<span style='color:#fbbf24'>Sell candidates:</span> {', '.join(sell_candidates[:3])}")
+    elif sell_candidates:
+        risk_factors.append(f"Aging assets to monitor: {', '.join(sell_candidates[:2])}")
+
     if players_with_value:
         top_2_value = sum(v for _, v in players_with_value[:2])
         total_value = sum(v for _, v in players_with_value)
         if total_value > 0 and top_2_value / total_value > 0.30:
             risk_factors.append(f"Top-heavy ({top_2_value/total_value*100:.0f}% value in top 2)")
 
-    if not risk_factors:
-        risk_factors.append("No major concerns identified")
+    if risk_factors:
+        analysis_parts.append(f"<b>⚠️ RISK FACTORS:</b> {' | '.join(risk_factors)}.")
+    else:
+        analysis_parts.append("<b>⚠️ RISK FACTORS:</b> Well-balanced roster with no major red flags.")
 
-    analysis_parts.append(f"<b>RISK FACTORS:</b> {' | '.join(risk_factors)}.")
-
-    # Trade strategy based on window
+    # Personalized trade strategy
+    strategy = "<b>💼 TRADE STRATEGY:</b> "
     if window == "dynasty":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Dynasty dominance mode - protect your core, but don't overpay to fill small gaps. You can afford to be patient.")
+        if cat_weaknesses:
+            strategy += f"From a position of strength, target {cat_weaknesses[0]} help without sacrificing your young core. "
+        strategy += "You can be patient - don't overpay to fill small gaps."
     elif window == "contender":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Contender's edge - make surgical moves to address weaknesses. Worth paying a premium for the right piece.")
+        if cat_weaknesses:
+            strategy += f"Time for surgical strikes - overpay if needed to fix your {cat_weaknesses[0]} weakness. "
+        strategy += "A key addition could be the difference between good and great."
     elif window == "win-now":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Championship window closing - be aggressive. Trade future assets for proven talent now.")
+        strategy += "Go all-in NOW. Trade prospects and future picks for proven talent. "
+        if sell_candidates:
+            strategy += f"Your window is closing - maximize value from {sell_candidates[0].split(' (')[0]} while you can."
     elif window == "rising":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Build around your young core. Target complementary pieces to accelerate your timeline.")
+        strategy += "Protect your prospect capital but look for undervalued veterans to complement your young core. Be opportunistic but don't mortgage the future."
     elif window == "competitive":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> In the mix but need more. Look for undervalued assets to push into contention.")
+        strategy += "At a crossroads - either make a splash to push into contention, or start selling veterans to reload. The worst move is standing pat."
     elif window == "declining":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Begin transitioning before values crater. Sell aging assets while they still have value.")
+        if sell_candidates:
+            strategy += f"Time to sell. {sell_candidates[0].split(' (')[0]} and other vets still have value - move them for youth and picks. "
+        strategy += "Every month you wait, asset values decline."
     elif window == "retooling":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Stuck in the middle - commit to a direction. Either sell vets to rebuild or buy to compete.")
+        strategy += "Pick a lane. You're not good enough to compete and not bad enough to get top picks. Commit to rebuild or buy aggressively - the middle is death."
     elif window == "rebuilding":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Stay the course - accumulate young assets and draft picks. Patience will pay off.")
+        strategy += "Stay the course. Accumulate prospects, draft picks, and young upside. Any veteran over 28 with value should be on the block. Patience pays."
     elif window == "teardown":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Full rebuild required. Sell veterans for picks and prospects - every aging asset must go.")
+        strategy += "Full liquidation mode. Every player over 28 must go. "
+        if sell_candidates:
+            strategy += f"Start with {sell_candidates[0].split(' (')[0]} - maximize return on your best tradeable assets."
+
+    analysis_parts.append(strategy)
 
     return "<br><br>".join(analysis_parts)
 
@@ -3385,6 +3599,109 @@ def get_suggestions():
         return jsonify({"error": f"Failed to generate suggestions: {str(e)}", "suggestions": []}), 500
 
 
+@app.route('/free-agents')
+def get_free_agent_suggestions():
+    """Get AI-powered free agent recommendations based on team needs."""
+    try:
+        team_name = request.args.get('team')
+        position_filter = request.args.get('position', '')
+
+        if not team_name or team_name not in teams:
+            return jsonify({"error": "Invalid team specified"}), 400
+
+        # Get team needs using existing function
+        team_cats, team_pos, team_window = calculate_team_needs(team_name)
+
+        # Identify category weaknesses
+        weaknesses = [cat for cat, score in team_cats.items() if score < 0]
+
+        # Identify positional needs (positions with depth < 2)
+        pos_depth = {}
+        team = teams[team_name]
+        for p in team.players:
+            pos = p.position.upper() if p.position else ''
+            for check_pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP']:
+                if check_pos in pos or (check_pos == 'OF' and any(x in pos for x in ['LF', 'CF', 'RF'])):
+                    pos_depth[check_pos] = pos_depth.get(check_pos, 0) + 1
+
+        positional_needs = [pos for pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP']
+                          if pos_depth.get(pos, 0) < 2]
+
+        # Score each free agent based on team needs
+        scored_fas = []
+        for fa in FREE_AGENTS:
+            if position_filter and position_filter not in fa['position']:
+                continue
+
+            score = fa['dynasty_value']
+            reasons = []
+
+            # Category need bonus
+            fa_pos = fa['position'].upper()
+            is_hitter = any(pos in fa_pos for pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'LF', 'CF', 'RF', 'DH'])
+            is_pitcher = 'SP' in fa_pos or 'RP' in fa_pos
+
+            if is_hitter:
+                hitting_needs = [w for w in weaknesses if w in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS']]
+                if hitting_needs:
+                    score += 15
+                    reasons.append(f"Fills {', '.join(hitting_needs[:2])} need")
+
+            if is_pitcher:
+                pitching_needs = [w for w in weaknesses if w in ['K', 'ERA', 'WHIP', 'SV+HLD']]
+                if pitching_needs:
+                    score += 15
+                    reasons.append(f"Fills {', '.join(pitching_needs[:2])} need")
+                if 'RP' in fa_pos and 'SV+HLD' in weaknesses:
+                    score += 10
+                    reasons.append("Reliever for SV+HLD")
+
+            # Positional need bonus
+            for need_pos in positional_needs:
+                if need_pos in fa_pos:
+                    score += 12
+                    reasons.append(f"Fills {need_pos} depth")
+                    break
+
+            # Window alignment bonus
+            age = fa['age']
+            if team_window in ['rebuilding', 'rising'] and age <= 26:
+                score += 8
+                reasons.append("Young for rebuild")
+            elif team_window in ['win-now', 'contender'] and 26 <= age <= 32:
+                score += 5
+                reasons.append("Prime age")
+
+            # High roster % indicates quality
+            if fa['roster_pct'] >= 50:
+                score += 5
+                if not reasons:
+                    reasons.append("Widely rostered")
+
+            scored_fas.append({
+                **fa,
+                'fit_score': round(score, 1),
+                'reasons': reasons[:3]
+            })
+
+        # Sort by fit score
+        scored_fas.sort(key=lambda x: x['fit_score'], reverse=True)
+
+        # Return top 25 recommendations
+        return jsonify({
+            "suggestions": scored_fas[:25],
+            "team_needs": {
+                "weaknesses": weaknesses,
+                "positional_needs": positional_needs,
+                "window": team_window
+            }
+        })
+
+    except Exception as e:
+        print(f"Error in get_free_agent_suggestions: {e}")
+        return jsonify({"error": f"Failed to get FA suggestions: {str(e)}"}), 500
+
+
 @app.route('/standings')
 def get_standings():
     return jsonify({"standings": league_standings})
@@ -3481,6 +3798,9 @@ else:
 
 # Load draft order configuration
 load_draft_order_config()
+
+# Load free agents
+load_free_agents()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
