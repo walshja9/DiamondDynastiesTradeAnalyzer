@@ -1207,7 +1207,7 @@ def load_ages_from_fantrax_csv():
         except Exception as e:
             print(f"Warning: Could not load ages from Fantrax CSV: {e}")
 
-    # Also load from prospect ranking files (for prospects not in Fantrax)
+    # Also load from prospect ranking files (fill in missing or zero ages)
     prospect_patterns = [
         os.path.join(script_dir, 'Consensus*Ranks*Hitters*.csv'),
         os.path.join(script_dir, 'Consensus*Ranks*Pitchers*.csv'),
@@ -1222,10 +1222,12 @@ def load_ages_from_fantrax_csv():
                     for row in reader:
                         name = row.get('Name', '').strip()
                         age_str = row.get('Age', '')
-                        # Only add if not already in fantrax_ages (Fantrax is primary)
-                        if name and age_str and age_str.isdigit() and name not in fantrax_ages:
-                            fantrax_ages[name] = int(age_str)
-                            count += 1
+                        # Add if missing OR if existing age is 0
+                        if name and age_str and age_str.isdigit():
+                            age = int(age_str)
+                            if age > 0 and (name not in fantrax_ages or fantrax_ages[name] == 0):
+                                fantrax_ages[name] = age
+                                count += 1
                 if count > 0:
                     print(f"Loaded {count} additional ages from {os.path.basename(csv_file)}")
                     total_count += count
