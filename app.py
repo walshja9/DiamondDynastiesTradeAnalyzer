@@ -2346,11 +2346,23 @@ def load_prospect_rankings():
     # Sort by averaged rank and re-assign sequential rankings (1, 2, 3, ...) to eliminate duplicates
     sorted_prospects = sorted(merged_rankings.items(), key=lambda x: x[1])
 
+    # Filter out players who are too old to be considered prospects (26+ years old)
+    # This removes established MLB players like Julian Garcia (30), Munetaka Murakami (25 but MLB), etc.
+    MAX_PROSPECT_AGE = 25
+    filtered_prospects = []
+    for name, avg_rank in sorted_prospects:
+        age = csv_metadata.get(name, {}).get('age', 0)
+        # Keep if age is unknown (0) or under the max age
+        if age == 0 or age <= MAX_PROSPECT_AGE:
+            filtered_prospects.append((name, avg_rank))
+
+    print(f"Filtered {len(sorted_prospects) - len(filtered_prospects)} players over age {MAX_PROSPECT_AGE}")
+
     # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
     # IMPORTANT: Only keep the top 200 prospects to ensure a complete 1-200 ranking
     PROSPECT_RANKINGS.clear()
     PROSPECT_METADATA.clear()
-    for new_rank, (name, _) in enumerate(sorted_prospects[:200], start=1):
+    for new_rank, (name, _) in enumerate(filtered_prospects[:200], start=1):
         PROSPECT_RANKINGS[name] = new_rank
         # Store metadata if available from CSV
         if name in csv_metadata:
@@ -2678,12 +2690,22 @@ def get_prospects():
                 }
 
     # Get prospects from free agents
+    # Also track which PROSPECT_RANKINGS names have been found (for alias matching)
+    found_prospect_ranks = set()
+
     for fa in FREE_AGENTS:
         if fa.get('is_prospect') and fa.get('prospect_rank') and fa['prospect_rank'] <= 200:
-            # Don't overwrite rostered players
-            if fa['name'] not in found_prospects:
-                found_prospects[fa['name']] = {
-                    "name": fa['name'],
+            # Find the matching prospect name in PROSPECT_RANKINGS
+            # (might be different from FA name due to aliases)
+            prospect_name = None
+            for pname, prank in PROSPECT_RANKINGS.items():
+                if prank == fa['prospect_rank']:
+                    prospect_name = pname
+                    break
+
+            if prospect_name and prospect_name not in found_prospects:
+                found_prospects[prospect_name] = {
+                    "name": fa['name'],  # Use FA name for display
                     "rank": fa['prospect_rank'],
                     "position": fa['position'],
                     "age": fa['age'],
@@ -2693,6 +2715,7 @@ def get_prospects():
                     "is_free_agent": True,
                     "not_in_league": False
                 }
+                found_prospect_ranks.add(fa['prospect_rank'])
 
     # Add any prospects from PROSPECT_RANKINGS (1-200) that weren't found
     # These are prospects who aren't rostered and aren't in the FA list
