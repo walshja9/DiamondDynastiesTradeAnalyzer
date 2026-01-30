@@ -51,8 +51,37 @@ league_standings = []
 league_matchups = []
 league_transactions = []
 
-# Draft order configuration
+# Draft order configuration (team_name -> pick_number for 2026)
+# If empty, draft order is calculated based on team value (worst team = pick 1)
 draft_order_config = {}
+
+
+def get_team_rankings():
+    """Calculate team rankings based on total dynasty value (lower value = worse team = earlier pick)."""
+    team_values = []
+    for name, team in teams.items():
+        total_value = sum(calculator.calculate_player_value(p) for p in team.players)
+        team_values.append((name, total_value))
+
+    # Sort by value ascending (worst team first for draft order)
+    team_values.sort(key=lambda x: x[1])
+
+    # Use configured draft order if available, otherwise calculate based on value
+    if draft_order_config:
+        draft_order = dict(draft_order_config)
+        # Fill in any missing teams with calculated values
+        for i, (name, _) in enumerate(team_values):
+            if name not in draft_order:
+                draft_order[name] = i + 1
+    else:
+        # Create ranking dict: team_name -> pick_number (1 = worst team)
+        draft_order = {name: i + 1 for i, (name, _) in enumerate(team_values)}
+
+    # Also return sorted by value descending for display (best team first)
+    team_values.sort(key=lambda x: x[1], reverse=True)
+    power_rankings = {name: i + 1 for i, (name, _) in enumerate(team_values)}
+
+    return draft_order, power_rankings, {name: val for name, val in team_values}
 
 # ============================================================================
 # HTML CONTENT (Embedded UI)
@@ -130,6 +159,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto; }
         .modal.active { display: flex; justify-content: center; align-items: flex-start; padding: 40px 20px; }
         .modal-content { background: #252540; border-radius: 16px; max-width: 600px; width: 100%; padding: 30px; position: relative; }
+        #player-modal { z-index: 1100; }
+        #player-modal .modal-content { max-width: 500px; }
         .modal-close { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: #888; }
         .player-header { text-align: center; margin-bottom: 25px; }
         .player-header h2 { color: #ffd700; font-size: 1.8rem; }
@@ -303,11 +334,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 const select = document.getElementById(id);
                 const currentValue = select.value;
                 const isTarget = id === 'suggestTargetSelect';
-                select.innerHTML = isTarget ? '<option value="">All Teams</option>' : '';
+                select.innerHTML = isTarget ? '<option value="">All Teams</option>' : '<option value="">Select team...</option>';
                 teamsData.forEach(team => {
                     const opt = document.createElement('option');
                     opt.value = team.name;
-                    opt.textContent = team.name;
+                    opt.textContent = `${team.name} (#${team.power_rank} - ${team.total_value.toFixed(1)} pts)`;
                     select.appendChild(opt);
                 });
                 if (currentValue && [...select.options].some(o => o.value === currentValue)) {
@@ -323,10 +354,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             grid.innerHTML = teamsData.map(team => `
                 <div class="team-card" onclick="showTeamDetails('${team.name.replace(/'/g, "\\'")}')">
-                    <h3>${team.name}</h3>
+                    <h3>#${team.power_rank} ${team.name}</h3>
                     <div class="stats">
+                        <div style="color:#ffd700;font-size:1.2rem;font-weight:bold">${team.total_value.toFixed(1)} pts</div>
                         <div>${team.player_count} players</div>
-                        <div>Total Value: ${team.total_value.toFixed(1)}</div>
+                        <div style="color:#888;font-size:0.8rem">2026 Pick: #${team.draft_pick}</div>
                     </div>
                 </div>
             `).join('');
@@ -588,22 +620,72 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 const data = await res.json();
 
                 content.innerHTML = `
-                    <h2 style="color: #ffd700; margin-bottom: 20px;">${data.name}</h2>
-                    <div style="margin-bottom: 20px; color: #aaa;">
-                        <p><strong>Total Value:</strong> ${data.total_value.toFixed(1)}</p>
-                        <p><strong>Players:</strong> ${data.player_count}</p>
+                    <h2 style="color: #ffd700; margin-bottom: 5px;">#${data.power_rank} ${data.name}</h2>
+                    <div style="font-size: 0.9rem; color: #888; margin-bottom: 15px;">2026 Draft Pick: #${data.draft_pick}</div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="color: #888; font-size: 0.85rem;">Total Value</div>
+                            <div style="color: #ffd700; font-size: 1.5rem; font-weight: bold;">${data.total_value.toFixed(1)}</div>
+                        </div>
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="color: #888; font-size: 0.85rem;">Power Rank</div>
+                            <div style="color: #ffd700; font-size: 1.5rem; font-weight: bold;">#${data.power_rank}</div>
+                        </div>
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="color: #888; font-size: 0.85rem;">2026 Pick</div>
+                            <div style="color: #ffd700; font-size: 1.5rem; font-weight: bold;">#${data.draft_pick}</div>
+                        </div>
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="color: #888; font-size: 0.85rem;">Players</div>
+                            <div style="color: #e4e4e4; font-size: 1.5rem; font-weight: bold;">${data.player_count}</div>
+                        </div>
                     </div>
-                    ${data.analysis ? `<div style="margin-bottom: 20px; padding: 15px; background: #1a1a2e; border-radius: 8px;">${data.analysis}</div>` : ''}
-                    <h3 style="color: #ffd700; margin-bottom: 15px;">Roster</h3>
-                    ${data.players.map(p => `
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
+                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Hitting Strengths</div>
+                            <div style="color: #4ade80;">${(data.hitting_strengths || []).join(', ') || 'None'}</div>
+                        </div>
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
+                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Hitting Weaknesses</div>
+                            <div style="color: #f87171;">${(data.hitting_weaknesses || []).join(', ') || 'None'}</div>
+                        </div>
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
+                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Pitching Strengths</div>
+                            <div style="color: #4ade80;">${(data.pitching_strengths || []).join(', ') || 'None'}</div>
+                        </div>
+                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
+                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Pitching Weaknesses</div>
+                            <div style="color: #f87171;">${(data.pitching_weaknesses || []).join(', ') || 'None'}</div>
+                        </div>
+                    </div>
+
+                    ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: #1a1a2e; border-radius: 8px; line-height: 1.7;">${data.analysis}</div>` : ''}
+
+                    <h4 style="color: #ffd700; margin-bottom: 15px;">Top Players</h4>
+                    ${(data.top_players || data.players.slice(0, 10)).map(p => `
                         <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
-                            <div class="name player-link">${p.name}</div>
+                            <div>
+                                <div class="name player-link">${p.name}</div>
+                                <div style="color: #888; font-size: 0.85rem;">${p.position} | Age ${p.age}${p.proj ? ` | ${p.proj}` : ''}</div>
+                            </div>
                             <div class="value">${p.value.toFixed(1)}</div>
                         </div>
                     `).join('')}
+
+                    ${(data.prospects && data.prospects.length > 0) ? `
+                        <h4 style="color: #ffd700; margin: 25px 0 15px;">Prospects</h4>
+                        ${data.prospects.map(p => `
+                            <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
+                                <div class="name player-link">${p.name}</div>
+                                <div class="value" style="color: #4ade80;">#${p.rank}</div>
+                            </div>
+                        `).join('')}
+                    ` : ''}
                 `;
             } catch (e) {
-                content.innerHTML = `<p style="color: #f87171;">Failed to load team details</p>`;
+                content.innerHTML = `<p style="color: #f87171;">Failed to load team details: ${e.message}</p>`;
             }
         }
 
@@ -622,29 +704,100 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     return;
                 }
 
+                const trajectoryClass = data.trajectory === 'Ascending' ? 'ascending' : (data.trajectory === 'Declining' ? 'descending' : '');
+
+                // Build projections HTML
+                let projectionsHtml = '';
+                if (data.projections && Object.keys(data.projections).length > 0) {
+                    const projItems = Object.entries(data.projections)
+                        .filter(([key]) => !['estimated_pitcher', 'estimated_hitter'].includes(key))
+                        .map(([key, val]) => {
+                            let displayVal;
+                            if (typeof val === 'number') {
+                                if (key === 'AVG' || key === 'OBP' || key === 'SLG' || key === 'OPS' || key === 'WHIP') {
+                                    displayVal = val.toFixed(3);
+                                } else if (key === 'ERA' || key === 'K/BB') {
+                                    displayVal = val.toFixed(2);
+                                } else {
+                                    displayVal = Math.round(val);
+                                }
+                            } else {
+                                displayVal = val;
+                            }
+                            return '<div class="stat-box"><div class="label">' + key + '</div><div class="value">' + displayVal + '</div></div>';
+                        }).join('');
+                    projectionsHtml = '<div style="margin-top:15px;"><div style="color:#888;font-size:0.85rem;margin-bottom:10px;">' +
+                        (data.projections_estimated ? 'Estimated Projections' : 'Projections') +
+                        '</div><div class="player-stats">' + projItems + '</div></div>';
+                } else {
+                    projectionsHtml = '<div style="color:#888;margin-top:15px;">No projections available</div>';
+                }
+
+                // Build category contributions
+                let categoryHtml = '';
+                if (data.category_contributions && data.category_contributions.length > 0) {
+                    categoryHtml = '<div style="margin-top:15px;"><div style="color:#888;font-size:0.85rem;margin-bottom:10px;">Category Contributions</div>' +
+                        '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+                        data.category_contributions.map(c => '<span style="background:#3a3a5a;padding:6px 12px;border-radius:20px;font-size:0.8rem;color:#4ade80;">' + c + '</span>').join('') +
+                        '</div></div>';
+                }
+
+                // Build prospect rank box
+                let prospectRankHtml = '';
+                if (data.is_prospect) {
+                    prospectRankHtml = '<div class="stat-box"><div class="label">Prospect Rank</div><div class="value ascending">#' + (data.prospect_rank || 'N/A') + '</div></div>';
+                }
+
+                // Build prospect bonus box
+                let prospectBonusHtml = '';
+                if (data.prospect_bonus > 0) {
+                    prospectBonusHtml = '<div class="stat-box"><div class="label">Prospect Bonus</div><div class="value ascending">+' + data.prospect_bonus + '</div></div>';
+                }
+
+                // Age adjustment class
+                let ageAdjClass = data.age_adjustment > 0 ? 'ascending' : (data.age_adjustment < 0 ? 'descending' : '');
+                let ageAdjPrefix = data.age_adjustment > 0 ? '+' : '';
+
                 content.innerHTML = `
                     <div class="player-header">
                         <h2>${data.name}</h2>
-                        <div style="color: #888; margin: 10px 0;">${data.position} | ${data.team} | Age: ${data.age}</div>
+                        <div style="color: #888; margin: 10px 0;">${data.position} | ${data.mlb_team || data.team} | ${data.fantasy_team}</div>
                         <div class="dynasty-value">${data.dynasty_value}</div>
                         <div style="color: #888;">Dynasty Value</div>
                     </div>
-                    <div class="player-stats">
-                        ${data.is_prospect ? `<div class="stat-box"><div class="label">Prospect Rank</div><div class="value ascending">#${data.prospect_rank || 'N/A'}</div></div>` : ''}
-                        ${data.projections ? Object.entries(data.projections).map(([key, val]) => `
-                            <div class="stat-box">
-                                <div class="label">${key}</div>
-                                <div class="value">${typeof val === 'number' ? val.toFixed ? val.toFixed(3).replace(/\\.?0+$/, '') : val : val}</div>
-                            </div>
-                        `).join('') : '<div style="color:#888;">No projections available</div>'}
+
+                    <div class="player-stats" style="margin-top:20px;">
+                        <div class="stat-box">
+                            <div class="label">Age</div>
+                            <div class="value">${data.age}</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="label">Trajectory</div>
+                            <div class="value ${trajectoryClass}">${data.trajectory}</div>
+                        </div>
+                        ${prospectRankHtml}
+                        <div class="stat-box">
+                            <div class="label">Age Adj</div>
+                            <div class="value ${ageAdjClass}">${ageAdjPrefix}${data.age_adjustment}</div>
+                        </div>
+                        ${prospectBonusHtml}
                     </div>
+
+                    <div style="background:#1a1a2e;padding:12px 15px;border-radius:8px;margin-top:15px;">
+                        <div style="color:#888;font-size:0.85rem;">${data.trajectory_desc}</div>
+                    </div>
+
+                    ${projectionsHtml}
+
+                    ${categoryHtml}
+
                     <div class="trade-advice">
                         <h4>Trade Advice</h4>
                         <p>${data.trade_advice || 'No specific advice available.'}</p>
                     </div>
                 `;
             } catch (e) {
-                content.innerHTML = `<p style="color: #f87171;">Failed to load player details</p>`;
+                content.innerHTML = `<p style="color: #f87171;">Failed to load player details: ${e.message}</p>`;
             }
         }
 
@@ -661,6 +814,19 @@ HTML_CONTENT = '''<!DOCTYPE html>
         function closeTeamModal() {
             document.getElementById('team-modal').classList.remove('active');
         }
+
+        // Close modals on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const playerModal = document.getElementById('player-modal');
+                const teamModal = document.getElementById('team-modal');
+                if (playerModal.classList.contains('active')) {
+                    closePlayerModal();
+                } else if (teamModal.classList.contains('active')) {
+                    closeTeamModal();
+                }
+            }
+        });
 
         async function loadSuggestions(append = false) {
             const myTeam = document.getElementById('suggestTeamSelect').value;
@@ -979,16 +1145,16 @@ def index():
 
 @app.route('/teams')
 def get_teams():
-    team_list = []
-    for name, team in teams.items():
-        total_value = sum(calculator.calculate_player_value(p) for p in team.players)
-        team_list.append({
+    draft_order, power_rankings, team_totals = get_team_rankings()
+    return jsonify({
+        "teams": sorted([{
             "name": name,
             "player_count": len(team.players),
-            "total_value": total_value
-        })
-    team_list.sort(key=lambda x: x['total_value'], reverse=True)
-    return jsonify({"teams": team_list})
+            "total_value": round(team_totals.get(name, 0), 1),
+            "power_rank": power_rankings.get(name, 0),
+            "draft_pick": draft_order.get(name, 0)
+        } for name, team in teams.items()], key=lambda x: x["power_rank"])
+    })
 
 
 @app.route('/team/<team_name>')
@@ -997,53 +1163,227 @@ def get_team(team_name):
         return jsonify({"error": f"Team '{team_name}' not found"}), 404
 
     team = teams[team_name]
-    players = []
+    draft_order, power_rankings, team_totals = get_team_rankings()
 
-    for p in team.players:
-        value = calculator.calculate_player_value(p)
+    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value.sort(key=lambda x: x[1], reverse=True)
+
+    players = []
+    for p, value in players_with_value:
+        # Get projections for player info
+        proj = HITTER_PROJECTIONS.get(p.name) or PITCHER_PROJECTIONS.get(p.name) or RELIEVER_PROJECTIONS.get(p.name, {})
+        proj_str = ""
+        if proj:
+            if p.name in HITTER_PROJECTIONS:
+                proj_str = f"{proj.get('HR', 0)} HR, {proj.get('RBI', 0)} RBI, .{int(proj.get('AVG', 0)*1000):03d} AVG"
+            elif p.name in PITCHER_PROJECTIONS:
+                proj_str = f"{proj.get('K', 0)} K, {proj.get('ERA', 0):.2f} ERA"
+            elif p.name in RELIEVER_PROJECTIONS:
+                proj_str = f"{proj.get('SV', 0)} SV, {proj.get('ERA', 0):.2f} ERA"
+
         players.append({
             "name": p.name,
             "position": p.position,
             "team": p.mlb_team,
             "age": p.age,
-            "value": value,
-            "status": p.roster_status
+            "value": round(value, 1),
+            "status": p.roster_status,
+            "proj": proj_str
         })
 
-    players.sort(key=lambda x: x['value'], reverse=True)
-    total_value = sum(p['value'] for p in players)
+    total_value = team_totals.get(team_name, 0)
+    power_rank = power_rankings.get(team_name, 0)
+    draft_pick = draft_order.get(team_name, 0)
+
+    # Get top players and prospects
+    top_players = players[:10]
+    prospects = [{"name": p.name, "rank": p.prospect_rank, "age": p.age}
+                 for p in team.players if p.is_prospect and p.prospect_rank]
+    prospects.sort(key=lambda x: x['rank'])
+
+    # Calculate category strengths/weaknesses
+    hitting_strengths, hitting_weaknesses = [], []
+    pitching_strengths, pitching_weaknesses = [], []
+
+    # Calculate team totals
+    total_hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in team.players)
+    total_sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in team.players)
+    total_rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p in team.players)
+    total_k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in team.players)
+    total_sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in team.players)
+
+    # Compare to league averages (simple threshold-based)
+    if total_hr >= 200: hitting_strengths.append("HR")
+    elif total_hr < 150: hitting_weaknesses.append("HR")
+    if total_sb >= 100: hitting_strengths.append("SB")
+    elif total_sb < 60: hitting_weaknesses.append("SB")
+    if total_rbi >= 600: hitting_strengths.append("RBI")
+    elif total_rbi < 450: hitting_weaknesses.append("RBI")
+    if total_k >= 1200: pitching_strengths.append("K")
+    elif total_k < 800: pitching_weaknesses.append("K")
+    if total_sv_hld >= 60: pitching_strengths.append("SV+HLD")
+    elif total_sv_hld < 30: pitching_weaknesses.append("SV+HLD")
 
     # Generate analysis
-    analysis = generate_team_analysis(team_name, team)
+    analysis = generate_team_analysis(team_name, team, players_with_value, power_rank, len(teams))
 
     return jsonify({
         "name": team_name,
         "players": players,
+        "top_players": top_players,
+        "prospects": prospects[:5],
         "player_count": len(players),
-        "total_value": total_value,
+        "total_value": round(total_value, 1),
+        "power_rank": power_rank,
+        "draft_pick": draft_pick,
+        "hitting_strengths": hitting_strengths,
+        "hitting_weaknesses": hitting_weaknesses,
+        "pitching_strengths": pitching_strengths,
+        "pitching_weaknesses": pitching_weaknesses,
         "analysis": analysis
     })
 
 
-def generate_team_analysis(team_name, team):
-    """Generate analysis text for a team."""
-    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
-    players_with_value.sort(key=lambda x: x[1], reverse=True)
+def generate_team_analysis(team_name, team, players_with_value=None, power_rank=None, total_teams=12):
+    """Generate a comprehensive text analysis/description of a team."""
+    if players_with_value is None:
+        players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+        players_with_value.sort(key=lambda x: x[1], reverse=True)
 
-    total_value = sum(v for _, v in players_with_value)
-    avg_age = sum(p.age for p, _ in players_with_value if p.age > 0) / max(1, len([p for p, _ in players_with_value if p.age > 0]))
-    prospects = [p for p, _ in players_with_value if p.is_prospect]
-
-    top_players = [p.name for p, v in players_with_value[:3]]
+    if power_rank is None:
+        _, power_rankings, _ = get_team_rankings()
+        power_rank = power_rankings.get(team_name, 0)
 
     analysis_parts = []
-    analysis_parts.append(f"<b>TOP ASSETS:</b> {', '.join(top_players)}")
-    analysis_parts.append(f"<b>ROSTER:</b> {len(team.players)} players, avg age {avg_age:.1f}, {len(prospects)} prospects")
 
+    # Calculate roster demographics
+    ages = [p.age for p in team.players if p.age > 0]
+    avg_age = sum(ages) / len(ages) if ages else 0
+    young_players = len([a for a in ages if a <= 25])
+    prime_players = len([a for a in ages if 26 <= a <= 30])
+    veteran_players = len([a for a in ages if a > 30])
+    prospects = [p for p in team.players if p.is_prospect]
+
+    # Calculate team totals
+    total_hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p, _ in players_with_value)
+    total_sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p, _ in players_with_value)
+    total_k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p, _ in players_with_value)
+    total_sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p, _ in players_with_value)
+
+    # Determine competitive window
+    top_third = total_teams // 3
+    bottom_third = total_teams - top_third
+    is_old_roster = avg_age >= 28 or veteran_players > prime_players
+    is_young_roster = avg_age <= 26 or len(prospects) >= 6
+
+    if power_rank <= top_third:
+        if is_young_roster:
+            window = "dynasty"
+            window_desc = "a dynasty powerhouse with elite young talent and a long competitive window"
+        elif is_old_roster:
+            window = "win-now"
+            window_desc = "a win-now contender that should push for a championship while their window is open"
+        else:
+            window = "contender"
+            window_desc = "a legitimate contender with a strong, balanced roster"
+    elif power_rank >= bottom_third:
+        if is_old_roster:
+            window = "teardown"
+            window_desc = "an aging roster in need of a full rebuild"
+        elif is_young_roster:
+            window = "rebuilding"
+            window_desc = "a rebuilding team on the right track with young talent to develop"
+        else:
+            window = "retooling"
+            window_desc = "a team that needs to retool - stuck in the middle with no clear direction"
+    else:
+        if is_young_roster:
+            window = "rising"
+            window_desc = "a rising team with young talent that could emerge as a contender soon"
+        elif is_old_roster:
+            window = "declining"
+            window_desc = "a declining roster that may need to sell aging assets before they lose value"
+        else:
+            window = "competitive"
+            window_desc = "a competitive team in the mix but not a true frontrunner"
+
+    analysis_parts.append(f"<b>TEAM IDENTITY:</b> Ranked #{power_rank} in the league. {window_desc.capitalize()}.")
+
+    # Roster composition
+    roster_desc = f"<b>ROSTER PROFILE:</b> Averages {avg_age:.1f} years old"
+    if young_players > veteran_players:
+        roster_desc += f" (skews young with {young_players} players 25 or under)"
+    elif veteran_players > young_players:
+        roster_desc += f" (skews veteran with {veteran_players} players 31+)"
+    else:
+        roster_desc += f" ({young_players} young, {prime_players} prime, {veteran_players} veteran)"
+    analysis_parts.append(roster_desc + ".")
+
+    # Top assets with trajectory
+    top_3 = players_with_value[:3]
+    if top_3:
+        asset_strs = []
+        for p, v in top_3:
+            if p.age <= 25:
+                trajectory = "ascending"
+            elif p.age <= 28:
+                trajectory = "prime"
+            elif p.age <= 31:
+                trajectory = "peak"
+            else:
+                trajectory = "declining"
+            asset_strs.append(f"{p.name} ({v:.0f}, {trajectory})")
+        analysis_parts.append(f"<b>CORNERSTONE PLAYERS:</b> {', '.join(asset_strs)}.")
+
+    # Prospects
     if prospects:
         top_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)[:3]
         if top_prospects:
-            analysis_parts.append(f"<b>PROSPECT PIPELINE:</b> {', '.join([f'{p.name} (#{p.prospect_rank})' for p in top_prospects])}")
+            prospect_strs = []
+            for p in top_prospects:
+                eta = "MLB-ready" if p.age >= 22 else f"ETA {2026 + (22 - p.age) if p.age else '?'}"
+                prospect_strs.append(f"{p.name} (#{p.prospect_rank}, {eta})")
+            analysis_parts.append(f"<b>PROSPECT PIPELINE:</b> {', '.join(prospect_strs)}.")
+
+    # Category outlook
+    analysis_parts.append(f"<b>CATEGORY OUTLOOK:</b> Projected totals: {total_hr} HR, {total_sb} SB, {total_k} K, {total_sv_hld} SV+HLD.")
+
+    # Risk factors
+    risk_factors = []
+    regression_candidates = []
+    for p, v in players_with_value[:15]:
+        if p.age >= 33 and v >= 25:
+            regression_candidates.append(f"{p.name} (age {p.age})")
+        elif p.age >= 35:
+            regression_candidates.append(f"{p.name} (age {p.age})")
+    if regression_candidates:
+        risk_factors.append(f"Regression watch: {', '.join(regression_candidates[:3])}")
+
+    # Concentration risk
+    if players_with_value:
+        top_2_value = sum(v for _, v in players_with_value[:2])
+        total_value = sum(v for _, v in players_with_value)
+        if total_value > 0 and top_2_value / total_value > 0.30:
+            risk_factors.append(f"Top-heavy ({top_2_value/total_value*100:.0f}% value in top 2)")
+
+    if not risk_factors:
+        risk_factors.append("No major concerns identified")
+
+    analysis_parts.append(f"<b>RISK FACTORS:</b> {' | '.join(risk_factors)}.")
+
+    # Trade strategy based on window
+    if window == "teardown":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Full rebuild required. Sell veterans for picks and prospects.")
+    elif window == "rebuilding":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Stay the course - accumulate young assets and draft picks.")
+    elif window == "win-now":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Championship window is open - be aggressive. Trade prospects for proven talent.")
+    elif window == "rising":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Build around young core. Target complementary pieces to accelerate timeline.")
+    elif window == "declining":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Begin transitioning before values crater. Sell aging assets while they have value.")
+    else:
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Decision time - commit to contending or rebuilding.")
 
     return "<br><br>".join(analysis_parts)
 
@@ -1096,37 +1436,108 @@ def get_player(player_name):
 
     # Get projections
     projections = {}
+    projections_estimated = False
     if player.name in HITTER_PROJECTIONS:
-        projections = HITTER_PROJECTIONS[player.name]
+        projections = dict(HITTER_PROJECTIONS[player.name])
     elif player.name in PITCHER_PROJECTIONS:
-        projections = PITCHER_PROJECTIONS[player.name]
+        projections = dict(PITCHER_PROJECTIONS[player.name])
     elif player.name in RELIEVER_PROJECTIONS:
-        projections = RELIEVER_PROJECTIONS[player.name]
+        projections = dict(RELIEVER_PROJECTIONS[player.name])
+    elif player.is_prospect and player.prospect_rank:
+        # Estimate projections for prospects without data
+        projections_estimated = True
+
+    # Determine trajectory
+    if player.age <= 25:
+        trajectory = "Ascending"
+        trajectory_desc = f"At {player.age}, this player is still developing and their value should increase."
+    elif player.age <= 28:
+        trajectory = "Prime"
+        trajectory_desc = f"At {player.age}, this player is entering or in their prime years."
+    elif player.age <= 31:
+        trajectory = "Peak"
+        trajectory_desc = f"At {player.age}, this player is at peak value but decline will start soon."
+    else:
+        trajectory = "Declining"
+        trajectory_desc = f"At {player.age}, expect gradual decline in performance and value."
+
+    # Age adjustment calculation (simplified)
+    if player.age <= 24:
+        age_adjustment = 10
+    elif player.age <= 26:
+        age_adjustment = 5
+    elif player.age <= 28:
+        age_adjustment = 0
+    elif player.age <= 30:
+        age_adjustment = -5
+    elif player.age <= 32:
+        age_adjustment = -10
+    else:
+        age_adjustment = -15
+
+    # Prospect bonus
+    prospect_bonus = 0
+    if player.is_prospect and player.prospect_rank:
+        if player.prospect_rank <= 10:
+            prospect_bonus = 25
+        elif player.prospect_rank <= 25:
+            prospect_bonus = 20
+        elif player.prospect_rank <= 50:
+            prospect_bonus = 15
+        elif player.prospect_rank <= 100:
+            prospect_bonus = 10
+
+    # Category contributions
+    category_contributions = []
+    if projections:
+        if projections.get('HR', 0) >= 25:
+            category_contributions.append("Power (HR)")
+        if projections.get('SB', 0) >= 15:
+            category_contributions.append("Speed (SB)")
+        if projections.get('RBI', 0) >= 80:
+            category_contributions.append("Run Production (RBI)")
+        if projections.get('AVG', 0) >= 0.280:
+            category_contributions.append("Average (AVG)")
+        if projections.get('K', 0) >= 150:
+            category_contributions.append("Strikeouts (K)")
+        if projections.get('ERA', 99) <= 3.50:
+            category_contributions.append("ERA")
+        if (projections.get('SV', 0) + projections.get('HD', 0)) >= 20:
+            category_contributions.append("Saves/Holds")
 
     # Trade advice
     if player.is_prospect and player.prospect_rank and player.prospect_rank <= 25:
-        trade_advice = "Elite prospect - only trade for proven star or massive overpay"
+        trade_advice = "Elite prospect - only trade for proven star or massive overpay. These players are franchise-changers."
     elif player.is_prospect and player.prospect_rank and player.prospect_rank <= 50:
-        trade_advice = "Quality prospect - can be centerpiece of trade package"
+        trade_advice = "Quality prospect - can be centerpiece of trade package. Don't sell low - wait for the right deal."
     elif player.is_prospect:
-        trade_advice = "Lottery ticket prospect - use as sweetener in deals"
+        trade_advice = "Lottery ticket prospect - use as sweetener in deals to upgrade your roster."
     elif value >= 80:
-        trade_advice = "Cornerstone player - only trade for another cornerstone or elite package"
+        trade_advice = "Cornerstone player - only trade for another cornerstone or elite package. Building blocks are rare."
     elif value >= 60:
-        trade_advice = "Quality starter - good trade chip for upgrading or acquiring prospects"
+        trade_advice = "Quality starter - good trade chip for upgrading or acquiring prospects. Solid contributor."
+    elif value >= 40:
+        trade_advice = "Solid contributor - useful in packages or to fill roster holes."
     else:
-        trade_advice = "Depth piece - can be packaged in larger deals"
+        trade_advice = "Depth piece - can be packaged in larger deals or used for roster flexibility."
 
     return jsonify({
         "name": player.name,
         "position": player.position,
         "team": player.mlb_team,
+        "mlb_team": player.mlb_team,
         "fantasy_team": fantasy_team,
         "age": player.age,
         "dynasty_value": round(value, 1),
         "is_prospect": player.is_prospect,
         "prospect_rank": player.prospect_rank if player.is_prospect else None,
         "projections": projections,
+        "projections_estimated": projections_estimated,
+        "trajectory": trajectory,
+        "trajectory_desc": trajectory_desc,
+        "age_adjustment": age_adjustment,
+        "prospect_bonus": prospect_bonus,
+        "category_contributions": category_contributions,
         "trade_advice": trade_advice
     })
 
@@ -1283,8 +1694,37 @@ def get_transactions():
     return jsonify({"transactions": league_transactions})
 
 
-@app.route('/draft-order')
-def get_draft_order():
+@app.route('/draft-order', methods=['GET', 'POST'])
+def handle_draft_order():
+    global draft_order_config
+
+    if request.method == 'POST':
+        data = request.get_json()
+        new_order = data.get('draft_order', {})
+
+        if not new_order:
+            # Clear the draft order
+            draft_order_config.clear()
+            return jsonify({
+                "success": True,
+                "message": "Draft order cleared. Using calculated order based on team value."
+            })
+
+        # Validate the draft order
+        pick_numbers = list(new_order.values())
+        if len(pick_numbers) != len(set(pick_numbers)):
+            return jsonify({"error": "Duplicate pick numbers detected"}), 400
+
+        # Save the new draft order
+        draft_order_config.clear()
+        draft_order_config.update(new_order)
+
+        return jsonify({
+            "success": True,
+            "message": f"Draft order saved for {len(draft_order_config)} teams."
+        })
+
+    # GET request
     return jsonify({
         "draft_order": draft_order_config,
         "is_configured": bool(draft_order_config)
