@@ -812,36 +812,69 @@ class DynastyValueCalculator:
     
     @staticmethod
     def calculate_pick_value(pick: str) -> float:
-        """Calculate draft pick value."""
-        import re
-        # Dynasty pick values - 12 team league
-        # 1st round: Can get solid prospects
-        # 2nd round: Lottery ticket with upside
-        # 3rd/4th: Mostly dart throws
-        pick_values = {'1st': 55, '2nd': 28, '3rd': 12, '4th': 5, '5th': 2}
+        """Calculate draft pick value based on new format.
 
-        for round_name, base_value in pick_values.items():
+        2026 format: "2026 1st Round Pick 1 (#1)" through "2026 4th Round Pick 12 (#48)"
+        2027/2028 format: "2027 1st Round Pick", "2027 2nd Round Pick", etc.
+        """
+        import re
+
+        # Base values by round (12-team league)
+        # 1st round: Can get solid prospects (picks 1-12)
+        # 2nd round: Lottery ticket with upside (picks 13-24)
+        # 3rd round: Dart throws with potential (picks 25-36)
+        # 4th round: Long shots (picks 37-48)
+        round_base_values = {'1st': 55, '2nd': 28, '3rd': 12, '4th': 5}
+
+        # Try to extract overall pick number from (#N) format - most precise
+        overall_match = re.search(r'\(#(\d+)\)', pick)
+        if overall_match:
+            overall_pick = int(overall_match.group(1))
+            # Value based on overall pick position (1-48)
+            # Pick 1 = ~63, Pick 12 = ~48, Pick 13 = ~31, Pick 24 = ~26, etc.
+            if overall_pick <= 12:  # 1st round
+                base = 55
+                position_mult = 1.15 - ((overall_pick - 1) * 0.025)  # 1.15 to 0.88
+            elif overall_pick <= 24:  # 2nd round
+                base = 28
+                position_mult = 1.15 - ((overall_pick - 13) * 0.025)
+            elif overall_pick <= 36:  # 3rd round
+                base = 12
+                position_mult = 1.15 - ((overall_pick - 25) * 0.025)
+            else:  # 4th round
+                base = 5
+                position_mult = 1.15 - ((overall_pick - 37) * 0.025)
+
+            value = base * position_mult
+
+            # Year adjustment for 2026 picks with specific numbers
+            if '2026' in pick:
+                value *= 1.10  # Premium for known pick position
+
+            return value
+
+        # Fallback for picks without overall number (2027, 2028)
+        for round_name, base_value in round_base_values.items():
             if round_name in pick:
                 value = base_value
 
-                # Position adjustment - extract pick number if present (e.g., "Pick 3")
-                pick_match = re.search(r'Pick\s*(\d+)', pick)
+                # Position adjustment if pick number present (e.g., "Pick 3")
+                pick_match = re.search(r'Pick\s+(\d+)(?:\s|$)', pick)
                 if pick_match:
                     pick_num = int(pick_match.group(1))
-                    # Pick 1 gets +15% bonus, pick 12 gets -15% penalty
-                    # Linear scale: pick 1 = 1.15, pick 6-7 = 1.0, pick 12 = 0.85
-                    position_mult = 1.15 - ((pick_num - 1) * 0.027)
+                    position_mult = 1.15 - ((pick_num - 1) * 0.025)
                     value *= position_mult
 
                 # Year adjustments - closer picks worth more
                 if '2026' in pick:
                     value *= 1.10
                 elif '2027' in pick:
-                    value *= 0.90
+                    value *= 0.90  # Future uncertainty discount
                 elif '2028' in pick:
-                    value *= 0.75
+                    value *= 0.75  # Greater uncertainty
 
                 return value
+
         return 5  # Unknown pick
 
 

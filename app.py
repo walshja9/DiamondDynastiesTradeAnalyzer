@@ -296,7 +296,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div style="margin-top:15px">
                         <div class="pick-label">Add Draft Pick:</div>
                         <div class="player-input">
-                            <input type="text" id="teamAPick" placeholder="e.g., 2026 1st Rd #3" list="draftPicksList">
+                            <input type="text" id="teamAPick" placeholder="e.g., 2026 1st Round Pick 3 (#3)" list="draftPicksList">
                             <button class="btn btn-add" onclick="addPick('A')">+ Pick</button>
                         </div>
                     </div>
@@ -324,7 +324,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div style="margin-top:15px">
                         <div class="pick-label">Add Draft Pick:</div>
                         <div class="player-input">
-                            <input type="text" id="teamBPick" placeholder="e.g., 2026 2nd Rd #8" list="draftPicksList">
+                            <input type="text" id="teamBPick" placeholder="e.g., 2026 2nd Round Pick 8 (#20)" list="draftPicksList">
                             <button class="btn btn-add" onclick="addPick('B')">+ Pick</button>
                         </div>
                     </div>
@@ -402,9 +402,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </select>
                 </div>
             </div>
-            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">AI-powered recommendations based on your team's needs and weaknesses.</p>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">AI-powered recommendations. Select your team for personalized suggestions based on your needs.</p>
             <div id="fa-results">
-                <p style="color: #888; padding: 20px;">Select your team to see personalized free agent recommendations.</p>
+                <div class="loading">Loading top free agents...</div>
             </div>
         </div>
 
@@ -553,6 +553,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
             event.target.classList.add('active');
 
             if (panel === 'league') loadLeagueData();
+            if (panel === 'freeagents') loadFASuggestions();
         }
 
         async function loadLeagueData() {
@@ -1386,16 +1387,14 @@ HTML_CONTENT = '''<!DOCTYPE html>
             const posFilter = document.getElementById('faPosFilter').value;
             const results = document.getElementById('fa-results');
 
-            if (!myTeam) {
-                results.innerHTML = '<p style="color: #888; padding: 20px;">Select your team to see personalized free agent recommendations.</p>';
-                return;
-            }
-
-            results.innerHTML = '<div class="loading">Analyzing free agents for your team needs...</div>';
+            results.innerHTML = '<div class="loading">Loading free agents...</div>';
 
             try {
-                let url = `${API_BASE}/free-agents?team=${encodeURIComponent(myTeam)}`;
-                if (posFilter) url += `&position=${encodeURIComponent(posFilter)}`;
+                let url = `${API_BASE}/free-agents`;
+                let params = [];
+                if (myTeam) params.push(`team=${encodeURIComponent(myTeam)}`);
+                if (posFilter) params.push(`position=${encodeURIComponent(posFilter)}`);
+                if (params.length > 0) url += '?' + params.join('&');
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -1409,7 +1408,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     return;
                 }
 
-                // Show team needs summary
+                // Show team needs summary or general header
                 let needsHtml = '';
                 if (data.team_needs) {
                     const needs = data.team_needs;
@@ -1426,13 +1425,25 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                         <span style="color: #f87171; margin-left: 8px;">${needs.weaknesses.join(', ')}</span>
                                     </div>
                                 ` : ''}
-                                ${needs.positional_needs && needs.positional_needs.length > 0 ? `
+                                ${needs.critical_needs && needs.critical_needs.length > 0 ? `
+                                    <div>
+                                        <span style="color: #888; font-size: 0.85rem;">Critical Positions:</span>
+                                        <span style="color: #f87171; font-weight: bold; margin-left: 8px;">${needs.critical_needs.join(', ')}</span>
+                                    </div>
+                                ` : (needs.positional_needs && needs.positional_needs.length > 0 ? `
                                     <div>
                                         <span style="color: #888; font-size: 0.85rem;">Position Needs:</span>
                                         <span style="color: #60a5fa; margin-left: 8px;">${needs.positional_needs.join(', ')}</span>
                                     </div>
-                                ` : ''}
+                                ` : '')}
                             </div>
+                        </div>
+                    `;
+                } else {
+                    needsHtml = `
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                            <div style="color: #ffd700; font-weight: bold;">Top ${data.suggestions.length} Available Free Agents</div>
+                            <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Select your team above for personalized recommendations based on your needs.</div>
                         </div>
                     `;
                 }
@@ -1563,21 +1574,24 @@ HTML_CONTENT = '''<!DOCTYPE html>
             const datalist = document.getElementById('draftPicksList');
             if (!datalist) return;
 
-            const numTeams = teamsData.length || 12;
+            const numTeams = 12;
             const rounds = ['1st', '2nd', '3rd', '4th'];
             let options = [];
 
-            // 2026: Just picks 1-12 (no rounds)
-            for (let pick = 1; pick <= numTeams; pick++) {
-                options.push(`2026 #${pick}`);
-            }
+            // 2026: All 4 rounds with specific pick numbers
+            // Format: "2026 1st Round Pick 1 (#1)", "2026 2nd Round Pick 1 (#13)", etc.
+            rounds.forEach((round, roundIdx) => {
+                for (let pick = 1; pick <= numTeams; pick++) {
+                    const overallPick = (roundIdx * numTeams) + pick;
+                    options.push(`2026 ${round} Round Pick ${pick} (#${overallPick})`);
+                }
+            });
 
-            // 2027 and 2028: Rounds 1-4 with picks 1-12
+            // 2027 and 2028: Just rounds, no specific pick numbers
+            // Format: "2027 1st Round Pick", "2027 2nd Round Pick", etc.
             [2027, 2028].forEach(year => {
                 rounds.forEach(round => {
-                    for (let pick = 1; pick <= numTeams; pick++) {
-                        options.push(`${year} ${round} Rd #${pick}`);
-                    }
+                    options.push(`${year} ${round} Round Pick`);
                 });
             });
 
@@ -2793,6 +2807,53 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
 
     analysis_parts.append(strategy)
 
+    # Position depth analysis
+    pos_counts = {}
+    for p, _ in players_with_value:
+        main_pos = p.position.split('/')[0] if '/' in p.position else p.position
+        if main_pos not in pos_counts:
+            pos_counts[main_pos] = []
+        pos_counts[main_pos].append(p.name)
+
+    thin_positions = [pos for pos, players in pos_counts.items() if len(players) <= 2 and pos not in ['DH', 'UTIL']]
+    deep_positions = [pos for pos, players in pos_counts.items() if len(players) >= 5]
+
+    depth_text = "<b>🔍 POSITIONAL DEPTH:</b> "
+    if thin_positions:
+        depth_text += f"<span style='color:#f87171'>Thin at {', '.join(thin_positions[:3])}</span>. "
+    if deep_positions:
+        depth_text += f"<span style='color:#4ade80'>Deep at {', '.join(deep_positions[:3])}</span>. "
+    if not thin_positions and not deep_positions:
+        depth_text += "Balanced depth across positions. "
+
+    # Identify specific position needs or trade chips
+    if thin_positions:
+        depth_text += f"Prioritize adding {thin_positions[0]} in trades/FA."
+    elif deep_positions:
+        depth_text += f"Consider trading from {deep_positions[0]} surplus for needs."
+    analysis_parts.append(depth_text)
+
+    # Bottom line summary
+    bottom_line = "<b>📋 BOTTOM LINE:</b> "
+    total_value = sum(v for _, v in players_with_value)
+    if window in ['dynasty', 'contender', 'win-now']:
+        if cat_weaknesses:
+            bottom_line += f"A {window} team that should be aggressive acquiring {cat_weaknesses[0]} help. "
+        else:
+            bottom_line += f"An elite roster built to win. Protect your core and target marginal upgrades. "
+        bottom_line += f"Total roster value: <span style='color:#ffd700'>{total_value:.0f} points</span>."
+    elif window in ['rebuilding', 'rising']:
+        bottom_line += f"The future is bright with {len(prospects)} prospects and {young_players} young players. "
+        bottom_line += f"Be patient, accumulate assets, and let the talent develop. Value: {total_value:.0f} pts."
+    elif window in ['teardown', 'declining']:
+        if sell_candidates:
+            bottom_line += f"Move {sell_candidates[0].split(' (')[0]} and other vets ASAP. "
+        bottom_line += f"Every week you wait costs you draft capital. Time to accelerate the rebuild."
+    else:
+        bottom_line += f"Stuck in no-man's land with {total_value:.0f} points of value. "
+        bottom_line += "Make a decisive move - buy in or sell out. The middle path leads nowhere."
+    analysis_parts.append(bottom_line)
+
     return "<br><br>".join(analysis_parts)
 
 
@@ -3456,6 +3517,60 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
     if send_positions == receive_positions:
         score += 3
 
+    # Window compatibility bonus - complementary windows make better trade partners
+    complementary_windows = {
+        ('rebuilding', 'win-now'), ('rebuilding', 'contender'),
+        ('win-now', 'rebuilding'), ('contender', 'rebuilding'),
+        ('rising', 'declining'), ('declining', 'rising'),
+        ('teardown', 'contender'), ('contender', 'teardown'),
+        ('teardown', 'win-now'), ('win-now', 'teardown')
+    }
+    if (my_window, their_window) in complementary_windows:
+        score += 8
+        reasons.append(f"Good trade partners ({my_window} ↔ {their_window})")
+
+    # Elite young talent acquisition bonus
+    for p in you_receive:
+        if p.age <= 25:
+            pval = calculator.calculate_player_value(p)
+            if pval >= 60:
+                score += 12
+                reasons.append(f"Acquires elite young star ({p.name})")
+            elif pval >= 45:
+                score += 6
+                reasons.append(f"Gets rising star ({p.name})")
+
+    # Top prospect trade detection
+    top_prospects_received = [p for p in you_receive if p.is_prospect and p.prospect_rank and p.prospect_rank <= 50]
+    if top_prospects_received:
+        for prospect in top_prospects_received:
+            score += 15 if prospect.prospect_rank <= 20 else 8
+            if prospect.prospect_rank <= 20:
+                reasons.append(f"Acquires TOP-20 prospect #{prospect.prospect_rank}")
+
+    # "Steal" detection - getting significantly younger player at similar value
+    if you_receive and you_send:
+        best_received = max(you_receive, key=lambda p: calculator.calculate_player_value(p))
+        best_sent = max(you_send, key=lambda p: calculator.calculate_player_value(p))
+        val_received = calculator.calculate_player_value(best_received)
+        val_sent = calculator.calculate_player_value(best_sent)
+        if best_received.age <= 26 and best_sent.age >= 30 and val_received >= val_sent * 0.9:
+            score += 10
+            reasons.append(f"Getting younger at similar value")
+
+    # Positional upgrade detection
+    for p_recv in you_receive:
+        recv_pos = p_recv.position.upper() if p_recv.position else ''
+        recv_val = calculator.calculate_player_value(p_recv)
+        for p_send in you_send:
+            send_pos = p_send.position.upper() if p_send.position else ''
+            send_val = calculator.calculate_player_value(p_send)
+            # Same position, getting upgrade
+            if recv_pos == send_pos and recv_val > send_val * 1.15:
+                score += 5
+                reasons.append(f"Positional upgrade at {recv_pos}")
+                break
+
     return score, reasons
 
 
@@ -3606,95 +3721,214 @@ def get_free_agent_suggestions():
         team_name = request.args.get('team')
         position_filter = request.args.get('position', '')
 
+        # If no team selected, return top 30 FAs by dynasty value
         if not team_name or team_name not in teams:
-            return jsonify({"error": "Invalid team specified"}), 400
+            filtered_fas = FREE_AGENTS
+            if position_filter:
+                filtered_fas = [fa for fa in FREE_AGENTS if position_filter in fa['position']]
 
-        # Get team needs using existing function
+            # Add basic scoring for non-team view
+            scored_fas = []
+            for fa in filtered_fas[:50]:  # Consider top 50, return 30
+                score = fa['dynasty_value']
+                reasons = []
+
+                # Age-based value
+                if fa['age'] <= 26:
+                    score += 10
+                    reasons.append("Young upside")
+                elif fa['age'] <= 29:
+                    score += 5
+                    reasons.append("Prime years")
+
+                # High roster % indicates quality
+                if fa['roster_pct'] >= 60:
+                    score += 8
+                    reasons.append(f"{fa['roster_pct']:.0f}% rostered")
+                elif fa['roster_pct'] >= 40:
+                    score += 4
+                    reasons.append("Solid ownership")
+
+                # Position scarcity bonus
+                fa_pos = fa['position'].upper()
+                if 'C' in fa_pos and '1B' not in fa_pos:
+                    score += 5
+                    reasons.append("Catcher scarcity")
+                elif 'SS' in fa_pos:
+                    score += 3
+                    reasons.append("Premium position")
+
+                scored_fas.append({
+                    **fa,
+                    'fit_score': round(score, 1),
+                    'reasons': reasons[:3]
+                })
+
+            scored_fas.sort(key=lambda x: x['fit_score'], reverse=True)
+            return jsonify({
+                "suggestions": scored_fas[:30],
+                "team_needs": None,
+                "total_available": len(FREE_AGENTS)
+            })
+
+        # Team-specific recommendations with enhanced AI logic
         team_cats, team_pos, team_window = calculate_team_needs(team_name)
-
-        # Identify category weaknesses
         weaknesses = [cat for cat, score in team_cats.items() if score < 0]
+        strengths = [cat for cat, score in team_cats.items() if score > 0]
 
-        # Identify positional needs (positions with depth < 2)
+        # Calculate detailed positional depth
         pos_depth = {}
+        pos_quality = {}  # Track quality at each position
         team = teams[team_name]
         for p in team.players:
             pos = p.position.upper() if p.position else ''
+            pval = calculator.calculate_player_value(p)
             for check_pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP']:
                 if check_pos in pos or (check_pos == 'OF' and any(x in pos for x in ['LF', 'CF', 'RF'])):
                     pos_depth[check_pos] = pos_depth.get(check_pos, 0) + 1
+                    pos_quality[check_pos] = max(pos_quality.get(check_pos, 0), pval)
 
         positional_needs = [pos for pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP']
-                          if pos_depth.get(pos, 0) < 2]
+                          if pos_depth.get(pos, 0) < 3]
+        critical_needs = [pos for pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP']
+                        if pos_depth.get(pos, 0) < 2]
 
-        # Score each free agent based on team needs
+        # Enhanced scoring for team-specific recommendations
         scored_fas = []
         for fa in FREE_AGENTS:
             if position_filter and position_filter not in fa['position']:
                 continue
 
-            score = fa['dynasty_value']
+            base_score = fa['dynasty_value']
+            score = base_score
             reasons = []
 
-            # Category need bonus
             fa_pos = fa['position'].upper()
             is_hitter = any(pos in fa_pos for pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'LF', 'CF', 'RF', 'DH'])
-            is_pitcher = 'SP' in fa_pos or 'RP' in fa_pos
+            is_sp = 'SP' in fa_pos
+            is_rp = 'RP' in fa_pos
 
+            # Get FA's projected stats from our projections if available
+            fa_proj = HITTER_PROJECTIONS.get(fa['name'], {}) or PITCHER_PROJECTIONS.get(fa['name'], {}) or RELIEVER_PROJECTIONS.get(fa['name'], {})
+
+            # Category need bonus with specific stat matching
             if is_hitter:
-                hitting_needs = [w for w in weaknesses if w in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS']]
-                if hitting_needs:
-                    score += 15
-                    reasons.append(f"Fills {', '.join(hitting_needs[:2])} need")
+                hr_proj = fa_proj.get('HR', 0)
+                sb_proj = fa_proj.get('SB', 0)
+                rbi_proj = fa_proj.get('RBI', 0)
 
-            if is_pitcher:
-                pitching_needs = [w for w in weaknesses if w in ['K', 'ERA', 'WHIP', 'SV+HLD']]
-                if pitching_needs:
-                    score += 15
-                    reasons.append(f"Fills {', '.join(pitching_needs[:2])} need")
-                if 'RP' in fa_pos and 'SV+HLD' in weaknesses:
-                    score += 10
-                    reasons.append("Reliever for SV+HLD")
-
-            # Positional need bonus
-            for need_pos in positional_needs:
-                if need_pos in fa_pos:
+                if 'HR' in weaknesses and hr_proj >= 20:
+                    score += 20
+                    reasons.append(f"+{hr_proj} HR projected")
+                elif 'HR' in weaknesses and hr_proj >= 15:
                     score += 12
-                    reasons.append(f"Fills {need_pos} depth")
+                    reasons.append(f"HR help ({hr_proj} proj)")
+
+                if 'SB' in weaknesses and sb_proj >= 15:
+                    score += 20
+                    reasons.append(f"+{sb_proj} SB projected")
+                elif 'SB' in weaknesses and sb_proj >= 10:
+                    score += 12
+                    reasons.append(f"Speed boost ({sb_proj} SB)")
+
+                if 'RBI' in weaknesses and rbi_proj >= 70:
+                    score += 15
+                    reasons.append(f"Run producer ({rbi_proj} RBI)")
+
+            if is_sp:
+                k_proj = fa_proj.get('K', 0)
+                era_proj = fa_proj.get('ERA', 5.0)
+
+                if 'K' in weaknesses and k_proj >= 150:
+                    score += 20
+                    reasons.append(f"Strikeout arm ({k_proj} K)")
+                elif 'K' in weaknesses and k_proj >= 100:
+                    score += 12
+                    reasons.append(f"K upside ({k_proj} proj)")
+
+                if 'ERA' in weaknesses and era_proj <= 3.50:
+                    score += 15
+                    reasons.append(f"Elite ratios ({era_proj} ERA)")
+
+            if is_rp:
+                sv_proj = fa_proj.get('SV', 0)
+                hld_proj = fa_proj.get('HD', 0)
+
+                if 'SV+HLD' in weaknesses:
+                    if sv_proj >= 20:
+                        score += 25
+                        reasons.append(f"Closer ({sv_proj} SV proj)")
+                    elif sv_proj >= 10 or hld_proj >= 15:
+                        score += 15
+                        reasons.append(f"Reliever help")
+
+            # Critical positional need - big bonus
+            for need_pos in critical_needs:
+                if need_pos in fa_pos:
+                    score += 20
+                    reasons.append(f"CRITICAL {need_pos} need")
                     break
+            else:
+                # Regular positional need
+                for need_pos in positional_needs:
+                    if need_pos in fa_pos:
+                        score += 10
+                        reasons.append(f"Adds {need_pos} depth")
+                        break
 
-            # Window alignment bonus
+            # Window alignment with specific recommendations
             age = fa['age']
-            if team_window in ['rebuilding', 'rising'] and age <= 26:
-                score += 8
-                reasons.append("Young for rebuild")
-            elif team_window in ['win-now', 'contender'] and 26 <= age <= 32:
-                score += 5
-                reasons.append("Prime age")
+            if team_window in ['rebuilding', 'rising']:
+                if age <= 25:
+                    score += 15
+                    reasons.append("Young asset for future")
+                elif age <= 27:
+                    score += 8
+                    reasons.append("Fits timeline")
+                elif age >= 32:
+                    score -= 10  # Penalty for old players on rebuilding teams
+            elif team_window in ['win-now', 'contender']:
+                if 26 <= age <= 31:
+                    score += 10
+                    reasons.append("Win-now fit")
+                elif age <= 25 and base_score >= 60:
+                    score += 5
+                    reasons.append("Ready to contribute")
+            elif team_window == 'dynasty':
+                if age <= 26:
+                    score += 12
+                    reasons.append("Dynasty building block")
 
-            # High roster % indicates quality
-            if fa['roster_pct'] >= 50:
-                score += 5
-                if not reasons:
-                    reasons.append("Widely rostered")
+            # Roster % as quality indicator
+            if fa['roster_pct'] >= 70:
+                score += 8
+                if len(reasons) < 3:
+                    reasons.append(f"High demand ({fa['roster_pct']:.0f}%)")
+            elif fa['roster_pct'] >= 50:
+                score += 4
+
+            # Don't recommend players that don't fit at all
+            if score < base_score:
+                continue
 
             scored_fas.append({
                 **fa,
                 'fit_score': round(score, 1),
-                'reasons': reasons[:3]
+                'reasons': reasons[:3] if reasons else ["Available depth"]
             })
 
-        # Sort by fit score
         scored_fas.sort(key=lambda x: x['fit_score'], reverse=True)
 
-        # Return top 25 recommendations
         return jsonify({
-            "suggestions": scored_fas[:25],
+            "suggestions": scored_fas[:30],
             "team_needs": {
                 "weaknesses": weaknesses,
+                "strengths": strengths,
                 "positional_needs": positional_needs,
+                "critical_needs": critical_needs,
                 "window": team_window
-            }
+            },
+            "total_available": len(FREE_AGENTS)
         })
 
     except Exception as e:
