@@ -2765,7 +2765,11 @@ def get_prospects():
 
     # Add any prospects from PROSPECT_RANKINGS (1-200) that weren't found
     # These are prospects who aren't rostered and aren't in the FA list
+    # Skip alias names (keys in PROSPECT_NAME_ALIASES) to avoid duplicates
     for name, rank in PROSPECT_RANKINGS.items():
+        # Skip if this is an alias name (the player will be found under their canonical name)
+        if name in PROSPECT_NAME_ALIASES:
+            continue
         if name not in found_prospects:
             metadata = PROSPECT_METADATA.get(name, {})
             # Calculate estimated value based on rank using graduated scale
