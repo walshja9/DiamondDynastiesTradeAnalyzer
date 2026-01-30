@@ -40,6 +40,22 @@ except ImportError:
 
 FANTRAX_LEAGUE_ID = os.environ.get("FANTRAX_LEAGUE_ID", "3iibc548mhhszwor")
 
+# Team rivalries - bidirectional matchups for enhanced analysis
+TEAM_RIVALRIES = {
+    "Rocket City Trash Pandas": "Alaskan Bullworms",
+    "Alaskan Bullworms": "Rocket City Trash Pandas",
+    "Colt 45s": "Sugar Land Space Cowboys",
+    "Sugar Land Space Cowboys": "Colt 45s",
+    "Pawtucket Red Sox": "Danville Dairy Daddies",
+    "Danville Dairy Daddies": "Pawtucket Red Sox",
+    "Boston Beaneaters": "Akron Rubberducks",
+    "Akron Rubberducks": "Boston Beaneaters",
+    "Kalamazoo Celery Pickers": "Hartford Yard Goats",
+    "Hartford Yard Goats": "Kalamazoo Celery Pickers",
+    "Hershey Bears": "Modesto Nuts",
+    "Modesto Nuts": "Hershey Bears",
+}
+
 app = Flask(__name__)
 
 # Name aliases: Fantrax name -> Fangraphs/projection name
@@ -3037,6 +3053,235 @@ def get_team(team_name):
     })
 
 
+# ============================================================================
+# AI ANALYSIS HELPER FUNCTIONS
+# ============================================================================
+
+def get_category_trade_targets(team_name, weak_categories, num_targets=3):
+    """Find players from other teams who excel in categories the team needs."""
+    targets = {}
+
+    for cat in weak_categories[:2]:  # Focus on top 2 weaknesses
+        cat_targets = []
+
+        for other_team_name, other_team in teams.items():
+            if other_team_name == team_name:
+                continue
+
+            for player in other_team.players:
+                proj = HITTER_PROJECTIONS.get(player.name, {}) or PITCHER_PROJECTIONS.get(player.name, {}) or RELIEVER_PROJECTIONS.get(player.name, {})
+                if not proj:
+                    continue
+
+                value = calculator.calculate_player_value(player)
+                cat_value = 0
+
+                # Map category to projection key
+                if cat == 'HR':
+                    cat_value = proj.get('HR', 0)
+                elif cat == 'SB':
+                    cat_value = proj.get('SB', 0)
+                elif cat == 'RBI':
+                    cat_value = proj.get('RBI', 0)
+                elif cat == 'R':
+                    cat_value = proj.get('R', 0)
+                elif cat == 'K':
+                    cat_value = proj.get('K', 0)
+                elif cat == 'SV+HLD':
+                    cat_value = proj.get('SV', 0) + proj.get('HD', 0)
+                elif cat == 'QS':
+                    cat_value = proj.get('QS', 0)
+
+                if cat_value > 0:
+                    cat_targets.append({
+                        'name': player.name,
+                        'team': other_team_name,
+                        'value': value,
+                        'cat_value': cat_value,
+                        'age': player.age
+                    })
+
+        # Sort by category value and take top targets
+        cat_targets.sort(key=lambda x: x['cat_value'], reverse=True)
+        targets[cat] = cat_targets[:num_targets]
+
+    return targets
+
+
+def find_similar_value_players(team_name, player_value, tolerance=8):
+    """Find players from other teams with similar dynasty value for trade ideas."""
+    similar = []
+
+    for other_team_name, other_team in teams.items():
+        if other_team_name == team_name:
+            continue
+
+        for player in other_team.players:
+            value = calculator.calculate_player_value(player)
+            if abs(value - player_value) <= tolerance:
+                similar.append({
+                    'name': player.name,
+                    'team': other_team_name,
+                    'value': round(value, 1),
+                    'age': player.age,
+                    'position': player.position
+                })
+
+    return similar
+
+
+def get_trade_package_suggestions(team_name, team, target_value, weak_cats):
+    """Suggest players from the team that could be packaged to acquire targets."""
+    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value.sort(key=lambda x: x[1], reverse=True)
+
+    # Find tradeable assets (not the top 3-5 core players unless rebuilding)
+    tradeable = []
+    for i, (p, v) in enumerate(players_with_value):
+        # Skip top 5 core players
+        if i < 5 and v > 50:
+            continue
+        # Include players with decent value that don't fill weak categories
+        if v >= 15:
+            tradeable.append({'name': p.name, 'value': round(v, 1), 'age': p.age})
+
+    return tradeable[:8]
+
+
+def get_draft_recommendations(team_name, draft_pick, weak_positions, weak_categories):
+    """Generate draft pick recommendations based on team needs."""
+    recommendations = []
+
+    # General tier guidance based on pick number
+    if draft_pick <= 4:
+        tier = "elite"
+        rec = "At this pick, take the best player available (BPA) regardless of position. Elite talent is rare."
+    elif draft_pick <= 8:
+        tier = "high"
+        rec = "Strong pick - lean BPA but can factor in positional need if talent is close."
+    else:
+        tier = "mid"
+        rec = "Target positional needs if comparable talent available."
+
+    recommendations.append(rec)
+
+    # Position-specific advice
+    if weak_positions:
+        pos_advice = f"Your roster is thin at {', '.join(weak_positions[:2])}. "
+        if 'C' in weak_positions:
+            pos_advice += "Quality catchers are scarce - prioritize if elite C available. "
+        if 'SS' in weak_positions or '2B' in weak_positions:
+            pos_advice += "Middle infield depth is valuable. "
+        if 'SP' in weak_positions:
+            pos_advice += "Aces are difference-makers in H2H. "
+        recommendations.append(pos_advice)
+
+    # Category-specific advice
+    if weak_categories:
+        cat_advice = f"You need {', '.join(weak_categories[:2])} help. "
+        if 'SB' in weak_categories:
+            cat_advice += "Target speedsters - SB is hard to find. "
+        if 'K' in weak_categories:
+            cat_advice += "High-K pitchers are premium assets. "
+        if 'HR' in weak_categories:
+            cat_advice += "Power bats should be prioritized. "
+        recommendations.append(cat_advice)
+
+    return recommendations
+
+
+def get_buy_low_sell_high_alerts(team_name, team):
+    """Identify buy-low and sell-high candidates based on age, value curves."""
+    alerts = {'buy_low': [], 'sell_high': []}
+
+    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+
+    for p, v in players_with_value:
+        # Sell-high: aging players still producing well
+        if p.age >= 32 and v >= 40:
+            alerts['sell_high'].append({
+                'name': p.name,
+                'reason': f"Age {p.age} with {v:.0f} value - sell before decline",
+                'urgency': 'high' if p.age >= 34 else 'medium'
+            })
+        elif p.age >= 30 and v >= 60:
+            alerts['sell_high'].append({
+                'name': p.name,
+                'reason': f"Peak value at {v:.0f} - may not get better return later",
+                'urgency': 'medium'
+            })
+
+        # Buy-low: young players with upside not reflected in current value
+        if p.age <= 24 and 20 <= v <= 45:
+            alerts['buy_low'].append({
+                'name': p.name,
+                'reason': f"Only {v:.0f} value at age {p.age} - upside play",
+                'type': 'youth'
+            })
+        elif p.is_prospect and p.prospect_rank and p.prospect_rank <= 50 and v < 70:
+            alerts['buy_low'].append({
+                'name': p.name,
+                'reason': f"Top {p.prospect_rank} prospect undervalued at {v:.0f}",
+                'type': 'prospect'
+            })
+
+    return alerts
+
+
+def generate_rivalry_analysis(team_name, rival_name):
+    """Generate head-to-head analysis against rival team."""
+    if rival_name not in teams:
+        return None
+
+    team = teams[team_name]
+    rival = teams[rival_name]
+
+    # Calculate total values
+    my_value = sum(calculator.calculate_player_value(p) for p in team.players)
+    rival_value = sum(calculator.calculate_player_value(p) for p in rival.players)
+
+    # Get category comparisons
+    team_cats, rankings = calculate_league_category_rankings()
+    my_cats = team_cats.get(team_name, {})
+    rival_cats = team_cats.get(rival_name, {})
+    my_ranks = rankings.get(team_name, {})
+    rival_ranks = rankings.get(rival_name, {})
+
+    # Compare categories
+    advantages = []
+    disadvantages = []
+
+    for cat in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS', 'SO', 'K', 'ERA', 'WHIP', 'QS', 'SV+HLD']:
+        my_rank = my_ranks.get(cat, 12)
+        rival_rank = rival_ranks.get(cat, 12)
+
+        if my_rank < rival_rank - 1:  # Significant advantage (2+ spots better)
+            advantages.append(cat)
+        elif rival_rank < my_rank - 1:  # Significant disadvantage
+            disadvantages.append(cat)
+
+    # Find top players on each side
+    my_top = sorted([(p, calculator.calculate_player_value(p)) for p in team.players], key=lambda x: x[1], reverse=True)[:3]
+    rival_top = sorted([(p, calculator.calculate_player_value(p)) for p in rival.players], key=lambda x: x[1], reverse=True)[:3]
+
+    # Count prospects
+    my_prospects = len([p for p in team.players if p.is_prospect])
+    rival_prospects = len([p for p in rival.players if p.is_prospect])
+
+    return {
+        'rival_name': rival_name,
+        'my_value': round(my_value, 0),
+        'rival_value': round(rival_value, 0),
+        'value_diff': round(my_value - rival_value, 0),
+        'advantages': advantages,
+        'disadvantages': disadvantages,
+        'my_top_players': [(p.name, round(v, 1)) for p, v in my_top],
+        'rival_top_players': [(p.name, round(v, 1)) for p, v in rival_top],
+        'my_prospects': my_prospects,
+        'rival_prospects': rival_prospects
+    }
+
+
 def generate_team_analysis(team_name, team, players_with_value=None, power_rank=None, total_teams=12):
     """Generate a comprehensive, personalized text analysis/description of a team."""
     if players_with_value is None:
@@ -3285,6 +3530,60 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         bottom_line += f"Stuck in no-man's land with {total_value:.0f} points of value. "
         bottom_line += "Make a decisive move - buy in or sell out. The middle path leads nowhere."
     analysis_parts.append(bottom_line)
+
+    # === ENHANCED AI ANALYSIS SECTIONS ===
+
+    # Trade Targets by Category
+    if cat_weaknesses:
+        trade_targets = get_category_trade_targets(team_name, cat_weaknesses, num_targets=3)
+        if trade_targets:
+            targets_text = "<b>🎯 TRADE TARGETS BY NEED:</b><br>"
+            for cat, players in trade_targets.items():
+                if players:
+                    player_list = ", ".join([f"{p['name']} ({p['team'][:12]}..., {p['cat_value']} {cat})" for p in players[:2]])
+                    targets_text += f"<span style='color:#00d4ff'>For {cat}:</span> {player_list}<br>"
+            analysis_parts.append(targets_text.rstrip('<br>'))
+
+    # Buy-Low / Sell-High Alerts
+    alerts = get_buy_low_sell_high_alerts(team_name, team)
+    if alerts['sell_high'] or alerts['buy_low']:
+        alerts_text = "<b>📈 VALUE ALERTS:</b><br>"
+        if alerts['sell_high']:
+            sell_list = ", ".join([f"<span style='color:#f87171'>{a['name']}</span>" for a in alerts['sell_high'][:2]])
+            alerts_text += f"⬆️ <b>Sell-high:</b> {sell_list} (maximize return before decline)<br>"
+        if alerts['buy_low']:
+            buy_list = ", ".join([f"<span style='color:#4ade80'>{a['name']}</span>" for a in alerts['buy_low'][:2]])
+            alerts_text += f"⬇️ <b>Buy-low:</b> {buy_list} (upside not reflected in current value)"
+        analysis_parts.append(alerts_text.rstrip('<br>'))
+
+    # Draft Pick Recommendations
+    if draft_order_config and team_name in draft_order_config:
+        pick_num = draft_order_config[team_name]
+        draft_recs = get_draft_recommendations(team_name, pick_num, thin_positions, cat_weaknesses)
+        if draft_recs:
+            draft_text = f"<b>🏈 2026 DRAFT (Pick #{pick_num}):</b><br>"
+            draft_text += "<br>".join([f"• {rec}" for rec in draft_recs[:3]])
+            analysis_parts.append(draft_text)
+
+    # Rivalry Analysis
+    rival_name = TEAM_RIVALRIES.get(team_name)
+    if rival_name:
+        rivalry = generate_rivalry_analysis(team_name, rival_name)
+        if rivalry:
+            diff = rivalry['value_diff']
+            status = "leading" if diff > 0 else "trailing"
+            diff_color = "#4ade80" if diff > 0 else "#f87171"
+
+            rivalry_text = f"<b>⚔️ RIVALRY vs {rival_name}:</b><br>"
+            rivalry_text += f"You're <span style='color:{diff_color}'>{status} by {abs(diff):.0f} points</span> ({rivalry['my_value']:.0f} vs {rivalry['rival_value']:.0f}). "
+
+            if rivalry['advantages']:
+                rivalry_text += f"<span style='color:#4ade80'>Advantages: {', '.join(rivalry['advantages'][:3])}</span>. "
+            if rivalry['disadvantages']:
+                rivalry_text += f"<span style='color:#f87171'>Disadvantages: {', '.join(rivalry['disadvantages'][:3])}</span>. "
+
+            rivalry_text += f"<br>Their stars: {', '.join([f'{n} ({v})' for n, v in rivalry['rival_top_players'][:2]])}."
+            analysis_parts.append(rivalry_text)
 
     return "<br><br>".join(analysis_parts)
 
