@@ -2297,16 +2297,20 @@ def load_prospect_rankings():
     sorted_prospects = sorted(merged_rankings.items(), key=lambda x: x[1])
 
     # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
+    # IMPORTANT: Only keep the top 200 prospects to ensure a complete 1-200 ranking
     PROSPECT_RANKINGS.clear()
-    for new_rank, (name, _) in enumerate(sorted_prospects, start=1):
+    for new_rank, (name, _) in enumerate(sorted_prospects[:200], start=1):
         PROSPECT_RANKINGS[name] = new_rank
 
-    top_200_count = len([r for r in PROSPECT_RANKINGS.values() if r <= 200])
-    print(f"Prospect rankings merged and re-ranked: {len(PROSPECT_RANKINGS)} total ({top_200_count} in top 200)")
+    print(f"Prospect rankings merged and re-ranked: {len(PROSPECT_RANKINGS)} total (limited to top 200)")
 
     # Debug: Print top 10 prospects to verify correct ordering
     top_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r <= 10], key=lambda x: x[1])
     print(f"Top 10 prospects: {[(n, r) for n, r in top_prospects]}")
+
+    # Debug: Print prospects around rank 195-200 to verify we have full 200
+    bottom_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r >= 195], key=lambda x: x[1])
+    print(f"Bottom 6 prospects (195-200): {[(n, r) for n, r in bottom_prospects]}")
 
 
 def load_data_from_json():
