@@ -466,25 +466,27 @@ PLAYER_AGES = {
 class DynastyValueCalculator:
     """Calculate dynasty value incorporating projections, age, and prospect status."""
     
-    # Category weights for H2H categories
+    # Category weights for H2H 7-category leagues
+    # Hitting: R, HR, SB, RBI, SO, AVG, OPS (sum = 1.0)
     HITTING_WEIGHTS = {
-        'avg': 0.12,
-        'ops': 0.18,
-        'hr': 0.16,
-        'r': 0.12,
-        'rbi': 0.14,
-        'sb': 0.12,
-        'so': 0.06,  # Inverse - lower is better
+        'r': 0.14,      # Runs
+        'hr': 0.16,     # Home Runs (power premium)
+        'sb': 0.14,     # Stolen Bases
+        'rbi': 0.14,    # RBI
+        'so': 0.06,     # Strikeouts (inverse - lower is better)
+        'avg': 0.17,    # Batting Average (rate stat premium)
+        'ops': 0.19,    # OPS (rate stat premium)
     }
-    
+
+    # Pitching: K, ERA, WHIP, K/BB, SV+HLD, L, QS (sum = 1.0)
     PITCHING_WEIGHTS = {
-        'k': 0.18,
-        'era': 0.16,
-        'whip': 0.14,
-        'qs': 0.12,
-        'sv_hld': 0.18,  # Increased for SV+HLD league format
-        'l': 0.06,
-        'k_bb': 0.10,
+        'k': 0.16,      # Strikeouts
+        'era': 0.18,    # ERA (rate stat premium)
+        'whip': 0.16,   # WHIP (rate stat premium)
+        'k_bb': 0.12,   # K/BB Ratio
+        'sv_hld': 0.16, # Saves + Holds
+        'l': 0.05,      # Losses (inverse - lower is better)
+        'qs': 0.17,     # Quality Starts
     }
     
     # Position scarcity multipliers
@@ -589,15 +591,15 @@ class DynastyValueCalculator:
         """Calculate starting pitcher value."""
         value = 0.0
         
-        # Weights for SP categories (sum to ~1.0)
+        # Weights for SP categories aligned with league scoring (sum = 1.0)
+        # Note: SV+HLD not applicable to SP, redistribute to other pitching cats
         sp_weights = {
-            'k': 0.22,      # Strikeouts important
-            'era': 0.20,    # ERA very important
-            'whip': 0.18,   # WHIP very important
-            'qs': 0.15,     # Quality starts matter
-            'k_bb': 0.15,   # K/BB ratio (command)
-            'l': 0.05,      # Losses minor factor
-            'ip': 0.05,     # Innings show durability
+            'k': 0.20,      # Strikeouts - very important for SP
+            'era': 0.22,    # ERA - premium rate stat
+            'whip': 0.20,   # WHIP - premium rate stat
+            'qs': 0.20,     # Quality Starts - SP specialty
+            'k_bb': 0.13,   # K/BB ratio (command)
+            'l': 0.05,      # Losses - minor factor
         }
         
         # K (normalize around 190 for aces)
@@ -641,11 +643,7 @@ class DynastyValueCalculator:
         # Losses (inverse - fewer is better, normalize around 9)
         l_score = max(100 - ((proj['L'] / 9) * 40), 40)
         value += l_score * sp_weights['l']
-        
-        # IP bonus for workhorses (normalize around 175)
-        ip_score = min((proj['IP'] / 175) * 90, 110)
-        value += ip_score * sp_weights['ip']
-        
+
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
         return min(value, 100)
     

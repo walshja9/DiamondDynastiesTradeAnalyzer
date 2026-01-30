@@ -147,7 +147,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .trade-side h3 { color: #ffd700; margin-bottom: 15px; font-size: 1.1rem; }
         .arrow { display: flex; align-items: center; justify-content: center; font-size: 2rem; color: #ffd700; padding-top: 60px; }
         .player-input { display: flex; gap: 10px; margin-bottom: 10px; }
-        .player-input input { flex: 1; }
+        .player-input input { flex: 1; background: #252545; border: 2px solid #5a5a8a; }
+        .player-input input:focus { border-color: #ffd700; background: #2a2a4a; }
+        .player-input input::placeholder { color: #8888aa; }
+        .pick-label { font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
         .player-list { margin-top: 10px; min-height: 40px; }
         .player-tag { display: inline-flex; align-items: center; gap: 8px; background: #3a3a5a; padding: 8px 12px; border-radius: 20px; margin: 4px; font-size: 0.9rem; }
         .player-tag.pick { background: #4a3a2a; }
@@ -231,6 +234,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <button class="tab active" onclick="showPanel('analyze')">Analyze Trade</button>
             <button class="tab" onclick="showPanel('teams')">Teams</button>
             <button class="tab" onclick="showPanel('suggest')">Trade Suggestions</button>
+            <button class="tab" onclick="showPanel('search')">Player Search</button>
             <button class="tab" onclick="showPanel('league')">League</button>
         </div>
 
@@ -246,9 +250,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <input type="text" id="teamASearch" placeholder="Search players..." oninput="searchPlayers('A')" onfocus="showSearchResults('A')">
                         <div id="teamAResults" class="search-results"></div>
                     </div>
-                    <div class="player-input" style="margin-top:10px">
-                        <input type="text" id="teamAPick" placeholder="Add pick (e.g., 2026 1st Rd #3)">
-                        <button class="btn btn-add" onclick="addPick('A')">+ Pick</button>
+                    <div style="margin-top:15px">
+                        <div class="pick-label">Add Draft Pick:</div>
+                        <div class="player-input">
+                            <input type="text" id="teamAPick" placeholder="e.g., 2026 1st Rd #3" list="draftPicksList">
+                            <button class="btn btn-add" onclick="addPick('A')">+ Pick</button>
+                        </div>
                     </div>
                     <div id="teamAPlayers" class="player-list"></div>
                 </div>
@@ -265,9 +272,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <input type="text" id="teamBSearch" placeholder="Search players..." oninput="searchPlayers('B')" onfocus="showSearchResults('B')">
                         <div id="teamBResults" class="search-results"></div>
                     </div>
-                    <div class="player-input" style="margin-top:10px">
-                        <input type="text" id="teamBPick" placeholder="Add pick (e.g., 2026 2nd Rd #8)">
-                        <button class="btn btn-add" onclick="addPick('B')">+ Pick</button>
+                    <div style="margin-top:15px">
+                        <div class="pick-label">Add Draft Pick:</div>
+                        <div class="player-input">
+                            <input type="text" id="teamBPick" placeholder="e.g., 2026 2nd Rd #8" list="draftPicksList">
+                            <button class="btn btn-add" onclick="addPick('B')">+ Pick</button>
+                        </div>
                     </div>
                     <div id="teamBPlayers" class="player-list"></div>
                 </div>
@@ -301,17 +311,36 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
 
         <div id="suggest-panel" class="panel">
-            <div class="form-group">
-                <label>Your Team</label>
-                <select id="suggestTeamSelect" onchange="loadSuggestions()"></select>
-            </div>
-            <div class="form-group">
-                <label>Target Team (optional)</label>
-                <select id="suggestTargetSelect" onchange="loadSuggestions()">
-                    <option value="">All Teams</option>
-                </select>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
+                <div class="form-group" style="flex: 1; min-width: 180px;">
+                    <label>Your Team</label>
+                    <select id="suggestTeamSelect" onchange="loadSuggestions()"></select>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 180px;">
+                    <label>Target Team (optional)</label>
+                    <select id="suggestTargetSelect" onchange="loadSuggestions()">
+                        <option value="">All Teams</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 150px;">
+                    <label>Trade Type</label>
+                    <select id="tradeTypeSelect" onchange="loadSuggestions()">
+                        <option value="any">Any</option>
+                        <option value="1-for-1">1-for-1</option>
+                        <option value="2-for-1">2-for-1</option>
+                        <option value="2-for-2">2-for-2</option>
+                    </select>
+                </div>
             </div>
             <div id="suggestions-results"></div>
+        </div>
+
+        <div id="search-panel" class="panel">
+            <div class="form-group">
+                <label>Search for any player</label>
+                <input type="text" id="playerSearchInput" placeholder="Type player name..." oninput="searchPlayers()" style="max-width: 400px;">
+            </div>
+            <div id="search-results" style="margin-top: 20px;"></div>
         </div>
 
         <div id="league-panel" class="panel">
@@ -696,13 +725,25 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             <div class="value-box">
                                 <h4>${teamA} Receives</h4>
                                 <div class="value">${data.value_a_receives.toFixed(1)}</div>
+                                ${data.age_analysis?.team_b_sends_avg_age ? `<div style="color:#888;font-size:0.8rem;margin-top:5px;">Avg Age: ${data.age_analysis.team_b_sends_avg_age}</div>` : ''}
                             </div>
                             <div class="value-box">
                                 <h4>${teamB} Receives</h4>
                                 <div class="value">${data.value_b_receives.toFixed(1)}</div>
+                                ${data.age_analysis?.team_a_sends_avg_age ? `<div style="color:#888;font-size:0.8rem;margin-top:5px;">Avg Age: ${data.age_analysis.team_a_sends_avg_age}</div>` : ''}
                             </div>
                         </div>
-                        <div class="reasoning">${data.reasoning}</div>
+                        <div style="padding: 15px; background: #1a1a2e; border-radius: 8px; margin: 15px 0;">
+                            <div style="white-space: pre-line; line-height: 1.6; color: #ccc;">${data.detailed_analysis || data.reasoning}</div>
+                        </div>
+                        ${data.category_impact && data.category_impact.length > 0 ? `
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0;">
+                                ${data.category_impact.map(c => `<span style="background:#3a3a5a;padding:6px 12px;border-radius:15px;font-size:0.85rem;">${c}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div style="padding: 12px 20px; background: ${data.recommendation?.includes('✓') ? '#16331a' : data.recommendation?.includes('⚠') ? '#332d16' : '#331616'}; border-radius: 8px; font-weight: 500; text-align: center;">
+                            ${data.recommendation || ''}
+                        </div>
                     </div>
                 `;
             } catch (e) {
@@ -765,7 +806,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: #1a1a2e; border-radius: 8px; line-height: 1.7;">${data.analysis}</div>` : ''}
 
                     <h4 style="color: #ffd700; margin-bottom: 15px;">Top Players</h4>
-                    ${(data.top_players || data.players.slice(0, 10)).map(p => `
+                    ${(data.top_players || data.players.slice(0, 20)).map(p => `
                         <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
                             <div>
                                 <div class="name player-link">${p.name}</div>
@@ -939,6 +980,48 @@ HTML_CONTENT = '''<!DOCTYPE html>
             document.getElementById('team-modal').classList.remove('active');
         }
 
+        let searchTimeout = null;
+        async function searchPlayers() {
+            const query = document.getElementById('playerSearchInput').value.trim();
+            const results = document.getElementById('search-results');
+
+            if (query.length < 2) {
+                results.innerHTML = '<div style="color:#888;">Type at least 2 characters to search...</div>';
+                return;
+            }
+
+            // Debounce
+            if (searchTimeout) clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}&limit=50`);
+                    const data = await res.json();
+
+                    if (!data.results || data.results.length === 0) {
+                        results.innerHTML = '<div style="color:#888;">No players found</div>';
+                        return;
+                    }
+
+                    results.innerHTML = data.results.map(p => `
+                        <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-weight:bold;">${p.name}</div>
+                                    <div style="color:#888; font-size:0.85rem;">${p.position} | ${p.mlb_team} | ${p.fantasy_team}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="color:#ffd700; font-size:1.1rem; font-weight:bold;">${p.value.toFixed(1)}</div>
+                                    <div style="color:#888; font-size:0.8rem;">Age: ${p.age || '?'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (e) {
+                    results.innerHTML = '<div style="color:#f87171;">Search failed: ' + e.message + '</div>';
+                }
+            }, 300);
+        }
+
         // Close modals on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -955,6 +1038,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         async function loadSuggestions(append = false) {
             const myTeam = document.getElementById('suggestTeamSelect').value;
             const targetTeam = document.getElementById('suggestTargetSelect').value;
+            const tradeType = document.getElementById('tradeTypeSelect').value;
             const results = document.getElementById('suggestions-results');
 
             if (!myTeam) {
@@ -969,7 +1053,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
             }
 
             try {
-                const url = `${API_BASE}/suggest?my_team=${encodeURIComponent(myTeam)}${targetTeam ? `&target_team=${encodeURIComponent(targetTeam)}` : ''}&offset=${currentSuggestOffset}&limit=${currentSuggestLimit}`;
+                let url = `${API_BASE}/suggest?my_team=${encodeURIComponent(myTeam)}&offset=${currentSuggestOffset}&limit=${currentSuggestLimit}`;
+                if (targetTeam) url += `&target_team=${encodeURIComponent(targetTeam)}`;
+                if (tradeType !== 'any') url += `&trade_type=${encodeURIComponent(tradeType)}`;
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -991,16 +1077,19 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div class="suggestion-card" onclick="applySuggestion(${idx})">
                         <div class="suggestion-header">
                             <span>Trade with ${s.other_team}</span>
-                            <span class="suggestion-verdict ${s.value_diff < 5 ? 'great' : 'good'}">${s.value_diff < 5 ? 'Great Deal' : 'Good Deal'}</span>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <span style="background:#3a3a5a;padding:4px 10px;border-radius:12px;font-size:0.75rem;">${s.trade_type || '1-for-1'}</span>
+                                <span class="suggestion-verdict ${s.value_diff < 5 ? 'great' : 'good'}">${s.value_diff < 5 ? 'Great Deal' : 'Good Deal'}</span>
+                            </div>
                         </div>
                         <div class="suggestion-sides">
                             <div class="suggestion-side">
-                                <h4>You Send</h4>
+                                <h4>You Send (${s.you_send.length})</h4>
                                 <div class="suggestion-players">${s.you_send.join(', ')}</div>
                                 <div class="suggestion-value">Value: ${s.you_send_value.toFixed(1)}</div>
                             </div>
                             <div class="suggestion-side">
-                                <h4>You Receive</h4>
+                                <h4>You Receive (${s.you_receive.length})</h4>
                                 <div class="suggestion-players">${s.you_receive.join(', ')}</div>
                                 <div class="suggestion-value">Value: ${s.you_receive_value.toFixed(1)}</div>
                             </div>
@@ -1045,15 +1134,79 @@ HTML_CONTENT = '''<!DOCTYPE html>
         function updateTeamA() {}
         function updateTeamB() {}
 
+        function populateDraftPicksList() {
+            const datalist = document.getElementById('draftPicksList');
+            if (!datalist) return;
+
+            const years = [2025, 2026, 2027, 2028, 2029];
+            const rounds = ['1st', '2nd', '3rd', '4th', '5th'];
+            const numTeams = teamsData.length || 12;
+
+            let options = [];
+            years.forEach(year => {
+                rounds.forEach(round => {
+                    for (let pick = 1; pick <= numTeams; pick++) {
+                        options.push(`${year} ${round} Rd #${pick}`);
+                    }
+                });
+            });
+
+            datalist.innerHTML = options.map(opt => `<option value="${opt}">`).join('');
+        }
+
         // Initialize
-        loadTeams();
+        loadTeams().then(() => populateDraftPicksList());
     </script>
+    <datalist id="draftPicksList"></datalist>
 </body>
 </html>'''
 
 # ============================================================================
 # DATA LOADING
 # ============================================================================
+
+# Cache for player ages from Fantrax CSV
+fantrax_ages = {}
+
+
+def load_ages_from_fantrax_csv():
+    """Load player ages from Fantrax CSV export."""
+    import csv
+    import glob
+
+    global fantrax_ages
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Look for Fantrax CSV files
+    search_patterns = [
+        os.path.join(script_dir, 'Fantrax*.csv'),
+        os.path.join(script_dir, 'fantrax*.csv'),
+    ]
+
+    csv_file = None
+    for pattern in search_patterns:
+        matches = glob.glob(pattern)
+        if matches:
+            csv_file = matches[0]
+            break
+
+    if not csv_file:
+        return
+
+    try:
+        count = 0
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = row.get('Player', '').strip()
+                age_str = row.get('Age', '')
+                if name and age_str and age_str.isdigit():
+                    fantrax_ages[name] = int(age_str)
+                    count += 1
+        print(f"Loaded {count} player ages from Fantrax CSV")
+    except Exception as e:
+        print(f"Warning: Could not load ages from Fantrax CSV: {e}")
+
 
 def load_projection_csvs():
     """Load projection data from CSV files."""
@@ -1213,8 +1366,10 @@ def load_data_from_json():
             team = Team(name=team_name)
 
             for p in team_data.get('players', []):
-                # Get age from JSON, fallback to PLAYER_AGES dictionary
+                # Get age from JSON, fallback to Fantrax CSV, then PLAYER_AGES dictionary
                 player_age = p.get('age', 0)
+                if player_age == 0:
+                    player_age = fantrax_ages.get(p['name'], 0)
                 if player_age == 0:
                     player_age = PLAYER_AGES.get(p['name'], 0)
 
@@ -1478,7 +1633,7 @@ def get_team(team_name):
     draft_pick = draft_order.get(team_name, 0)
 
     # Get top players and prospects
-    top_players = players[:10]
+    top_players = players[:20]
     prospects = [{"name": p.name, "rank": p.prospect_rank, "age": p.age}
                  for p in team.players if p.is_prospect and p.prospect_rank]
     prospects.sort(key=lambda x: x['rank'])
@@ -1513,7 +1668,7 @@ def get_team(team_name):
         "name": team_name,
         "players": players,
         "top_players": top_players,
-        "prospects": prospects[:5],
+        "prospects": prospects,  # Show all prospects
         "player_count": len(players),
         "total_value": round(total_value, 1),
         "power_rank": power_rank,
@@ -1692,10 +1847,12 @@ def search_players():
                 results.append({
                     "name": p.name,
                     "position": p.position,
-                    "team": p.mlb_team,
+                    "mlb_team": p.mlb_team,
                     "fantasy_team": team_name,
                     "age": p.age,
-                    "value": value
+                    "value": value,
+                    "is_prospect": p.is_prospect,
+                    "prospect_rank": p.prospect_rank if p.is_prospect else None
                 })
 
     results.sort(key=lambda x: x['value'], reverse=True)
@@ -1892,7 +2049,7 @@ def analyze_trade():
     else:
         verdict = "Unfair Trade"
 
-    # Generate reasoning
+    # Generate comprehensive analysis
     if value_a_sends > value_b_sends:
         winner = team_b
         loser = team_a
@@ -1900,6 +2057,7 @@ def analyze_trade():
         winner = team_a
         loser = team_b
 
+    # Basic reasoning
     if value_diff < 5:
         reasoning = "This trade is well-balanced. Both sides receive comparable value."
     elif value_diff < 15:
@@ -1907,12 +2065,129 @@ def analyze_trade():
     else:
         reasoning = f"{winner} wins this trade by a significant margin ({value_diff:.1f} points). {loser} should reconsider."
 
+    # Age analysis
+    avg_age_a_sends = sum(p.age for p in found_players_a) / len(found_players_a) if found_players_a else 0
+    avg_age_b_sends = sum(p.age for p in found_players_b) / len(found_players_b) if found_players_b else 0
+
+    age_analysis = ""
+    if avg_age_a_sends and avg_age_b_sends:
+        age_diff = avg_age_a_sends - avg_age_b_sends
+        if abs(age_diff) >= 3:
+            younger_team = team_b if age_diff > 0 else team_a
+            older_team = team_a if age_diff > 0 else team_b
+            age_analysis = f"{younger_team} gets younger assets (avg age: {min(avg_age_a_sends, avg_age_b_sends):.1f} vs {max(avg_age_a_sends, avg_age_b_sends):.1f}). "
+        elif abs(age_diff) >= 1:
+            age_analysis = f"Slight age advantage to {team_b if age_diff > 0 else team_a}. "
+
+    # Position analysis
+    positions_a_sends = [p.position.split('/')[0] if '/' in p.position else p.position for p in found_players_a]
+    positions_b_sends = [p.position.split('/')[0] if '/' in p.position else p.position for p in found_players_b]
+
+    position_analysis = ""
+    pos_a_summary = ", ".join(set(positions_a_sends)) if positions_a_sends else "picks only"
+    pos_b_summary = ", ".join(set(positions_b_sends)) if positions_b_sends else "picks only"
+    position_analysis = f"{team_a} sends {pos_a_summary}; {team_b} sends {pos_b_summary}. "
+
+    # Prospect analysis
+    prospects_a = [p for p in found_players_a if p.is_prospect]
+    prospects_b = [p for p in found_players_b if p.is_prospect]
+    proven_a = [p for p in found_players_a if not p.is_prospect]
+    proven_b = [p for p in found_players_b if not p.is_prospect]
+
+    prospect_analysis = ""
+    if prospects_a and not prospects_b:
+        prospect_analysis = f"{team_a} trades away prospect potential for proven production. "
+    elif prospects_b and not prospects_a:
+        prospect_analysis = f"{team_b} trades away prospect potential for proven production. "
+    elif prospects_a and prospects_b:
+        prospect_analysis = "Both sides exchanging prospect value. "
+
+    # Category impact analysis
+    category_analysis = ""
+    hr_a = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in found_players_a)
+    hr_b = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in found_players_b)
+    sb_a = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in found_players_a)
+    sb_b = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in found_players_b)
+    k_a = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in found_players_a)
+    k_b = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in found_players_b)
+    sv_hld_a = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in found_players_a)
+    sv_hld_b = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in found_players_b)
+
+    cat_impacts = []
+    if hr_a - hr_b >= 15:
+        cat_impacts.append(f"{team_b} gains power ({hr_a - hr_b} HR)")
+    elif hr_b - hr_a >= 15:
+        cat_impacts.append(f"{team_a} gains power ({hr_b - hr_a} HR)")
+    if sb_a - sb_b >= 10:
+        cat_impacts.append(f"{team_b} gains speed ({sb_a - sb_b} SB)")
+    elif sb_b - sb_a >= 10:
+        cat_impacts.append(f"{team_a} gains speed ({sb_b - sb_a} SB)")
+    if k_a - k_b >= 50:
+        cat_impacts.append(f"{team_b} gains strikeouts ({k_a - k_b} K)")
+    elif k_b - k_a >= 50:
+        cat_impacts.append(f"{team_a} gains strikeouts ({k_b - k_a} K)")
+    if sv_hld_a - sv_hld_b >= 10:
+        cat_impacts.append(f"{team_b} gains saves/holds ({sv_hld_a - sv_hld_b} SV+HLD)")
+    elif sv_hld_b - sv_hld_a >= 10:
+        cat_impacts.append(f"{team_a} gains saves/holds ({sv_hld_b - sv_hld_a} SV+HLD)")
+
+    if cat_impacts:
+        category_analysis = "Category impact: " + "; ".join(cat_impacts) + ". "
+
+    # Team window analysis
+    draft_order, power_rankings, team_totals = get_team_rankings()
+    rank_a = power_rankings.get(team_a, 6)
+    rank_b = power_rankings.get(team_b, 6)
+
+    window_analysis = ""
+    if rank_a <= 3 and rank_b >= 9:
+        if avg_age_a_sends < avg_age_b_sends:
+            window_analysis = f"Classic contender ({team_a}) / rebuilder ({team_b}) swap - makes sense for both windows. "
+        else:
+            window_analysis = f"Unusual: contender ({team_a}) getting older assets from rebuilder ({team_b}). "
+    elif rank_b <= 3 and rank_a >= 9:
+        if avg_age_b_sends < avg_age_a_sends:
+            window_analysis = f"Classic contender ({team_b}) / rebuilder ({team_a}) swap - makes sense for both windows. "
+        else:
+            window_analysis = f"Unusual: contender ({team_b}) getting older assets from rebuilder ({team_a}). "
+
+    # Combine detailed analysis
+    detailed_analysis = f"{reasoning}\n\n"
+    if age_analysis:
+        detailed_analysis += age_analysis
+    if position_analysis:
+        detailed_analysis += position_analysis
+    if prospect_analysis:
+        detailed_analysis += prospect_analysis
+    if category_analysis:
+        detailed_analysis += "\n\n" + category_analysis
+    if window_analysis:
+        detailed_analysis += "\n\n" + window_analysis
+
+    # Trade recommendation
+    recommendation = ""
+    if value_diff < 5:
+        recommendation = "✓ Recommended for both teams"
+    elif value_diff < 10:
+        recommendation = f"✓ Acceptable for {winner}, decent for {loser}"
+    elif value_diff < 20:
+        recommendation = f"⚠ Good for {winner}, {loser} should seek more"
+    else:
+        recommendation = f"✗ {loser} should decline unless addressing urgent need"
+
     return jsonify({
         "verdict": verdict,
         "value_a_receives": value_b_sends,
         "value_b_receives": value_a_sends,
         "value_diff": value_diff,
-        "reasoning": reasoning
+        "reasoning": reasoning,
+        "detailed_analysis": detailed_analysis,
+        "age_analysis": {
+            "team_a_sends_avg_age": round(avg_age_a_sends, 1) if avg_age_a_sends else None,
+            "team_b_sends_avg_age": round(avg_age_b_sends, 1) if avg_age_b_sends else None,
+        },
+        "category_impact": cat_impacts,
+        "recommendation": recommendation
     })
 
 
@@ -1920,6 +2195,7 @@ def analyze_trade():
 def get_suggestions():
     my_team = request.args.get('my_team')
     target_team = request.args.get('target_team')
+    trade_type = request.args.get('trade_type', 'any')
     offset = int(request.args.get('offset', 0))
     limit = int(request.args.get('limit', 8))
 
@@ -1929,7 +2205,7 @@ def get_suggestions():
     suggestions = []
     my_players = [(p, calculator.calculate_player_value(p)) for p in teams[my_team].players]
     my_players.sort(key=lambda x: x[1], reverse=True)
-    my_tradeable = [p for p, v in my_players if 20 <= v <= 80][:10]
+    my_tradeable = [(p, v) for p, v in my_players if 15 <= v <= 85][:15]
 
     target_teams = [target_team] if target_team else [t for t in teams.keys() if t != my_team]
 
@@ -1939,27 +2215,69 @@ def get_suggestions():
 
         their_players = [(p, calculator.calculate_player_value(p)) for p in teams[other_team].players]
         their_players.sort(key=lambda x: x[1], reverse=True)
-        their_tradeable = [p for p, v in their_players if 20 <= v <= 80][:10]
+        their_tradeable = [(p, v) for p, v in their_players if 15 <= v <= 85][:15]
 
         # 1-for-1 trades
-        for my_p in my_tradeable:
-            my_val = calculator.calculate_player_value(my_p)
-            for their_p in their_tradeable:
-                their_val = calculator.calculate_player_value(their_p)
-                diff = abs(my_val - their_val)
-                if diff < 15:
-                    suggestions.append({
-                        "my_team": my_team,
-                        "other_team": other_team,
-                        "you_send": [my_p.name],
-                        "you_receive": [their_p.name],
-                        "you_send_value": my_val,
-                        "you_receive_value": their_val,
-                        "value_diff": diff
-                    })
+        if trade_type in ['any', '1-for-1']:
+            for my_p, my_val in my_tradeable:
+                for their_p, their_val in their_tradeable:
+                    diff = abs(my_val - their_val)
+                    if diff < 15:
+                        suggestions.append({
+                            "my_team": my_team,
+                            "other_team": other_team,
+                            "you_send": [my_p.name],
+                            "you_receive": [their_p.name],
+                            "you_send_value": round(my_val, 1),
+                            "you_receive_value": round(their_val, 1),
+                            "value_diff": round(diff, 1),
+                            "trade_type": "1-for-1"
+                        })
 
-    # Sort by value difference (fairest first)
+        # 2-for-1 trades (you send 2, receive 1 better player)
+        if trade_type in ['any', '2-for-1']:
+            for i, (my_p1, my_v1) in enumerate(my_tradeable):
+                for my_p2, my_v2 in my_tradeable[i+1:]:
+                    combined_val = my_v1 + my_v2
+                    for their_p, their_val in their_tradeable:
+                        diff = abs(combined_val - their_val)
+                        # 2-for-1 should get a better player (their_val > max of yours)
+                        if diff < 20 and their_val > max(my_v1, my_v2) * 1.1:
+                            suggestions.append({
+                                "my_team": my_team,
+                                "other_team": other_team,
+                                "you_send": [my_p1.name, my_p2.name],
+                                "you_receive": [their_p.name],
+                                "you_send_value": round(combined_val, 1),
+                                "you_receive_value": round(their_val, 1),
+                                "value_diff": round(diff, 1),
+                                "trade_type": "2-for-1"
+                            })
+
+        # 2-for-2 trades
+        if trade_type in ['any', '2-for-2']:
+            for i, (my_p1, my_v1) in enumerate(my_tradeable[:8]):
+                for my_p2, my_v2 in my_tradeable[i+1:8]:
+                    my_combined = my_v1 + my_v2
+                    for j, (their_p1, their_v1) in enumerate(their_tradeable[:8]):
+                        for their_p2, their_v2 in their_tradeable[j+1:8]:
+                            their_combined = their_v1 + their_v2
+                            diff = abs(my_combined - their_combined)
+                            if diff < 20:
+                                suggestions.append({
+                                    "my_team": my_team,
+                                    "other_team": other_team,
+                                    "you_send": [my_p1.name, my_p2.name],
+                                    "you_receive": [their_p1.name, their_p2.name],
+                                    "you_send_value": round(my_combined, 1),
+                                    "you_receive_value": round(their_combined, 1),
+                                    "value_diff": round(diff, 1),
+                                    "trade_type": "2-for-2"
+                                })
+
+    # Sort by value difference (fairest first), limit to prevent too many
     suggestions.sort(key=lambda x: x['value_diff'])
+    suggestions = suggestions[:200]  # Cap at 200 total suggestions
 
     # Paginate
     paginated = suggestions[offset:offset + limit]
@@ -2036,7 +2354,10 @@ def handle_draft_order():
 print("Loading data...")
 data_loaded = False
 
-# Load projection CSVs first (if available)
+# Load ages from Fantrax CSV first
+load_ages_from_fantrax_csv()
+
+# Load projection CSVs (if available)
 load_projection_csvs()
 
 # Try JSON first (exported by data_exporter.py - has all data including standings/matchups)
