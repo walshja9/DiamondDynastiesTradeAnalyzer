@@ -66,6 +66,9 @@ NAME_ALIASES = {
 PROSPECT_NAME_ALIASES = {
     "Leodalis De Vries": "Leo De Vries",
     "J.R. Ritchie": "JR Ritchie",
+    "Elmer Rodriguez": "Elmer Rodriguez-Cruz",
+    "Sean Paul Linan": "Sean Linan",
+    "Kala'i Rosario": "Kala'i Rosario",  # Different apostrophe character
 }
 
 def add_name_aliases_to_projections():
