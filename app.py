@@ -348,7 +348,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
         <div id="prospects-panel" class="panel">
             <h3 style="margin-bottom: 15px;">Top Prospects League-Wide</h3>
-            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Showing all ranked prospects (top 200) owned by teams in the league.</p>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Showing all ranked prospects (top 200) on team rosters and available as free agents. <span style="color: #00ff88;">FA</span> = Available to pick up!</p>
             <div id="prospects-loading" class="loading">Loading prospects...</div>
             <div id="prospects-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;"></div>
         </div>
@@ -485,17 +485,20 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     grid.innerHTML = data.prospects.map(p => {
                         const tierColor = p.rank <= 10 ? '#ffd700' : p.rank <= 25 ? '#00d4ff' : p.rank <= 50 ? '#7b2cbf' : '#4a90d9';
                         const tierBg = p.rank <= 10 ? 'linear-gradient(145deg, #3d3d00, #4a4a00)' : p.rank <= 25 ? 'linear-gradient(145deg, #002a33, #003d4d)' : p.rank <= 50 ? 'linear-gradient(145deg, #2a1a3d, #3d2a50)' : 'linear-gradient(145deg, #151535, #1e1e50)';
+                        const isFreeAgent = p.is_free_agent || p.fantasy_team === 'Free Agent';
+                        const faBadge = isFreeAgent ? '<span style="background: #00ff88; color: #000; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 8px; font-weight: bold;">FA</span>' : '';
+                        const ownerStyle = isFreeAgent ? 'color: #00ff88; font-weight: bold;' : 'color: #c0c0e0;';
                         return `
                         <div onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')" style="background: ${tierBg}; border-radius: 12px; padding: 18px; border-left: 4px solid ${tierColor}; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(${p.rank <= 10 ? '255,215,0' : p.rank <= 25 ? '0,212,255' : p.rank <= 50 ? '123,44,191' : '74,144,217'}, 0.3);" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 25px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <span style="font-weight: bold; font-size: 1.05rem; color: ${tierColor};">#${p.rank} ${p.name}</span>
+                                <span style="font-weight: bold; font-size: 1.05rem; color: ${tierColor};">#${p.rank} ${p.name}${faBadge}</span>
                                 <span style="color: #00d4ff; font-weight: bold; font-size: 1.1rem;">${p.value.toFixed(1)}</span>
                             </div>
                             <div style="font-size: 0.9rem; color: #a0a0c0;">
                                 ${p.position} | Age ${p.age} | ${p.mlb_team}
                             </div>
                             <div style="font-size: 0.85rem; color: #7070a0; margin-top: 8px;">
-                                Owner: <span style="color: #c0c0e0;">${p.fantasy_team}</span>
+                                ${isFreeAgent ? '<span style="' + ownerStyle + '">AVAILABLE - Free Agent</span>' : 'Owner: <span style="' + ownerStyle + '">' + p.fantasy_team + '</span>'}
                             </div>
                         </div>
                     `}).join('');
@@ -1642,9 +1645,10 @@ def load_free_agents():
                     ros_pct = row.get('Ros', '0%').replace('%', '')
                     ros = float(ros_pct) if ros_pct else 0
 
+                    fa_name = row.get('Player', '')
                     fa = {
                         'id': row.get('ID', ''),
-                        'name': row.get('Player', ''),
+                        'name': fa_name,
                         'mlb_team': row.get('Team', ''),
                         'position': row.get('Position', ''),
                         'rank': rank,
@@ -1654,7 +1658,12 @@ def load_free_agents():
                         'adp': float(row.get('ADP', 999) or 999),
                     }
 
-                    # Calculate dynasty value for FA
+                    # Check if FA is a ranked prospect
+                    prospect_rank = PROSPECT_RANKINGS.get(fa_name)
+                    fa['is_prospect'] = prospect_rank is not None and prospect_rank <= 200
+                    fa['prospect_rank'] = prospect_rank if fa['is_prospect'] else None
+
+                    # Calculate dynasty value for FA (with prospect bonus if applicable)
                     fa['dynasty_value'] = calculate_fa_dynasty_value(fa)
                     FREE_AGENTS.append(fa)
                 except (ValueError, TypeError) as e:
@@ -1729,7 +1738,24 @@ def calculate_fa_dynasty_value(fa):
     else:
         ros_bonus = 0
 
-    value = (base_value * age_mult) + rank_bonus + ros_bonus
+    # Prospect bonus - if FA is a ranked prospect, give significant boost
+    prospect_bonus = 0
+    if fa.get('is_prospect') and fa.get('prospect_rank'):
+        prospect_rank = fa['prospect_rank']
+        if prospect_rank <= 10:
+            prospect_bonus = 25
+        elif prospect_rank <= 25:
+            prospect_bonus = 20
+        elif prospect_rank <= 50:
+            prospect_bonus = 15
+        elif prospect_rank <= 100:
+            prospect_bonus = 10
+        elif prospect_rank <= 150:
+            prospect_bonus = 6
+        else:
+            prospect_bonus = 3
+
+    value = (base_value * age_mult) + rank_bonus + ros_bonus + prospect_bonus
     return round(value, 1)
 
 
@@ -2423,9 +2449,10 @@ def get_teams():
 
 @app.route('/prospects')
 def get_prospects():
-    """Get all prospects across all teams, sorted by rank."""
+    """Get all prospects across all teams AND free agents, sorted by rank."""
     all_prospects = []
 
+    # Get prospects from team rosters
     for team_name, team in teams.items():
         for player in team.players:
             if player.is_prospect and player.prospect_rank and player.prospect_rank <= 200:
@@ -2437,8 +2464,23 @@ def get_prospects():
                     "age": player.age,
                     "mlb_team": player.mlb_team,
                     "fantasy_team": team_name,
-                    "value": round(value, 1)
+                    "value": round(value, 1),
+                    "is_free_agent": False
                 })
+
+    # Get prospects from free agents
+    for fa in FREE_AGENTS:
+        if fa.get('is_prospect') and fa.get('prospect_rank') and fa['prospect_rank'] <= 200:
+            all_prospects.append({
+                "name": fa['name'],
+                "rank": fa['prospect_rank'],
+                "position": fa['position'],
+                "age": fa['age'],
+                "mlb_team": fa['mlb_team'],
+                "fantasy_team": "Free Agent",
+                "value": fa['dynasty_value'],
+                "is_free_agent": True
+            })
 
     # Sort by rank
     all_prospects.sort(key=lambda x: x["rank"])
@@ -2962,26 +3004,51 @@ def get_player(player_name):
 
     # Handle free agent display
     if is_free_agent:
+        is_fa_prospect = fa_data.get('is_prospect', False)
+        fa_prospect_rank = fa_data.get('prospect_rank')
+
+        # Calculate prospect bonus for display
+        prospect_bonus = 0
+        if is_fa_prospect and fa_prospect_rank:
+            if fa_prospect_rank <= 10:
+                prospect_bonus = 25
+            elif fa_prospect_rank <= 25:
+                prospect_bonus = 20
+            elif fa_prospect_rank <= 50:
+                prospect_bonus = 15
+            elif fa_prospect_rank <= 100:
+                prospect_bonus = 10
+            elif fa_prospect_rank <= 150:
+                prospect_bonus = 6
+            else:
+                prospect_bonus = 3
+
+        # Build trade advice
+        if is_fa_prospect and fa_prospect_rank:
+            trade_advice = f"🌟 TOP {fa_prospect_rank} PROSPECT available as free agent! High priority pickup for dynasty leagues."
+        else:
+            trade_advice = f"Free agent with {fa_data['roster_pct']:.0f}% roster rate. Fantrax rank #{fa_data['rank']}. Consider adding if he fills a need."
+
         return jsonify({
             "name": fa_data['name'],
             "position": fa_data['position'],
             "mlb_team": fa_data['mlb_team'],
             "fantasy_team": "Free Agent",
             "age": fa_data['age'],
-            "value": fa_data['dynasty_value'],
-            "is_prospect": False,
-            "prospect_rank": None,
+            "dynasty_value": fa_data['dynasty_value'],
+            "is_prospect": is_fa_prospect,
+            "prospect_rank": fa_prospect_rank,
             "trajectory": "Ascending" if fa_data['age'] <= 26 else ("Prime" if fa_data['age'] <= 30 else "Declining"),
-            "trajectory_desc": f"Age {fa_data['age']} free agent available for pickup.",
+            "trajectory_desc": f"Age {fa_data['age']} free agent available for pickup." + (f" Ranked #{fa_prospect_rank} prospect!" if is_fa_prospect else ""),
             "age_adjustment": 5 if fa_data['age'] <= 26 else (0 if fa_data['age'] <= 30 else -5),
-            "prospect_bonus": 0,
+            "prospect_bonus": prospect_bonus,
             "projections": HITTER_PROJECTIONS.get(fa_data['name'], {}) or PITCHER_PROJECTIONS.get(fa_data['name'], {}) or RELIEVER_PROJECTIONS.get(fa_data['name'], {}),
             "projections_estimated": False,
             "actual_stats": None,
             "fantasy_points": None,
             "fppg": None,
             "category_contributions": [],
-            "trade_advice": f"Free agent with {fa_data['roster_pct']:.0f}% roster rate. Fantrax rank #{fa_data['rank']}. Consider adding if he fills a need.",
+            "trade_advice": trade_advice,
             "fa_info": {
                 "roster_pct": fa_data['roster_pct'],
                 "fantrax_rank": fa_data['rank'],
