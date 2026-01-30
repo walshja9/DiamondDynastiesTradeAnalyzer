@@ -2246,13 +2246,12 @@ def calculate_league_category_rankings():
         era = era_weighted / ip if ip > 0 else 5.00
         whip = whip_weighted / ip if ip > 0 else 1.50
 
-        # Calculate weighted AVG and OPS
+        # Calculate weighted AVG and OPS (weighted by AB since PA not in projections)
         ab = sum(HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) for p in t.players)
-        pa = sum(HITTER_PROJECTIONS.get(p.name, {}).get('PA', 0) for p in t.players)
         hits = sum(HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) * HITTER_PROJECTIONS.get(p.name, {}).get('AVG', 0) for p in t.players)
-        ops_weighted = sum(HITTER_PROJECTIONS.get(p.name, {}).get('OPS', 0) * HITTER_PROJECTIONS.get(p.name, {}).get('PA', 0) for p in t.players)
+        ops_weighted = sum(HITTER_PROJECTIONS.get(p.name, {}).get('OPS', 0) * HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) for p in t.players)
         avg = hits / ab if ab > 0 else .250
-        ops = ops_weighted / pa if pa > 0 else .700
+        ops = ops_weighted / ab if ab > 0 else .700
 
         team_cats[t_name] = {
             'HR': hr, 'SB': sb, 'RBI': rbi, 'R': runs, 'K': k, 'SV+HLD': sv_hld,
@@ -3248,129 +3247,142 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
 
 @app.route('/suggest')
 def get_suggestions():
-    my_team = request.args.get('my_team')
-    target_team = request.args.get('target_team')
-    trade_type = request.args.get('trade_type', 'any')
-    offset = int(request.args.get('offset', 0))
-    limit = int(request.args.get('limit', 8))
+    try:
+        my_team = request.args.get('my_team')
+        target_team = request.args.get('target_team')
+        trade_type = request.args.get('trade_type', 'any')
+        offset = int(request.args.get('offset', 0))
+        limit = int(request.args.get('limit', 8))
 
-    if not my_team or my_team not in teams:
-        return jsonify({"error": "Invalid team specified"}), 400
+        if not my_team or my_team not in teams:
+            return jsonify({"error": "Invalid team specified"}), 400
 
-    suggestions = []
-    my_players = [(p, calculator.calculate_player_value(p)) for p in teams[my_team].players]
-    my_players.sort(key=lambda x: x[1], reverse=True)
-    my_tradeable = [(p, v) for p, v in my_players if 15 <= v <= 85][:15]
+        suggestions = []
+        my_players = [(p, calculator.calculate_player_value(p)) for p in teams[my_team].players]
+        my_players.sort(key=lambda x: x[1], reverse=True)
+        my_tradeable = [(p, v) for p, v in my_players if 15 <= v <= 85][:12]  # Reduced from 15
 
-    # Get my team's needs for insights
-    my_cats, my_pos, my_window = calculate_team_needs(my_team)
+        # Get my team's needs for insights
+        my_cats, my_pos, my_window = calculate_team_needs(my_team)
 
-    target_teams = [target_team] if target_team else [t for t in teams.keys() if t != my_team]
+        # If targeting all teams, we need to be more selective to avoid timeout
+        all_teams_mode = not target_team
+        target_teams = [target_team] if target_team else [t for t in teams.keys() if t != my_team]
 
-    for other_team in target_teams:
-        if other_team == my_team:
-            continue
+        for other_team in target_teams:
+            if other_team == my_team:
+                continue
 
-        their_players = [(p, calculator.calculate_player_value(p)) for p in teams[other_team].players]
-        their_players.sort(key=lambda x: x[1], reverse=True)
-        their_tradeable = [(p, v) for p, v in their_players if 15 <= v <= 85][:15]
+            their_players = [(p, calculator.calculate_player_value(p)) for p in teams[other_team].players]
+            their_players.sort(key=lambda x: x[1], reverse=True)
+            # Use fewer players when searching all teams
+            max_tradeable = 8 if all_teams_mode else 12
+            their_tradeable = [(p, v) for p, v in their_players if 15 <= v <= 85][:max_tradeable]
 
-        # 1-for-1 trades
-        if trade_type in ['any', '1-for-1']:
-            for my_p, my_val in my_tradeable:
-                for their_p, their_val in their_tradeable:
-                    diff = abs(my_val - their_val)
-                    if diff < 15:
-                        fit_score, reasons = score_trade_fit(
-                            my_team, other_team, [my_p], [their_p], diff
-                        )
-                        suggestions.append({
-                            "my_team": my_team,
-                            "other_team": other_team,
-                            "you_send": [my_p.name],
-                            "you_receive": [their_p.name],
-                            "you_send_value": round(my_val, 1),
-                            "you_receive_value": round(their_val, 1),
-                            "value_diff": round(diff, 1),
-                            "trade_type": "1-for-1",
-                            "fit_score": round(fit_score, 1),
-                            "reasons": reasons[:3]  # Top 3 reasons
-                        })
-
-        # 2-for-1 trades (you send 2, receive 1 better player)
-        if trade_type in ['any', '2-for-1']:
-            for i, (my_p1, my_v1) in enumerate(my_tradeable):
-                for my_p2, my_v2 in my_tradeable[i+1:]:
-                    combined_val = my_v1 + my_v2
+            # 1-for-1 trades
+            if trade_type in ['any', '1-for-1']:
+                for my_p, my_val in my_tradeable:
                     for their_p, their_val in their_tradeable:
-                        diff = abs(combined_val - their_val)
-                        # 2-for-1 should get a better player (their_val > max of yours)
-                        if diff < 20 and their_val > max(my_v1, my_v2) * 1.1:
-                            fit_score, reasons = score_trade_fit(
-                                my_team, other_team, [my_p1, my_p2], [their_p], diff
-                            )
+                        diff = abs(my_val - their_val)
+                        if diff < 12:  # Tighter threshold
+                            # Skip full scoring in all-teams mode for speed
+                            if all_teams_mode:
+                                fit_score = 100 - diff * 2
+                                reasons = []
+                            else:
+                                fit_score, reasons = score_trade_fit(
+                                    my_team, other_team, [my_p], [their_p], diff
+                                )
                             suggestions.append({
                                 "my_team": my_team,
                                 "other_team": other_team,
-                                "you_send": [my_p1.name, my_p2.name],
+                                "you_send": [my_p.name],
                                 "you_receive": [their_p.name],
-                                "you_send_value": round(combined_val, 1),
+                                "you_send_value": round(my_val, 1),
                                 "you_receive_value": round(their_val, 1),
                                 "value_diff": round(diff, 1),
-                                "trade_type": "2-for-1",
+                                "trade_type": "1-for-1",
                                 "fit_score": round(fit_score, 1),
                                 "reasons": reasons[:3]
                             })
 
-        # 2-for-2 trades
-        if trade_type in ['any', '2-for-2']:
-            for i, (my_p1, my_v1) in enumerate(my_tradeable[:8]):
-                for my_p2, my_v2 in my_tradeable[i+1:8]:
-                    my_combined = my_v1 + my_v2
-                    for j, (their_p1, their_v1) in enumerate(their_tradeable[:8]):
-                        for their_p2, their_v2 in their_tradeable[j+1:8]:
-                            their_combined = their_v1 + their_v2
-                            diff = abs(my_combined - their_combined)
-                            if diff < 20:
+            # 2-for-1 trades (you send 2, receive 1 better player) - skip in all-teams mode
+            if trade_type in ['any', '2-for-1'] and not all_teams_mode:
+                for i, (my_p1, my_v1) in enumerate(my_tradeable[:8]):
+                    for my_p2, my_v2 in my_tradeable[i+1:8]:
+                        combined_val = my_v1 + my_v2
+                        for their_p, their_val in their_tradeable:
+                            diff = abs(combined_val - their_val)
+                            # 2-for-1 should get a better player (their_val > max of yours)
+                            if diff < 18 and their_val > max(my_v1, my_v2) * 1.1:
                                 fit_score, reasons = score_trade_fit(
-                                    my_team, other_team, [my_p1, my_p2], [their_p1, their_p2], diff
+                                    my_team, other_team, [my_p1, my_p2], [their_p], diff
                                 )
                                 suggestions.append({
                                     "my_team": my_team,
                                     "other_team": other_team,
                                     "you_send": [my_p1.name, my_p2.name],
-                                    "you_receive": [their_p1.name, their_p2.name],
-                                    "you_send_value": round(my_combined, 1),
-                                    "you_receive_value": round(their_combined, 1),
+                                    "you_receive": [their_p.name],
+                                    "you_send_value": round(combined_val, 1),
+                                    "you_receive_value": round(their_val, 1),
                                     "value_diff": round(diff, 1),
-                                    "trade_type": "2-for-2",
+                                    "trade_type": "2-for-1",
                                     "fit_score": round(fit_score, 1),
                                     "reasons": reasons[:3]
                                 })
 
-    # Sort by fit score (best fits first), not just value difference
-    suggestions.sort(key=lambda x: x['fit_score'], reverse=True)
-    suggestions = suggestions[:200]  # Cap at 200 total suggestions
+            # 2-for-2 trades - skip in all-teams mode
+            if trade_type in ['any', '2-for-2'] and not all_teams_mode:
+                for i, (my_p1, my_v1) in enumerate(my_tradeable[:6]):
+                    for my_p2, my_v2 in my_tradeable[i+1:6]:
+                        my_combined = my_v1 + my_v2
+                        for j, (their_p1, their_v1) in enumerate(their_tradeable[:6]):
+                            for their_p2, their_v2 in their_tradeable[j+1:6]:
+                                their_combined = their_v1 + their_v2
+                                diff = abs(my_combined - their_combined)
+                                if diff < 18:
+                                    fit_score, reasons = score_trade_fit(
+                                        my_team, other_team, [my_p1, my_p2], [their_p1, their_p2], diff
+                                    )
+                                    suggestions.append({
+                                        "my_team": my_team,
+                                        "other_team": other_team,
+                                        "you_send": [my_p1.name, my_p2.name],
+                                        "you_receive": [their_p1.name, their_p2.name],
+                                        "you_send_value": round(my_combined, 1),
+                                        "you_receive_value": round(their_combined, 1),
+                                        "value_diff": round(diff, 1),
+                                        "trade_type": "2-for-2",
+                                        "fit_score": round(fit_score, 1),
+                                        "reasons": reasons[:3]
+                                    })
 
-    # Paginate
-    paginated = suggestions[offset:offset + limit]
-    has_more = len(suggestions) > offset + limit
+        # Sort by fit score (best fits first), not just value difference
+        suggestions.sort(key=lambda x: x['fit_score'], reverse=True)
+        suggestions = suggestions[:200]  # Cap at 200 total suggestions
 
-    # Add team needs summary to response
-    needs_summary = {
-        'weaknesses': [cat for cat, score in my_cats.items() if score < 0],
-        'strengths': [cat for cat, score in my_cats.items() if score > 0],
-        'window': my_window
-    }
+        # Paginate
+        paginated = suggestions[offset:offset + limit]
+        has_more = len(suggestions) > offset + limit
 
-    return jsonify({
-        "suggestions": paginated,
-        "has_more": has_more,
-        "total_found": len(suggestions),
-        "offset": offset,
-        "limit": limit,
-        "team_needs": needs_summary
-    })
+        # Add team needs summary to response
+        needs_summary = {
+            'weaknesses': [cat for cat, score in my_cats.items() if score < 0],
+            'strengths': [cat for cat, score in my_cats.items() if score > 0],
+            'window': my_window
+        }
+
+        return jsonify({
+            "suggestions": paginated,
+            "has_more": has_more,
+            "total_found": len(suggestions),
+            "offset": offset,
+            "limit": limit,
+            "team_needs": needs_summary
+        })
+    except Exception as e:
+        print(f"Error in get_suggestions: {e}")
+        return jsonify({"error": f"Failed to generate suggestions: {str(e)}", "suggestions": []}), 500
 
 
 @app.route('/standings')
