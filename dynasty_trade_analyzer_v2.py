@@ -742,46 +742,47 @@ class DynastyValueCalculator:
         bonus_multiplier = max(0.82, min(bonus_multiplier, 1.15))
         value *= bonus_multiplier
         
-        # Prospect adjustments - ranking is PRIMARY driver in dynasty
-        # Cap values for lower-ranked prospects so ranking matters more than projections
+        # Prospect adjustments - ranking matters but shouldn't exceed proven MLB players
+        # Proven aces (Gilbert, Cole, etc.) should always outvalue minor league prospects
+        # These floors ensure prospects have dynasty value, but caps prevent exceeding MLB stars
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
             if rank <= 10:
-                # Elite prospects: floor 85, no cap, big multiplier
-                value = max(value, 85) * 1.20
+                # Elite prospects: floor 55, cap 68 (below proven aces ~70-85)
+                value = min(value, 68)
+                value = max(value, 55) * 1.08
             elif rank <= 25:
-                # Top 25: floor 75, cap 92, solid multiplier
-                value = min(value, 92)
-                value = max(value, 75) * 1.15
+                # Top 25: floor 48, cap 62
+                value = min(value, 62)
+                value = max(value, 48) * 1.06
             elif rank <= 50:
-                # Top 50: floor 68, cap 82, moderate multiplier
-                value = min(value, 82)
-                value = max(value, 68) * 1.10
+                # Top 50: floor 40, cap 55
+                value = min(value, 55)
+                value = max(value, 40) * 1.04
             elif rank <= 100:
-                # Top 100: floor 50, cap 65, small multiplier
-                # Cap is BELOW floor of rank 26-50, ensuring proper ordering
-                value = min(value, 65)
-                value = max(value, 50) * 1.05
-            elif rank <= 150:
-                # Rank 101-150: cap at 48, floor 40
+                # Top 100: floor 32, cap 48
                 value = min(value, 48)
-                value = max(value, 40)
-            elif rank <= 200:
-                # Rank 151-200: cap at 42, floor 32
-                value = min(value, 42)
-                value = max(value, 32)
-            elif rank <= 300:
-                # Rank 201-300: cap at 35, floor 25
-                value = min(value, 35)
+                value = max(value, 32) * 1.02
+            elif rank <= 150:
+                # Rank 101-150: cap at 40, floor 25
+                value = min(value, 40)
                 value = max(value, 25)
-            elif rank <= 500:
-                # Rank 301-500: cap at 28, floor 18
+            elif rank <= 200:
+                # Rank 151-200: cap at 35, floor 20
+                value = min(value, 35)
+                value = max(value, 20)
+            elif rank <= 300:
+                # Rank 201-300: cap at 28, floor 15
                 value = min(value, 28)
-                value = max(value, 18)
-            else:
-                # Rank 501+: cap at 20, floor 10
-                value = min(value, 20)
+                value = max(value, 15)
+            elif rank <= 500:
+                # Rank 301-500: cap at 22, floor 10
+                value = min(value, 22)
                 value = max(value, 10)
+            else:
+                # Rank 501+: cap at 15, floor 5
+                value = min(value, 15)
+                value = max(value, 5)
 
         return value
     
