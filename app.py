@@ -1756,6 +1756,15 @@ def load_free_agents():
         print("Warning: fantrax_available_players.csv not found")
         return
 
+    # Debug: Check PROSPECT_RANKINGS state before loading FAs
+    print(f"load_free_agents: PROSPECT_RANKINGS has {len(PROSPECT_RANKINGS)} entries")
+    sample_prospects = list(PROSPECT_RANKINGS.items())[:5]
+    print(f"  Sample: {sample_prospects}")
+    # Check if specific FA prospects are in rankings
+    for test_name in ['Kade Anderson', 'Seth Hernandez', 'Julian Garcia']:
+        rank = PROSPECT_RANKINGS.get(test_name)
+        print(f"  '{test_name}' in PROSPECT_RANKINGS: {rank}")
+
     try:
         with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
@@ -1803,7 +1812,10 @@ def load_free_agents():
 
         # Sort by dynasty value
         FREE_AGENTS.sort(key=lambda x: x['dynasty_value'], reverse=True)
-        print(f"Loaded {len(FREE_AGENTS)} free agents")
+
+        # Count FA prospects
+        fa_prospect_count = sum(1 for fa in FREE_AGENTS if fa.get('is_prospect'))
+        print(f"Loaded {len(FREE_AGENTS)} free agents ({fa_prospect_count} are ranked prospects)")
     except Exception as e:
         print(f"Error loading free agents: {e}")
 
