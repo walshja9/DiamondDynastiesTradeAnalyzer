@@ -246,8 +246,14 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <label>Select Team</label>
                         <select id="teamASelect" onchange="updateTeamA()"></select>
                     </div>
+                    <div class="form-group" id="teamARosterGroup" style="display:none;">
+                        <label>Add from Roster</label>
+                        <select id="teamARoster" onchange="addPlayerFromRoster('A')">
+                            <option value="">-- Select Player --</option>
+                        </select>
+                    </div>
                     <div class="search-container">
-                        <input type="text" id="teamASearch" placeholder="Search players..." oninput="searchPlayers('A')" onfocus="showSearchResults('A')">
+                        <input type="text" id="teamASearch" placeholder="Or search all players..." oninput="searchPlayers('A')" onfocus="showSearchResults('A')">
                         <div id="teamAResults" class="search-results"></div>
                     </div>
                     <div style="margin-top:15px">
@@ -268,8 +274,14 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <label>Select Team</label>
                         <select id="teamBSelect" onchange="updateTeamB()"></select>
                     </div>
+                    <div class="form-group" id="teamBRosterGroup" style="display:none;">
+                        <label>Add from Roster</label>
+                        <select id="teamBRoster" onchange="addPlayerFromRoster('B')">
+                            <option value="">-- Select Player --</option>
+                        </select>
+                    </div>
                     <div class="search-container">
-                        <input type="text" id="teamBSearch" placeholder="Search players..." oninput="searchPlayers('B')" onfocus="showSearchResults('B')">
+                        <input type="text" id="teamBSearch" placeholder="Or search all players..." oninput="searchPlayers('B')" onfocus="showSearchResults('B')">
                         <div id="teamBResults" class="search-results"></div>
                     </div>
                     <div style="margin-top:15px">
@@ -1127,12 +1139,80 @@ HTML_CONTENT = '''<!DOCTYPE html>
             renderTradePlayers('A');
             renderTradePlayers('B');
 
+            // Update roster dropdowns for both teams
+            updateTeamA();
+            updateTeamB();
+
             showPanel('analyze');
             document.querySelector('.tabs .tab').click();
         }
 
-        function updateTeamA() {}
-        function updateTeamB() {}
+        async function updateTeamA() {
+            const teamName = document.getElementById('teamASelect').value;
+            const rosterGroup = document.getElementById('teamARosterGroup');
+            const rosterSelect = document.getElementById('teamARoster');
+
+            if (!teamName) {
+                rosterGroup.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`);
+                const data = await res.json();
+
+                if (data.players && data.players.length > 0) {
+                    rosterSelect.innerHTML = '<option value="">-- Select Player --</option>' +
+                        data.players.map(p =>
+                            `<option value="${p.name.replace(/"/g, '&quot;')}" data-team="${teamName.replace(/"/g, '&quot;')}">${p.name} (${p.position}, ${p.value})</option>`
+                        ).join('');
+                    rosterGroup.style.display = 'block';
+                }
+            } catch (e) {
+                console.error('Failed to load team roster:', e);
+            }
+        }
+
+        async function updateTeamB() {
+            const teamName = document.getElementById('teamBSelect').value;
+            const rosterGroup = document.getElementById('teamBRosterGroup');
+            const rosterSelect = document.getElementById('teamBRoster');
+
+            if (!teamName) {
+                rosterGroup.style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`);
+                const data = await res.json();
+
+                if (data.players && data.players.length > 0) {
+                    rosterSelect.innerHTML = '<option value="">-- Select Player --</option>' +
+                        data.players.map(p =>
+                            `<option value="${p.name.replace(/"/g, '&quot;')}" data-team="${teamName.replace(/"/g, '&quot;')}">${p.name} (${p.position}, ${p.value})</option>`
+                        ).join('');
+                    rosterGroup.style.display = 'block';
+                }
+            } catch (e) {
+                console.error('Failed to load team roster:', e);
+            }
+        }
+
+        function addPlayerFromRoster(side) {
+            const select = document.getElementById(`team${side}Roster`);
+            const selectedOption = select.options[select.selectedIndex];
+
+            if (!selectedOption || !selectedOption.value) return;
+
+            const playerName = selectedOption.value;
+            const teamName = selectedOption.dataset.team;
+
+            addPlayer(side, playerName, teamName);
+
+            // Reset dropdown to placeholder
+            select.value = '';
+        }
 
         function populateDraftPicksList() {
             const datalist = document.getElementById('draftPicksList');
