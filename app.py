@@ -160,19 +160,21 @@ def get_prospect_rank_for_name(name):
     """Get prospect rank for a player name, using normalized matching.
 
     Returns (rank, matched_name) tuple, or (None, None) if not found.
+    The matched_name is always the canonical prospect ranking name.
     """
     if not name:
         return None, None
 
-    # Try exact match first
-    if name in PROSPECT_RANKINGS:
-        return PROSPECT_RANKINGS[name], name
-
-    # Try prospect name alias (Fantrax name -> ranking name)
+    # Check aliases FIRST - this ensures we return the canonical prospect name
+    # even after aliases are added to PROSPECT_RANKINGS
     if name in PROSPECT_NAME_ALIASES:
         alias_name = PROSPECT_NAME_ALIASES[name]
         if alias_name in PROSPECT_RANKINGS:
             return PROSPECT_RANKINGS[alias_name], alias_name
+
+    # Try exact match (for names that aren't aliases)
+    if name in PROSPECT_RANKINGS:
+        return PROSPECT_RANKINGS[name], name
 
     # Try normalized match
     normalized = normalize_name(name)
