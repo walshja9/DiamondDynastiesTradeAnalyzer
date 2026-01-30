@@ -1084,6 +1084,7 @@ def load_projection_csvs():
                     if not player_name:
                         continue
                     try:
+                        gs = int(float(row.get('GS', 0) or 0))
                         proj = {
                             "IP": float(row.get('IP', 0) or 0),
                             "K": int(float(row.get('K', 0) or 0)),
@@ -1097,7 +1098,8 @@ def load_projection_csvs():
                             "BB": int(float(row.get('BB', 0) or 0)),
                             "HR": int(float(row.get('HR', 0) or 0)),
                             "G": int(float(row.get('G', 0) or 0)),
-                            "GS": int(float(row.get('GS', 0) or 0)),
+                            "GS": gs,
+                            "QS": int(gs * 0.55),  # Estimate QS as ~55% of GS
                         }
                         if proj["IP"] > 0:
                             PITCHER_PROJECTIONS[player_name] = proj
