@@ -1710,6 +1710,12 @@ def calculate_fa_dynasty_value(fa):
     else:
         base_value = max(5, fantrax_score * 0.25)  # 5-10 range
 
+    # DEBUG: Log calculation details for FA prospects
+    if fa.get('is_prospect'):
+        print(f"FA PROSPECT VALUE CALC: {fa.get('name')}")
+        print(f"  fantrax_score={fantrax_score}, base_value={base_value}")
+        print(f"  age={age}, rank={rank}, roster_pct={roster_pct}")
+
     # Age adjustment - younger FAs more valuable in dynasty
     if age <= 24:
         age_mult = 1.25
