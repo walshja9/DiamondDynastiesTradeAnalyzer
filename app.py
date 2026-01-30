@@ -2101,7 +2101,8 @@ def load_projection_csvs():
 
 
 def load_prospect_rankings():
-    """Load prospect rankings from consensus ranking CSV files and average with prospects.json."""
+    """Load prospect rankings from prospects.json and Consensus CSV files, average them,
+    then re-rank sequentially 1-200+ to eliminate duplicates."""
     import csv
     import glob
 
@@ -2127,11 +2128,9 @@ def load_prospect_rankings():
 
                     try:
                         avg_rank = float(avg_rank_str)
-                        rank = int(round(avg_rank))
-
                         # Keep the better (lower) rank if player appears in multiple CSV files
-                        if name not in csv_rankings or rank < csv_rankings[name]:
-                            csv_rankings[name] = rank
+                        if name not in csv_rankings or avg_rank < csv_rankings[name]:
+                            csv_rankings[name] = avg_rank
                     except (ValueError, TypeError):
                         continue
 
@@ -2139,34 +2138,40 @@ def load_prospect_rankings():
         except Exception as e:
             print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
 
-    # Now merge: average rankings when player is in both sources
-    # Keep ALL players in PROSPECT_RANKINGS so value caps can be applied
-    # (The Top Prospects UI will filter to show only rank <= 200)
-    merged_count = 0
-    csv_only_count = 0
+    # Merge rankings - average when player is in both sources
+    merged_rankings = {}  # name -> averaged float rank
 
-    for name, csv_rank in csv_rankings.items():
-        if name in json_rankings:
-            # Player in both sources - take the average
-            json_rank = json_rankings[name]
-            averaged_rank = int(round((json_rank + csv_rank) / 2))
-            PROSPECT_RANKINGS[name] = averaged_rank
-            merged_count += 1
+    # Process all players from both sources
+    all_names = set(json_rankings.keys()) | set(csv_rankings.keys())
+
+    for name in all_names:
+        json_rank = json_rankings.get(name)
+        csv_rank = csv_rankings.get(name)
+
+        if json_rank is not None and csv_rank is not None:
+            # In both - average them
+            merged_rankings[name] = (json_rank + csv_rank) / 2
+        elif json_rank is not None:
+            # Only in JSON
+            merged_rankings[name] = float(json_rank)
         else:
-            # Player only in CSV - add with CSV rank (even if > 200, for value capping)
-            PROSPECT_RANKINGS[name] = csv_rank
-            csv_only_count += 1
+            # Only in CSV
+            merged_rankings[name] = csv_rank
 
-    # Count JSON-only players (already in PROSPECT_RANKINGS from initial load)
-    json_only_count = len([n for n in json_rankings if n not in csv_rankings])
+    # Sort by averaged rank and re-assign sequential rankings (1, 2, 3, ...) to eliminate duplicates
+    sorted_prospects = sorted(merged_rankings.items(), key=lambda x: x[1])
+
+    # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
+    PROSPECT_RANKINGS.clear()
+    for new_rank, (name, _) in enumerate(sorted_prospects, start=1):
+        PROSPECT_RANKINGS[name] = new_rank
 
     top_200_count = len([r for r in PROSPECT_RANKINGS.values() if r <= 200])
-    print(f"Prospect rankings: {merged_count} averaged (JSON+CSV), {json_only_count} JSON-only, {csv_only_count} CSV-only")
-    print(f"Total in PROSPECT_RANKINGS: {len(PROSPECT_RANKINGS)} ({top_200_count} are top-200)")
+    print(f"Prospect rankings merged and re-ranked: {len(PROSPECT_RANKINGS)} total ({top_200_count} in top 200)")
 
-    # Debug: Print top 5 prospects
-    top_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r <= 10], key=lambda x: x[1])[:5]
-    print(f"Top 5 prospects: {top_prospects}")
+    # Debug: Print top 10 prospects to verify correct ordering
+    top_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r <= 10], key=lambda x: x[1])
+    print(f"Top 10 prospects: {[(n, r) for n, r in top_prospects]}")
 
 
 def load_data_from_json():
