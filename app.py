@@ -56,6 +56,23 @@ TEAM_RIVALRIES = {
     "Modesto Nuts": "Hershey Bears",
 }
 
+# Historical rivalry H2H records (2025 season)
+# Format: {team_name: {"record": "W-L-T", "h2h": "W-L-T", "rival_record": "W-L-T", "rival_h2h": "W-L-T"}}
+RIVALRY_HISTORY = {
+    "Danville Dairy Daddies": {"record": "14-13-1", "h2h": "1-0-1", "rival_record": "13-14-1", "rival_h2h": "0-1-1"},
+    "Pawtucket Red Sox": {"record": "13-14-1", "h2h": "0-1-1", "rival_record": "14-13-1", "rival_h2h": "1-0-1"},
+    "Akron Rubberducks": {"record": "10-16-2", "h2h": "0-2", "rival_record": "16-10-2", "rival_h2h": "2-0"},
+    "Boston Beaneaters": {"record": "16-10-2", "h2h": "2-0", "rival_record": "10-16-2", "rival_h2h": "0-2"},
+    "Alaskan Bullworms": {"record": "5-23", "h2h": "0-2", "rival_record": "23-5", "rival_h2h": "2-0"},
+    "Rocket City Trash Pandas": {"record": "23-5", "h2h": "2-0", "rival_record": "5-23", "rival_h2h": "0-2"},
+    "Colt 45s": {"record": "19-9", "h2h": "2-0", "rival_record": "9-19", "rival_h2h": "0-2"},
+    "Sugar Land Space Cowboys": {"record": "9-19", "h2h": "0-2", "rival_record": "19-9", "rival_h2h": "2-0"},
+    "Hartford Yard Goats": {"record": "15-13", "h2h": "2-0", "rival_record": "13-15", "rival_h2h": "0-2"},
+    "Kalamazoo Celery Pickers": {"record": "13-15", "h2h": "0-2", "rival_record": "15-13", "rival_h2h": "2-0"},
+    "Modesto Nuts": {"record": "16-10-2", "h2h": "1-1", "rival_record": "10-16-2", "rival_h2h": "1-1"},
+    "Hershey Bears": {"record": "10-16-2", "h2h": "1-1", "rival_record": "16-10-2", "rival_h2h": "1-1"},
+}
+
 app = Flask(__name__)
 
 # Name aliases: Fantrax name -> Fangraphs/projection name
@@ -3268,6 +3285,9 @@ def generate_rivalry_analysis(team_name, rival_name):
     my_prospects = len([p for p in team.players if p.is_prospect])
     rival_prospects = len([p for p in rival.players if p.is_prospect])
 
+    # Get historical H2H data
+    history = RIVALRY_HISTORY.get(team_name, {})
+
     return {
         'rival_name': rival_name,
         'my_value': round(my_value, 0),
@@ -3278,7 +3298,11 @@ def generate_rivalry_analysis(team_name, rival_name):
         'my_top_players': [(p.name, round(v, 1)) for p, v in my_top],
         'rival_top_players': [(p.name, round(v, 1)) for p, v in rival_top],
         'my_prospects': my_prospects,
-        'rival_prospects': rival_prospects
+        'rival_prospects': rival_prospects,
+        'my_2025_record': history.get('record', 'N/A'),
+        'my_h2h_record': history.get('h2h', 'N/A'),
+        'rival_2025_record': history.get('rival_record', 'N/A'),
+        'rival_h2h_record': history.get('rival_h2h', 'N/A'),
     }
 
 
@@ -3575,12 +3599,21 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             diff_color = "#4ade80" if diff > 0 else "#f87171"
 
             rivalry_text = f"<b>⚔️ RIVALRY vs {rival_name}:</b><br>"
-            rivalry_text += f"You're <span style='color:{diff_color}'>{status} by {abs(diff):.0f} points</span> ({rivalry['my_value']:.0f} vs {rivalry['rival_value']:.0f}). "
+
+            # Historical H2H record
+            h2h = rivalry.get('my_h2h_record', 'N/A')
+            if h2h != 'N/A':
+                h2h_wins = int(h2h.split('-')[0]) if '-' in h2h else 0
+                h2h_losses = int(h2h.split('-')[1].split('-')[0]) if '-' in h2h else 0
+                h2h_color = "#4ade80" if h2h_wins > h2h_losses else "#f87171" if h2h_losses > h2h_wins else "#fbbf24"
+                rivalry_text += f"<span style='color:{h2h_color}'>2025 H2H: {h2h}</span> (Your record: {rivalry.get('my_2025_record', 'N/A')} | Their record: {rivalry.get('rival_2025_record', 'N/A')})<br>"
+
+            rivalry_text += f"Dynasty value: You're <span style='color:{diff_color}'>{status} by {abs(diff):.0f} points</span> ({rivalry['my_value']:.0f} vs {rivalry['rival_value']:.0f}). "
 
             if rivalry['advantages']:
-                rivalry_text += f"<span style='color:#4ade80'>Advantages: {', '.join(rivalry['advantages'][:3])}</span>. "
+                rivalry_text += f"<br><span style='color:#4ade80'>Category advantages: {', '.join(rivalry['advantages'][:4])}</span>. "
             if rivalry['disadvantages']:
-                rivalry_text += f"<span style='color:#f87171'>Disadvantages: {', '.join(rivalry['disadvantages'][:3])}</span>. "
+                rivalry_text += f"<span style='color:#f87171'>Disadvantages: {', '.join(rivalry['disadvantages'][:4])}</span>. "
 
             rivalry_text += f"<br>Their stars: {', '.join([f'{n} ({v})' for n, v in rivalry['rival_top_players'][:2]])}."
             analysis_parts.append(rivalry_text)
