@@ -77,6 +77,93 @@ def load_ages_from_csv():
 CSV_AGES = load_ages_from_csv()
 
 
+def load_stats_from_csv():
+    """Load actual player stats from Fantrax stats CSV export if available."""
+    import csv
+    import glob
+
+    stats = {}
+    search_paths = [
+        os.path.dirname(os.path.abspath(__file__)),
+        os.getcwd(),
+        os.path.expanduser('~'),
+        os.path.join(os.path.expanduser('~'), 'Downloads'),
+    ]
+
+    # Look for hitter stats CSV
+    hitter_csv = None
+    pitcher_csv = None
+    for path in search_paths:
+        for pattern in ['*hitter*stats*.csv', '*batting*stats*.csv', '*hitting*.csv']:
+            matches = glob.glob(os.path.join(path, pattern))
+            if matches:
+                hitter_csv = matches[0]
+                break
+        for pattern in ['*pitcher*stats*.csv', '*pitching*stats*.csv', '*pitching*.csv']:
+            matches = glob.glob(os.path.join(path, pattern))
+            if matches:
+                pitcher_csv = matches[0]
+                break
+        if hitter_csv and pitcher_csv:
+            break
+
+    # Load hitter stats
+    if hitter_csv:
+        try:
+            with open(hitter_csv, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    name = row.get('Player', row.get('Name', '')).strip()
+                    if not name:
+                        continue
+                    stats[name] = {
+                        "type": "hitter",
+                        "G": int(float(row.get('G', 0) or 0)),
+                        "AB": int(float(row.get('AB', 0) or 0)),
+                        "R": int(float(row.get('R', 0) or 0)),
+                        "H": int(float(row.get('H', 0) or 0)),
+                        "HR": int(float(row.get('HR', 0) or 0)),
+                        "RBI": int(float(row.get('RBI', 0) or 0)),
+                        "SB": int(float(row.get('SB', 0) or 0)),
+                        "AVG": row.get('AVG', '.000'),
+                        "OBP": row.get('OBP', '.000'),
+                        "OPS": row.get('OPS', '.000'),
+                    }
+            print(f"Loaded {len([s for s in stats.values() if s['type'] == 'hitter'])} hitter stats from: {hitter_csv}")
+        except Exception as e:
+            print(f"Warning: Could not load hitter stats from CSV: {e}")
+
+    # Load pitcher stats
+    if pitcher_csv:
+        try:
+            with open(pitcher_csv, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    name = row.get('Player', row.get('Name', '')).strip()
+                    if not name:
+                        continue
+                    stats[name] = {
+                        "type": "pitcher",
+                        "G": int(float(row.get('G', 0) or 0)),
+                        "GS": int(float(row.get('GS', 0) or 0)),
+                        "IP": row.get('IP', '0.0'),
+                        "W": int(float(row.get('W', 0) or 0)),
+                        "L": int(float(row.get('L', 0) or 0)),
+                        "SV": int(float(row.get('SV', 0) or 0)),
+                        "K": int(float(row.get('K', row.get('SO', 0)) or 0)),
+                        "ERA": row.get('ERA', '0.00'),
+                        "WHIP": row.get('WHIP', '0.00'),
+                    }
+            print(f"Loaded {len([s for s in stats.values() if s['type'] == 'pitcher'])} pitcher stats from: {pitcher_csv}")
+        except Exception as e:
+            print(f"Warning: Could not load pitcher stats from CSV: {e}")
+
+    return stats
+
+# Load stats CSV at module level
+CSV_STATS = load_stats_from_csv()
+
+
 def save_cookies(cookies):
     """Save cookies to file for reuse."""
     with open(COOKIE_FILE, 'wb') as f:
@@ -251,6 +338,13 @@ def export_league_data():
                 if age == 0:
                     age = PLAYER_AGES.get(p.name, 0)
 
+                # Get fantasy points from roster row
+                fantasy_points = row.total_fantasy_points if hasattr(row, 'total_fantasy_points') else None
+                fppg = row.fantasy_points_per_game if hasattr(row, 'fantasy_points_per_game') else None
+
+                # Get actual stats from CSV if available
+                actual_stats = CSV_STATS.get(p.name)
+
                 player_data = {
                     "name": p.name,
                     "position": pos,
@@ -261,6 +355,9 @@ def export_league_data():
                     "prospect_rank": prospect_rank if is_prospect else None,
                     "has_projections": bool(projections),
                     "projections": projections if projections else None,
+                    "fantasy_points": fantasy_points,
+                    "fppg": fppg,
+                    "actual_stats": actual_stats,
                 }
                 players.append(player_data)
                 total_players += 1

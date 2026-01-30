@@ -52,6 +52,10 @@ league_standings = []
 league_matchups = []
 league_transactions = []
 
+# Player stats (actual in-season stats)
+player_actual_stats = {}  # player_name -> {stats dict}
+player_fantasy_points = {}  # player_name -> {fantasy_points, fppg}
+
 # Draft order configuration (team_name -> pick_number for 2026)
 # If empty, draft order is calculated based on team value (worst team = pick 1)
 draft_order_config = {}
@@ -830,6 +834,25 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     projectionsHtml = '<div style="color:#888;margin-top:15px;">No projections available</div>';
                 }
 
+                // Build actual stats HTML
+                let actualStatsHtml = '';
+                if (data.actual_stats && Object.keys(data.actual_stats).length > 0) {
+                    const statItems = Object.entries(data.actual_stats)
+                        .filter(([key]) => key !== 'type')
+                        .map(([key, val]) => '<div class="stat-box"><div class="label">' + key + '</div><div class="value">' + val + '</div></div>')
+                        .join('');
+                    actualStatsHtml = '<div style="margin-top:15px;"><div style="color:#4ade80;font-size:0.85rem;margin-bottom:10px;">2026 Actual Stats</div><div class="player-stats">' + statItems + '</div></div>';
+                }
+
+                // Build fantasy points HTML
+                let fantasyPtsHtml = '';
+                if (data.fantasy_points !== null || data.fppg !== null) {
+                    let items = '';
+                    if (data.fantasy_points !== null) items += '<div class="stat-box"><div class="label">Total FP</div><div class="value">' + data.fantasy_points.toFixed(1) + '</div></div>';
+                    if (data.fppg !== null) items += '<div class="stat-box"><div class="label">FP/Game</div><div class="value">' + data.fppg.toFixed(2) + '</div></div>';
+                    fantasyPtsHtml = '<div style="margin-top:15px;"><div style="color:#60a5fa;font-size:0.85rem;margin-bottom:10px;">Fantasy Points</div><div class="player-stats">' + items + '</div></div>';
+                }
+
                 // Build category contributions
                 let categoryHtml = '';
                 if (data.category_contributions && data.category_contributions.length > 0) {
@@ -883,6 +906,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div style="background:#1a1a2e;padding:12px 15px;border-radius:8px;margin-top:15px;">
                         <div style="color:#888;font-size:0.85rem;">${data.trajectory_desc}</div>
                     </div>
+
+                    ${actualStatsHtml}
+
+                    ${fantasyPtsHtml}
 
                     ${projectionsHtml}
 
@@ -1150,7 +1177,7 @@ def load_projection_csvs():
 
 def load_data_from_json():
     """Load all league data from league_data.json (exported by data_exporter.py)."""
-    global teams, interactive, league_standings, league_matchups, league_transactions
+    global teams, interactive, league_standings, league_matchups, league_transactions, player_actual_stats, player_fantasy_points
 
     # Look for league_data.json
     search_paths = [
@@ -1219,6 +1246,20 @@ def load_data_from_json():
                             PITCHER_PROJECTIONS[player_name] = proj
                         projections_loaded += 1
 
+                # Load actual stats if available
+                actual = p.get('actual_stats')
+                if actual:
+                    player_actual_stats[p['name']] = actual
+
+                # Load fantasy points if available
+                fp = p.get('fantasy_points')
+                fppg = p.get('fppg')
+                if fp is not None or fppg is not None:
+                    player_fantasy_points[p['name']] = {
+                        'fantasy_points': fp,
+                        'fppg': fppg
+                    }
+
             teams[team_name] = team
 
         interactive = InteractiveTradeAnalyzer(dict(teams))
@@ -1237,6 +1278,8 @@ def load_data_from_json():
 
         print(f"Loaded {len(teams)} teams with {total_players} players from JSON")
         print(f"Loaded {projections_loaded} player projections from JSON")
+        print(f"Loaded {len(player_actual_stats)} players with actual stats")
+        print(f"Loaded {len(player_fantasy_points)} players with fantasy points")
         print(f"Standings: {len(league_standings)}, Matchups: {len(league_matchups)}, Transactions: {len(league_transactions)}")
         return True
 
@@ -1766,6 +1809,10 @@ def get_player(player_name):
     else:
         trade_advice = "Depth piece - can be packaged in larger deals or used for roster flexibility."
 
+    # Get actual stats and fantasy points
+    actual_stats = player_actual_stats.get(player.name)
+    fantasy_pts = player_fantasy_points.get(player.name, {})
+
     return jsonify({
         "name": player.name,
         "position": player.position,
@@ -1778,6 +1825,9 @@ def get_player(player_name):
         "prospect_rank": player.prospect_rank if player.is_prospect else None,
         "projections": projections,
         "projections_estimated": projections_estimated,
+        "actual_stats": actual_stats,
+        "fantasy_points": fantasy_pts.get('fantasy_points'),
+        "fppg": fantasy_pts.get('fppg'),
         "trajectory": trajectory,
         "trajectory_desc": trajectory_desc,
         "age_adjustment": age_adjustment,
