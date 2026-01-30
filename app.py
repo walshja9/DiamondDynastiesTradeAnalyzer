@@ -2388,6 +2388,7 @@ def load_prospect_rankings():
         "Kazuma Okamoto",     # Japanese MLB player
         "Tatsuya Imai",       # Japanese MLB player
         "Ben Joyce",          # MLB debut 2023, no longer a prospect
+        "Mick Abel",          # No longer considered a top prospect
     }
 
     # Filter out players who are too old to be considered prospects (26+ years old)
