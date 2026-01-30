@@ -42,6 +42,36 @@ FANTRAX_LEAGUE_ID = os.environ.get("FANTRAX_LEAGUE_ID", "3iibc548mhhszwor")
 
 app = Flask(__name__)
 
+# Name aliases: Fantrax name -> Fangraphs/projection name
+# Used to match players with different name formats
+NAME_ALIASES = {
+    "Andres Gimenez": "Andrés Giménez",
+    "Ha-seong Kim": "Ha-Seong Kim",
+    "Simeon Woods-Richardson": "Simeon Woods Richardson",
+    "Luis Garcia Jr.": "Luis García Jr.",
+    "Wander Franco": "Wander Franco",
+    "Yainer Diaz": "Yainer Díaz",
+    "Ozzie Albies": "Ozzie Albies",
+    "Ronald Acuna Jr.": "Ronald Acuña Jr.",
+    "Vladimir Guerrero Jr.": "Vladimir Guerrero Jr.",
+    "Jose Ramirez": "José Ramírez",
+    "Rafael Devers": "Rafael Devers",
+    "Yordan Alvarez": "Yordan Alvarez",
+    "Luis Robert Jr.": "Luis Robert Jr.",
+    "Julio Rodriguez": "Julio Rodríguez",
+}
+
+def add_name_aliases_to_projections():
+    """Add alternate name lookups to projection dictionaries."""
+    for fantrax_name, proj_name in NAME_ALIASES.items():
+        # If projection exists under the accented name, add it under the Fantrax name too
+        if proj_name in HITTER_PROJECTIONS and fantrax_name not in HITTER_PROJECTIONS:
+            HITTER_PROJECTIONS[fantrax_name] = HITTER_PROJECTIONS[proj_name]
+        if proj_name in PITCHER_PROJECTIONS and fantrax_name not in PITCHER_PROJECTIONS:
+            PITCHER_PROJECTIONS[fantrax_name] = PITCHER_PROJECTIONS[proj_name]
+        if proj_name in RELIEVER_PROJECTIONS and fantrax_name not in RELIEVER_PROJECTIONS:
+            RELIEVER_PROJECTIONS[fantrax_name] = RELIEVER_PROJECTIONS[proj_name]
+
 # Global state
 teams = {}
 interactive = None
@@ -233,6 +263,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         <div class="tabs">
             <button class="tab active" onclick="showPanel('analyze')">Analyze Trade</button>
             <button class="tab" onclick="showPanel('teams')">Teams</button>
+            <button class="tab" onclick="showPanel('prospects')">Top Prospects</button>
             <button class="tab" onclick="showPanel('suggest')">Trade Suggestions</button>
             <button class="tab" onclick="showPanel('search')">Player Search</button>
             <button class="tab" onclick="showPanel('league')">League</button>
@@ -322,6 +353,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <div id="teams-grid" class="team-grid"></div>
         </div>
 
+        <div id="prospects-panel" class="panel">
+            <h3 style="margin-bottom: 15px;">Top Prospects League-Wide</h3>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Showing all ranked prospects (top 200) owned by teams in the league.</p>
+            <div id="prospects-loading" class="loading">Loading prospects...</div>
+            <div id="prospects-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;"></div>
+        </div>
+
         <div id="suggest-panel" class="panel">
             <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                 <div class="form-group" style="flex: 1; min-width: 180px;">
@@ -407,6 +445,40 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 renderTeamsGrid();
             } catch (e) {
                 console.error('Failed to load teams:', e);
+            }
+        }
+
+        async function loadProspects() {
+            const grid = document.getElementById('prospects-grid');
+            const loading = document.getElementById('prospects-loading');
+
+            try {
+                const res = await fetch(`${API_BASE}/prospects`);
+                const data = await res.json();
+                loading.style.display = 'none';
+
+                if (data.prospects && data.prospects.length > 0) {
+                    grid.innerHTML = data.prospects.map(p => `
+                        <div style="background: #1a1a2e; border-radius: 10px; padding: 15px; border-left: 4px solid ${p.rank <= 10 ? '#ffd700' : p.rank <= 25 ? '#c0c0c0' : p.rank <= 50 ? '#cd7f32' : '#4a90d9'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-weight: bold; color: ${p.rank <= 10 ? '#ffd700' : p.rank <= 25 ? '#c0c0c0' : p.rank <= 50 ? '#cd7f32' : '#fff'};">#${p.rank} ${p.name}</span>
+                                <span style="color: #4a90d9; font-weight: bold;">${p.value.toFixed(1)}</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #888;">
+                                ${p.position} | Age ${p.age} | ${p.mlb_team}
+                            </div>
+                            <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+                                Owner: <span style="color: #aaa;">${p.fantasy_team}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    grid.innerHTML = '<div style="color: #888; text-align: center; grid-column: 1/-1;">No prospects found.</div>';
+                }
+            } catch (e) {
+                console.error('Failed to load prospects:', e);
+                loading.style.display = 'none';
+                grid.innerHTML = '<div style="color: #f66; text-align: center; grid-column: 1/-1;">Failed to load prospects.</div>';
             }
         }
 
@@ -1236,6 +1308,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
         // Initialize
         loadTeams().then(() => populateDraftPicksList());
+        loadProspects();
     </script>
     <datalist id="draftPicksList"></datalist>
 </body>
@@ -1630,25 +1703,45 @@ def load_prospect_rankings():
             print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
 
     # Now merge: average rankings when player is in both sources
+    # Only include players with final rank <= 200 (filter out non-prospects)
+    MAX_PROSPECT_RANK = 200
     merged_count = 0
     csv_only_count = 0
+    filtered_count = 0
 
     for name, csv_rank in csv_rankings.items():
         if name in json_rankings:
             # Player in both sources - take the average
             json_rank = json_rankings[name]
             averaged_rank = int(round((json_rank + csv_rank) / 2))
-            PROSPECT_RANKINGS[name] = averaged_rank
-            merged_count += 1
+            if averaged_rank <= MAX_PROSPECT_RANK:
+                PROSPECT_RANKINGS[name] = averaged_rank
+                merged_count += 1
+            else:
+                # Remove from rankings if averaged rank is too high
+                if name in PROSPECT_RANKINGS:
+                    del PROSPECT_RANKINGS[name]
+                filtered_count += 1
         else:
-            # Player only in CSV - use CSV rank
-            PROSPECT_RANKINGS[name] = csv_rank
-            csv_only_count += 1
+            # Player only in CSV - use CSV rank if <= 200
+            if csv_rank <= MAX_PROSPECT_RANK:
+                PROSPECT_RANKINGS[name] = csv_rank
+                csv_only_count += 1
+            else:
+                filtered_count += 1
 
-    # Players only in JSON are already in PROSPECT_RANKINGS
-    json_only_count = len(json_rankings) - merged_count
+    # Filter JSON-only players too (remove if rank > 200)
+    json_only_count = 0
+    for name in list(json_rankings.keys()):
+        if name not in csv_rankings:
+            if json_rankings[name] <= MAX_PROSPECT_RANK:
+                json_only_count += 1
+            else:
+                if name in PROSPECT_RANKINGS:
+                    del PROSPECT_RANKINGS[name]
+                filtered_count += 1
 
-    print(f"Prospect rankings: {merged_count} averaged (JSON+CSV), {json_only_count} JSON-only, {csv_only_count} CSV-only")
+    print(f"Prospect rankings: {merged_count} averaged (JSON+CSV), {json_only_count} JSON-only, {csv_only_count} CSV-only, {filtered_count} filtered (rank>200)")
     print(f"Total prospects in rankings: {len(PROSPECT_RANKINGS)}")
 
 
@@ -1921,6 +2014,31 @@ def get_teams():
             "draft_pick": draft_order.get(name, 0)
         } for name, team in teams.items()], key=lambda x: x["power_rank"])
     })
+
+
+@app.route('/prospects')
+def get_prospects():
+    """Get all prospects across all teams, sorted by rank."""
+    all_prospects = []
+
+    for team_name, team in teams.items():
+        for player in team.players:
+            if player.is_prospect and player.prospect_rank and player.prospect_rank <= 200:
+                value = calculator.calculate_player_value(player)
+                all_prospects.append({
+                    "name": player.name,
+                    "rank": player.prospect_rank,
+                    "position": player.position,
+                    "age": player.age,
+                    "mlb_team": player.mlb_team,
+                    "fantasy_team": team_name,
+                    "value": round(value, 1)
+                })
+
+    # Sort by rank
+    all_prospects.sort(key=lambda x: x["rank"])
+
+    return jsonify({"prospects": all_prospects})
 
 
 @app.route('/team/<team_name>')
@@ -2688,6 +2806,9 @@ load_ages_from_fantrax_csv()
 
 # Load projection CSVs (if available)
 load_projection_csvs()
+
+# Add name aliases for players with different name formats (accents, hyphens, etc.)
+add_name_aliases_to_projections()
 
 # Load prospect rankings from consensus CSV files
 load_prospect_rankings()
