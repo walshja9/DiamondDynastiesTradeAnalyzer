@@ -61,6 +61,13 @@ NAME_ALIASES = {
     "Julio Rodriguez": "Julio Rodríguez",
 }
 
+# Prospect name aliases: Fantrax name -> Prospect ranking name
+# Used to match prospects with different name formats between Fantrax and ranking sources
+PROSPECT_NAME_ALIASES = {
+    "Leodalis De Vries": "Leo De Vries",
+    "J.R. Ritchie": "JR Ritchie",
+}
+
 def add_name_aliases_to_projections():
     """Add alternate name lookups to projection dictionaries."""
     for fantrax_name, proj_name in NAME_ALIASES.items():
@@ -143,14 +150,18 @@ def get_prospect_rank_for_name(name):
     if name in PROSPECT_RANKINGS:
         return PROSPECT_RANKINGS[name], name
 
+    # Try prospect name alias (Fantrax name -> ranking name)
+    if name in PROSPECT_NAME_ALIASES:
+        alias_name = PROSPECT_NAME_ALIASES[name]
+        if alias_name in PROSPECT_RANKINGS:
+            return PROSPECT_RANKINGS[alias_name], alias_name
+
     # Try normalized match
     normalized = normalize_name(name)
     if normalized in NORMALIZED_PROSPECT_LOOKUP:
         original_name = NORMALIZED_PROSPECT_LOOKUP[normalized]
         return PROSPECT_RANKINGS[original_name], original_name
 
-    # Debug: Log failed lookups for names that look like they might be prospects
-    # (young players typically have lower roster %)
     return None, None
 
 
