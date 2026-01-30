@@ -746,21 +746,22 @@ class DynastyValueCalculator:
         value *= bonus_multiplier
         
         # Prospect bonus (applied separately, after cap)
+        # Dynasty leagues value prospect potential heavily
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
             if rank <= 10:
-                value = max(value, 70)  # Top 10 prospects floor
-                value *= 1.15
+                value = max(value, 80)  # Top 10 prospects are elite assets
+                value *= 1.20
             elif rank <= 25:
-                value = max(value, 50)
-                value *= 1.10
+                value = max(value, 70)  # Top 25 are highly valuable
+                value *= 1.15
             elif rank <= 50:
-                value = max(value, 38)
-                value *= 1.06
+                value = max(value, 58)  # Top 50 have significant upside
+                value *= 1.10
             elif rank <= 100:
-                value = max(value, 28)
-                value *= 1.03
-        
+                value = max(value, 45)  # Top 100 still have value
+                value *= 1.05
+
         return value
     
     @staticmethod
