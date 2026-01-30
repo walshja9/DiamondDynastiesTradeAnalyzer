@@ -1748,11 +1748,15 @@ def calculate_fa_dynasty_value(fa):
 
     # Prospect handling - FA prospects should have values similar to rostered prospects
     # Use VALUE FLOORS to ensure ranked prospects have appropriate minimum values
-    if fa.get('is_prospect') and fa.get('prospect_rank'):
-        prospect_rank = fa['prospect_rank']
+    is_prospect = fa.get('is_prospect')
+    prospect_rank = fa.get('prospect_rank')
 
+    print(f"DEBUG calculate_fa_dynasty_value: {fa.get('name')} - is_prospect={is_prospect}, prospect_rank={prospect_rank}")
+
+    if is_prospect and prospect_rank:
         # Calculate preliminary value
         preliminary_value = (base_value * age_mult) + rank_bonus + ros_bonus
+        print(f"  -> preliminary_value={preliminary_value}, applying prospect floor for rank {prospect_rank}")
 
         # Apply prospect floors (matching the main dynasty calculator)
         # These ensure a Top 20 FA prospect isn't valued at 25 just because they have no Fantrax score
