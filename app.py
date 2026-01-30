@@ -1663,8 +1663,16 @@ def load_free_agents():
                     fa['is_prospect'] = prospect_rank is not None and prospect_rank <= 200
                     fa['prospect_rank'] = prospect_rank if fa['is_prospect'] else None
 
+                    # Debug: Log FA prospects found
+                    if fa['is_prospect']:
+                        print(f"FA PROSPECT FOUND: {fa_name} - Rank #{prospect_rank}")
+
                     # Calculate dynasty value for FA (with prospect bonus if applicable)
                     fa['dynasty_value'] = calculate_fa_dynasty_value(fa)
+
+                    # Debug: Log value for ranked prospects
+                    if fa['is_prospect']:
+                        print(f"  -> Dynasty Value: {fa['dynasty_value']}")
                     FREE_AGENTS.append(fa)
                 except (ValueError, TypeError) as e:
                     continue
