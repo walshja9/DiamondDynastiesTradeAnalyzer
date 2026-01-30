@@ -1794,6 +1794,7 @@ def load_free_agents():
                     prospect_rank, matched_name = get_prospect_rank_for_name(fa_name)
                     fa['is_prospect'] = prospect_rank is not None and prospect_rank <= 200
                     fa['prospect_rank'] = prospect_rank if fa['is_prospect'] else None
+                    fa['prospect_name'] = matched_name if fa['is_prospect'] else None  # Store matched name for /prospects
 
                     # Debug: Log FA prospects found
                     if fa['is_prospect']:
@@ -2447,10 +2448,9 @@ def load_data_from_json():
                 if player_age == 0:
                     player_age = PLAYER_AGES.get(player_name, 0)  # Static dictionary
 
-                # Get prospect rank from PROSPECT_RANKINGS (averaged from JSON + CSV)
-                prospect_rank = PROSPECT_RANKINGS.get(player_name)
+                # Get prospect rank from PROSPECT_RANKINGS (using normalized matching)
+                prospect_rank, matched_prospect_name = get_prospect_rank_for_name(player_name)
                 # Only mark as prospect for display if rank <= 200
-                # (But they're still in PROSPECT_RANKINGS for value capping purposes)
                 is_prospect = prospect_rank is not None and prospect_rank <= 200
 
                 player = Player(
@@ -2463,6 +2463,9 @@ def load_data_from_json():
                     is_prospect=is_prospect,
                     prospect_rank=prospect_rank if is_prospect else 999,
                 )
+                # Store matched prospect name for /prospects endpoint
+                if is_prospect and matched_prospect_name:
+                    player.prospect_name = matched_prospect_name
                 team.players.append(player)
                 total_players += 1
 
@@ -2596,8 +2599,8 @@ def load_data_from_api():
             for roster_player in roster.players:
                 player_name = roster_player.name
 
-                # Check if player is in prospect rankings
-                prospect_rank = PROSPECT_RANKINGS.get(player_name)
+                # Check if player is in prospect rankings (using normalized matching)
+                prospect_rank, matched_prospect_name = get_prospect_rank_for_name(player_name)
                 # Only mark as prospect for display if rank <= 200
                 is_prospect = prospect_rank is not None and prospect_rank <= 200
 
@@ -2611,6 +2614,9 @@ def load_data_from_api():
                     is_prospect=is_prospect,
                     prospect_rank=prospect_rank if is_prospect else 999,
                 )
+                # Store matched prospect name for /prospects endpoint
+                if is_prospect and matched_prospect_name:
+                    player.prospect_name = matched_prospect_name
 
                 team.players.append(player)
                 total_players += 1
@@ -2690,7 +2696,9 @@ def get_prospects():
         for player in team.players:
             if player.is_prospect and player.prospect_rank and player.prospect_rank <= 200:
                 value = calculator.calculate_player_value(player)
-                found_prospects[player.name] = {
+                # Use matched prospect name as key (for consistency with PROSPECT_RANKINGS)
+                prospect_key = getattr(player, 'prospect_name', None) or player.name
+                found_prospects[prospect_key] = {
                     "name": player.name,
                     "rank": player.prospect_rank,
                     "position": player.position,
@@ -2703,20 +2711,13 @@ def get_prospects():
                 }
 
     # Get prospects from free agents
-    # Also track which PROSPECT_RANKINGS names have been found (for alias matching)
-    found_prospect_ranks = set()
-
+    # Use the stored prospect_name which was matched during load_free_agents()
     for fa in FREE_AGENTS:
         if fa.get('is_prospect') and fa.get('prospect_rank') and fa['prospect_rank'] <= 200:
-            # Find the matching prospect name in PROSPECT_RANKINGS
-            # (might be different from FA name due to aliases)
-            prospect_name = None
-            for pname, prank in PROSPECT_RANKINGS.items():
-                if prank == fa['prospect_rank']:
-                    prospect_name = pname
-                    break
+            # Use the stored prospect_name (matched during FA loading)
+            prospect_name = fa.get('prospect_name') or fa['name']
 
-            if prospect_name and prospect_name not in found_prospects:
+            if prospect_name not in found_prospects:
                 found_prospects[prospect_name] = {
                     "name": fa['name'],  # Use FA name for display
                     "rank": fa['prospect_rank'],
