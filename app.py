@@ -1028,6 +1028,102 @@ HTML_CONTENT = '''<!DOCTYPE html>
 # DATA LOADING
 # ============================================================================
 
+def load_projection_csvs():
+    """Load projection data from CSV files."""
+    import csv
+    import glob
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Load hitter projections
+    hitter_files = glob.glob(os.path.join(script_dir, '*hitter*projection*.csv'))
+    if hitter_files:
+        try:
+            count = 0
+            with open(hitter_files[0], 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    player_name = row.get('Player', '').strip()
+                    if not player_name:
+                        continue
+                    try:
+                        proj = {
+                            "AB": int(float(row.get('AB', 0) or 0)),
+                            "R": int(float(row.get('R', 0) or 0)),
+                            "HR": int(float(row.get('HR', 0) or 0)),
+                            "RBI": int(float(row.get('RBI', 0) or 0)),
+                            "SB": int(float(row.get('SB', 0) or 0)),
+                            "AVG": float(row.get('AVG', 0) or 0),
+                            "OBP": float(row.get('OBP', 0) or 0),
+                            "OPS": float(row.get('OPS', 0) or 0),
+                        }
+                        if proj["AB"] > 0:
+                            HITTER_PROJECTIONS[player_name] = proj
+                            count += 1
+                    except (ValueError, TypeError):
+                        continue
+            print(f"Loaded {count} hitter projections from CSV")
+        except Exception as e:
+            print(f"Warning: Failed to load hitter projections: {e}")
+
+    # Load pitcher projections
+    pitcher_files = [f for f in glob.glob(os.path.join(script_dir, '*pitcher*projection*.csv')) if 'relief' not in f.lower()]
+    if pitcher_files:
+        try:
+            count = 0
+            with open(pitcher_files[0], 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    player_name = row.get('Player', '').strip()
+                    if not player_name:
+                        continue
+                    try:
+                        proj = {
+                            "IP": float(row.get('IP', 0) or 0),
+                            "K": int(float(row.get('K', 0) or 0)),
+                            "W": int(float(row.get('W', 0) or 0)),
+                            "ERA": float(row.get('ERA', 0) or 0),
+                            "WHIP": float(row.get('WHIP', 0) or 0),
+                        }
+                        if proj["IP"] > 0:
+                            PITCHER_PROJECTIONS[player_name] = proj
+                            count += 1
+                    except (ValueError, TypeError):
+                        continue
+            print(f"Loaded {count} pitcher projections from CSV")
+        except Exception as e:
+            print(f"Warning: Failed to load pitcher projections: {e}")
+
+    # Load reliever projections
+    relief_files = glob.glob(os.path.join(script_dir, '*relief*projection*.csv'))
+    if relief_files:
+        try:
+            count = 0
+            with open(relief_files[0], 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    player_name = row.get('Player', '').strip()
+                    if not player_name:
+                        continue
+                    try:
+                        proj = {
+                            "IP": float(row.get('IP', 0) or 0),
+                            "K": int(float(row.get('K', 0) or 0)),
+                            "SV": int(float(row.get('SV', 0) or 0)),
+                            "HD": int(float(row.get('HD', row.get('HLD', 0)) or 0)),
+                            "ERA": float(row.get('ERA', 0) or 0),
+                            "WHIP": float(row.get('WHIP', 0) or 0),
+                        }
+                        if proj["IP"] > 0:
+                            RELIEVER_PROJECTIONS[player_name] = proj
+                            count += 1
+                    except (ValueError, TypeError):
+                        continue
+            print(f"Loaded {count} reliever projections from CSV")
+        except Exception as e:
+            print(f"Warning: Failed to load reliever projections: {e}")
+
+
 def load_data_from_json():
     """Load all league data from league_data.json (exported by data_exporter.py)."""
     global teams, interactive, league_standings, league_matchups, league_transactions
@@ -1057,9 +1153,10 @@ def load_data_from_json():
         print(f"Loading from: {json_path}")
         print(f"Data exported at: {data.get('exported_at', 'unknown')}")
 
-        # Load teams
+        # Load teams and projections
         teams.clear()
         total_players = 0
+        projections_loaded = 0
 
         for team_name, team_data in data.get('teams', {}).items():
             team = Team(name=team_name)
@@ -1083,6 +1180,21 @@ def load_data_from_json():
                 team.players.append(player)
                 total_players += 1
 
+                # Load projections if available
+                proj = p.get('projections')
+                if proj:
+                    player_name = p['name']
+                    # Determine if hitter or pitcher based on projection keys
+                    if 'AB' in proj or 'HR' in proj or 'RBI' in proj:
+                        HITTER_PROJECTIONS[player_name] = proj
+                        projections_loaded += 1
+                    elif 'IP' in proj or 'ERA' in proj or 'WHIP' in proj:
+                        if proj.get('SV', 0) > 0 or proj.get('HD', 0) > 0:
+                            RELIEVER_PROJECTIONS[player_name] = proj
+                        else:
+                            PITCHER_PROJECTIONS[player_name] = proj
+                        projections_loaded += 1
+
             teams[team_name] = team
 
         interactive = InteractiveTradeAnalyzer(dict(teams))
@@ -1100,6 +1212,7 @@ def load_data_from_json():
         league_transactions.extend(data.get('transactions', []))
 
         print(f"Loaded {len(teams)} teams with {total_players} players from JSON")
+        print(f"Loaded {projections_loaded} player projections from JSON")
         print(f"Standings: {len(league_standings)}, Matchups: {len(league_matchups)}, Transactions: {len(league_transactions)}")
         return True
 
@@ -1842,6 +1955,9 @@ def handle_draft_order():
 # Load data on startup
 print("Loading data...")
 data_loaded = False
+
+# Load projection CSVs first (if available)
+load_projection_csvs()
 
 # Try JSON first (exported by data_exporter.py - has all data including standings/matchups)
 print("Looking for league_data.json...")

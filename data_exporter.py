@@ -260,6 +260,7 @@ def export_league_data():
                     "is_prospect": is_prospect,
                     "prospect_rank": prospect_rank if is_prospect else None,
                     "has_projections": bool(projections),
+                    "projections": projections if projections else None,
                 }
                 players.append(player_data)
                 total_players += 1
