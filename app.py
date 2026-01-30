@@ -1611,18 +1611,24 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     analysis_parts.append(f"<b>RISK FACTORS:</b> {' | '.join(risk_factors)}.")
 
     # Trade strategy based on window
-    if window == "teardown":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Full rebuild required. Sell veterans for picks and prospects.")
-    elif window == "rebuilding":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Stay the course - accumulate young assets and draft picks.")
+    if window == "dynasty":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Dynasty dominance mode - protect your core, but don't overpay to fill small gaps. You can afford to be patient.")
+    elif window == "contender":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Contender's edge - make surgical moves to address weaknesses. Worth paying a premium for the right piece.")
     elif window == "win-now":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Championship window is open - be aggressive. Trade prospects for proven talent.")
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Championship window closing - be aggressive. Trade future assets for proven talent now.")
     elif window == "rising":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Build around young core. Target complementary pieces to accelerate timeline.")
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Build around your young core. Target complementary pieces to accelerate your timeline.")
+    elif window == "competitive":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> In the mix but need more. Look for undervalued assets to push into contention.")
     elif window == "declining":
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Begin transitioning before values crater. Sell aging assets while they have value.")
-    else:
-        analysis_parts.append("<b>TRADE STRATEGY:</b> Decision time - commit to contending or rebuilding.")
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Begin transitioning before values crater. Sell aging assets while they still have value.")
+    elif window == "retooling":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Stuck in the middle - commit to a direction. Either sell vets to rebuild or buy to compete.")
+    elif window == "rebuilding":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Stay the course - accumulate young assets and draft picks. Patience will pay off.")
+    elif window == "teardown":
+        analysis_parts.append("<b>TRADE STRATEGY:</b> Full rebuild required. Sell veterans for picks and prospects - every aging asset must go.")
 
     return "<br><br>".join(analysis_parts)
 
