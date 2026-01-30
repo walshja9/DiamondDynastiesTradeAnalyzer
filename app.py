@@ -1778,6 +1778,13 @@ def load_free_agents():
                     ros = float(ros_pct) if ros_pct else 0
 
                     fa_name = row.get('Player', '')
+                    # Handle ADP field that might be "-" or empty
+                    adp_str = row.get('ADP', '999')
+                    try:
+                        adp = float(adp_str) if adp_str and adp_str != '-' else 999
+                    except ValueError:
+                        adp = 999
+
                     fa = {
                         'id': row.get('ID', ''),
                         'name': fa_name,
@@ -1787,7 +1794,7 @@ def load_free_agents():
                         'age': age,
                         'score': score,
                         'roster_pct': ros,
-                        'adp': float(row.get('ADP', 999) or 999),
+                        'adp': adp,
                     }
 
                     # Check if FA is a ranked prospect (using normalized name matching)
