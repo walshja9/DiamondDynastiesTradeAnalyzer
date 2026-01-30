@@ -3125,6 +3125,99 @@ def get_category_trade_targets(team_name, weak_categories, num_targets=3):
     return targets
 
 
+def scan_league_for_opportunities(team_name):
+    """
+    League-wide scout report: identify the best opportunities across all teams.
+    Returns structured analysis of what's available and who might be selling.
+    """
+    report = {
+        'rebuilding_teams': [],
+        'fire_sale_candidates': [],
+        'prospect_rich_teams': [],
+        'veteran_heavy_teams': [],
+        'category_leaders': {},
+        'trade_market_summary': ""
+    }
+
+    _, power_rankings, _ = get_team_rankings()
+    team_cats, rankings = calculate_league_category_rankings()
+
+    # Analyze each team
+    for other_team_name, other_team in teams.items():
+        if other_team_name == team_name:
+            continue
+
+        other_rank = power_rankings.get(other_team_name, 6)
+        ages = [p.age for p in other_team.players if p.age > 0]
+        avg_age = sum(ages) / len(ages) if ages else 28
+        prospect_count = len([p for p in other_team.players if p.is_prospect])
+        veteran_count = len([a for a in ages if a >= 30])
+
+        # Rebuilding teams (likely sellers)
+        if other_rank >= 9:
+            sellable = []
+            for p in other_team.players:
+                v = calculator.calculate_player_value(p)
+                if p.age >= 27 and v >= 35:
+                    sellable.append((p.name, v, p.age))
+            if sellable:
+                sellable.sort(key=lambda x: x[1], reverse=True)
+                report['rebuilding_teams'].append({
+                    'team': other_team_name,
+                    'rank': other_rank,
+                    'sellable_assets': sellable[:3]
+                })
+
+        # Prospect-rich teams (trade targets for contenders)
+        if prospect_count >= 8:
+            top_prospects = sorted(
+                [p for p in other_team.players if p.is_prospect and p.prospect_rank],
+                key=lambda x: x.prospect_rank
+            )[:3]
+            report['prospect_rich_teams'].append({
+                'team': other_team_name,
+                'count': prospect_count,
+                'top_prospects': [(p.name, p.prospect_rank) for p in top_prospects]
+            })
+
+        # Veteran-heavy teams (win-now mode, might overpay)
+        if veteran_count >= 10 and other_rank <= 6:
+            report['veteran_heavy_teams'].append({
+                'team': other_team_name,
+                'veteran_count': veteran_count,
+                'avg_age': avg_age,
+                'rank': other_rank
+            })
+
+    # Category leaders (who has the assets you might want)
+    for cat in ['HR', 'SB', 'K', 'SV+HLD', 'QS']:
+        cat_leaders = []
+        for other_team_name in teams:
+            if other_team_name == team_name:
+                continue
+            cat_rank = rankings.get(other_team_name, {}).get(cat, 12)
+            if cat_rank <= 3:
+                cat_leaders.append((other_team_name, cat_rank))
+        if cat_leaders:
+            report['category_leaders'][cat] = sorted(cat_leaders, key=lambda x: x[1])
+
+    # Generate summary
+    summary_parts = []
+    if report['rebuilding_teams']:
+        sellers = ", ".join([t['team'][:15] for t in report['rebuilding_teams'][:3]])
+        summary_parts.append(f"Active sellers: {sellers}")
+    if report['veteran_heavy_teams']:
+        buyers = ", ".join([t['team'][:15] for t in report['veteran_heavy_teams'][:2]])
+        summary_parts.append(f"Likely buyers: {buyers}")
+    if report['prospect_rich_teams']:
+        farms = ", ".join([f"{t['team'][:12]} ({t['count']})" for t in report['prospect_rich_teams'][:2]])
+        summary_parts.append(f"Deep farms: {farms}")
+
+    report['trade_market_summary'] = " | ".join(summary_parts) if summary_parts else "Market is quiet"
+
+    return report
+
+
 def find_similar_value_players(team_name, player_value, tolerance=8):
     """Find players from other teams with similar dynasty value for trade ideas."""
     similar = []
@@ -3208,64 +3301,302 @@ def get_draft_recommendations(team_name, draft_pick, weak_positions, weak_catego
 
 
 def get_buy_low_sell_high_alerts(team_name, team):
-    """Identify sell-high candidates on your team and buy-low targets on OTHER teams."""
-    alerts = {'buy_low': [], 'sell_high': []}
+    """
+    Comprehensive buy-low/sell-high analysis with GM-level insight.
+    Identifies market inefficiencies across the league.
+    """
+    alerts = {'buy_low': [], 'sell_high': [], 'trade_chips': [], 'hidden_gems': []}
 
-    # Sell-high: Players on YOUR team that you should consider selling
+    # Get team's category weaknesses for context
+    team_cats, rankings = calculate_league_category_rankings()
+    my_ranks = rankings.get(team_name, {})
+    weak_cats = [cat for cat, rank in my_ranks.items() if rank >= 9]  # Bottom third
+
+    # ============ SELL-HIGH ANALYSIS (Your Team) ============
     players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value.sort(key=lambda x: x[1], reverse=True)
 
     for p, v in players_with_value:
-        if p.age >= 32 and v >= 40:
+        proj_h = HITTER_PROJECTIONS.get(p.name, {})
+        proj_p = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
+
+        # Aging veterans with declining value curve
+        if p.age >= 33 and v >= 35:
             alerts['sell_high'].append({
                 'name': p.name,
-                'reason': f"Age {p.age} with {v:.0f} value - sell before decline",
-                'urgency': 'high' if p.age >= 34 else 'medium'
+                'reason': f"Age {p.age}, {v:.0f} value — decline imminent, sell NOW",
+                'urgency': 'critical',
+                'value': v
             })
-        elif p.age >= 30 and v >= 60:
+        elif p.age >= 31 and v >= 50:
             alerts['sell_high'].append({
                 'name': p.name,
-                'reason': f"Peak value at {v:.0f} - may not get better return later",
-                'urgency': 'medium'
+                'reason': f"Age {p.age} veteran at {v:.0f} value — maximize return window",
+                'urgency': 'high',
+                'value': v
+            })
+        # High value pitchers over 30 (arms age faster)
+        elif p.age >= 30 and v >= 45 and proj_p:
+            alerts['sell_high'].append({
+                'name': p.name,
+                'reason': f"Age {p.age} pitcher — arm wear makes this a sell window",
+                'urgency': 'medium',
+                'value': v
+            })
+        # Overperforming underlying metrics (BABIP luck, HR/FB, etc.)
+        elif proj_h and proj_h.get('AVG', 0) >= .290 and p.age >= 29:
+            alerts['sell_high'].append({
+                'name': p.name,
+                'reason': f"High AVG projection at age {p.age} — regression candidate",
+                'urgency': 'medium',
+                'value': v
+            })
+        # Relievers with high saves (volatile role)
+        elif proj_p and proj_p.get('SV', 0) >= 25 and p.age >= 30:
+            alerts['sell_high'].append({
+                'name': p.name,
+                'reason': f"{proj_p.get('SV', 0)} SV projected but closer roles are volatile",
+                'urgency': 'medium',
+                'value': v
             })
 
-    # Buy-low: Players on OTHER teams that you could target for acquisition
+    # ============ BUY-LOW ANALYSIS (Other Teams) ============
     for other_team_name, other_team in teams.items():
         if other_team_name == team_name:
-            continue  # Skip your own team
+            continue
+
+        # Determine if other team is rebuilding (might sell cheaper)
+        other_ranks = rankings.get(other_team_name, {})
+        _, power_rankings, _ = get_team_rankings()
+        other_power_rank = power_rankings.get(other_team_name, 6)
+        is_rebuilding_team = other_power_rank >= 9  # Bottom third
 
         for p in other_team.players:
             v = calculator.calculate_player_value(p)
+            proj_h = HITTER_PROJECTIONS.get(p.name, {})
+            proj_p = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
 
-            # Young players with upside not reflected in current value
-            if p.age <= 24 and 20 <= v <= 45:
+            buy_low_reasons = []
+            priority = 100  # Lower = higher priority
+
+            # === PROSPECT OPPORTUNITIES ===
+            if p.is_prospect and p.prospect_rank:
+                if p.prospect_rank <= 25:
+                    buy_low_reasons.append(f"Elite prospect (#{p.prospect_rank})")
+                    priority = p.prospect_rank
+                elif p.prospect_rank <= 50 and v < 60:
+                    buy_low_reasons.append(f"Top 50 prospect (#{p.prospect_rank}) undervalued at {v:.0f}")
+                    priority = p.prospect_rank + 25
+                elif p.prospect_rank <= 100 and is_rebuilding_team:
+                    buy_low_reasons.append(f"Prospect #{p.prospect_rank} on rebuilding team")
+                    priority = p.prospect_rank + 50
+
+            # === YOUNG PLAYER UPSIDE ===
+            if p.age <= 24 and v >= 25 and v <= 55:
+                if proj_h:
+                    if proj_h.get('HR', 0) >= 15 or proj_h.get('SB', 0) >= 15:
+                        buy_low_reasons.append(f"Age {p.age} with {proj_h.get('HR', 0)} HR/{proj_h.get('SB', 0)} SB upside")
+                        priority = min(priority, 40 - v/2)
+                elif proj_p:
+                    if proj_p.get('K', 0) >= 80:
+                        buy_low_reasons.append(f"Age {p.age} arm with {proj_p.get('K', 0)} K upside")
+                        priority = min(priority, 45 - v/2)
+
+            # === VALUE DISCREPANCY ===
+            if p.age <= 26 and 30 <= v <= 50:
+                buy_low_reasons.append(f"Prime years ahead at only {v:.0f} value")
+                priority = min(priority, 55 - v/2)
+
+            # === SKILLS-BASED TARGETS ===
+            # High K pitchers (elite skill, often undervalued)
+            if proj_p and proj_p.get('K', 0) >= 150 and v < 65:
+                buy_low_reasons.append(f"Elite {proj_p.get('K', 0)} K arm at {v:.0f}")
+                priority = min(priority, 30)
+
+            # Speed specialists (scarce skill)
+            if proj_h and proj_h.get('SB', 0) >= 25 and v < 55:
+                buy_low_reasons.append(f"Rare {proj_h.get('SB', 0)} SB speed at {v:.0f}")
+                priority = min(priority, 35)
+
+            # Power bats
+            if proj_h and proj_h.get('HR', 0) >= 30 and v < 60:
+                buy_low_reasons.append(f"{proj_h.get('HR', 0)} HR power at {v:.0f}")
+                priority = min(priority, 38)
+
+            # === CATEGORY FIT ===
+            if weak_cats:
+                fills_need = False
+                for cat in weak_cats[:2]:
+                    if cat == 'HR' and proj_h and proj_h.get('HR', 0) >= 20:
+                        buy_low_reasons.append(f"Fills HR need ({proj_h.get('HR', 0)})")
+                        fills_need = True
+                    elif cat == 'SB' and proj_h and proj_h.get('SB', 0) >= 15:
+                        buy_low_reasons.append(f"Fills SB need ({proj_h.get('SB', 0)})")
+                        fills_need = True
+                    elif cat == 'K' and proj_p and proj_p.get('K', 0) >= 100:
+                        buy_low_reasons.append(f"Fills K need ({proj_p.get('K', 0)})")
+                        fills_need = True
+                    elif cat == 'SV+HLD' and proj_p and (proj_p.get('SV', 0) + proj_p.get('HD', 0)) >= 20:
+                        buy_low_reasons.append(f"Fills SV+HLD need")
+                        fills_need = True
+                if fills_need:
+                    priority = min(priority, priority - 10)
+
+            # === REBUILDING TEAM FIRE SALE ===
+            if is_rebuilding_team and p.age >= 28 and v >= 40:
+                buy_low_reasons.append(f"Veteran on rebuilding {other_team_name[:15]} - motivated seller")
+                priority = min(priority, 50)
+
+            # Add to buy-low if has reasons
+            if buy_low_reasons:
                 alerts['buy_low'].append({
                     'name': p.name,
                     'team': other_team_name,
-                    'reason': f"Only {v:.0f} value at age {p.age} - upside play",
-                    'type': 'youth'
-                })
-            # Top prospects who might be undervalued
-            elif p.is_prospect and p.prospect_rank and p.prospect_rank <= 50 and v < 70:
-                alerts['buy_low'].append({
-                    'name': p.name,
-                    'team': other_team_name,
-                    'reason': f"Top {p.prospect_rank} prospect at {v:.0f}",
-                    'type': 'prospect'
+                    'reason': " | ".join(buy_low_reasons[:2]),
+                    'priority': priority,
+                    'value': v,
+                    'age': p.age
                 })
 
-    # Sort buy-low by prospect rank first (if applicable), then by value
-    def sort_key(x):
-        if x['type'] == 'prospect':
-            # Extract prospect rank from reason
-            return (0, int(x['reason'].split()[1]))
-        else:
-            # For youth, sort by lower value = better opportunity
-            return (1, int(x['reason'].split()[1]))
+    # Sort by priority and limit
+    alerts['buy_low'].sort(key=lambda x: x['priority'])
+    alerts['buy_low'] = alerts['buy_low'][:12]  # More targets for comprehensive view
 
-    alerts['buy_low'].sort(key=sort_key)
-    alerts['buy_low'] = alerts['buy_low'][:6]  # Limit to top 6 targets
+    # Sort sell-high by urgency then value
+    urgency_order = {'critical': 0, 'high': 1, 'medium': 2}
+    alerts['sell_high'].sort(key=lambda x: (urgency_order.get(x['urgency'], 3), -x['value']))
+    alerts['sell_high'] = alerts['sell_high'][:6]
 
     return alerts
+
+
+def generate_gm_trade_scenarios(team_name, team):
+    """
+    Generate specific, actionable trade scenarios a GM would consider.
+    Returns 2-3 concrete trade ideas with reasoning.
+    """
+    scenarios = []
+
+    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value.sort(key=lambda x: x[1], reverse=True)
+
+    # Get team context
+    team_cats, rankings = calculate_league_category_rankings()
+    my_ranks = rankings.get(team_name, {})
+    weak_cats = [cat for cat, rank in my_ranks.items() if rank >= 9]
+    strong_cats = [cat for cat, rank in my_ranks.items() if rank <= 4]
+
+    # Find tradeable assets (not top 4 core)
+    tradeable = [(p, v) for i, (p, v) in enumerate(players_with_value) if i >= 4 and v >= 20]
+
+    # Find positions of strength
+    pos_counts = {}
+    for p, v in players_with_value:
+        pos = p.position.split('/')[0].split(',')[0].upper() if p.position else 'UTIL'
+        if pos in ['LF', 'CF', 'RF']:
+            pos = 'OF'
+        pos_counts[pos] = pos_counts.get(pos, 0) + 1
+
+    surplus_positions = [pos for pos, count in pos_counts.items() if count >= 4]
+
+    # === SCENARIO 1: Category Upgrade Trade ===
+    if weak_cats and tradeable:
+        target_cat = weak_cats[0]
+        # Find best player on another team for that category
+        best_target = None
+        best_target_team = None
+        best_cat_value = 0
+
+        for other_team_name, other_team in teams.items():
+            if other_team_name == team_name:
+                continue
+            for p in other_team.players:
+                proj_h = HITTER_PROJECTIONS.get(p.name, {})
+                proj_p = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
+                cat_value = 0
+                if target_cat == 'HR' and proj_h:
+                    cat_value = proj_h.get('HR', 0)
+                elif target_cat == 'SB' and proj_h:
+                    cat_value = proj_h.get('SB', 0)
+                elif target_cat == 'K' and proj_p:
+                    cat_value = proj_p.get('K', 0)
+                elif target_cat == 'SV+HLD' and proj_p:
+                    cat_value = proj_p.get('SV', 0) + proj_p.get('HD', 0)
+
+                if cat_value > best_cat_value:
+                    v = calculator.calculate_player_value(p)
+                    if v <= 75:  # Attainable target
+                        best_cat_value = cat_value
+                        best_target = p
+                        best_target_team = other_team_name
+
+        if best_target:
+            target_value = calculator.calculate_player_value(best_target)
+            # Find matching trade pieces
+            trade_pieces = []
+            running_value = 0
+            for p, v in tradeable:
+                if running_value < target_value and len(trade_pieces) < 3:
+                    trade_pieces.append((p.name, v))
+                    running_value += v * 0.85  # Package discount
+
+            if trade_pieces and running_value >= target_value * 0.7:
+                pieces_str = " + ".join([f"{n} ({v:.0f})" for n, v in trade_pieces])
+                scenarios.append({
+                    'title': f"🎯 Category Upgrade: Target {target_cat}",
+                    'target': f"{best_target.name} ({best_target_team})",
+                    'target_value': target_value,
+                    'offer': pieces_str,
+                    'offer_value': running_value,
+                    'reasoning': f"You rank #{my_ranks.get(target_cat, 12)} in {target_cat}. {best_target.name} projects for {best_cat_value} {target_cat} and could vault you into the top half."
+                })
+
+    # === SCENARIO 2: Youth Movement Trade ===
+    # Find aging stars to trade for prospects
+    aging_stars = [(p, v) for p, v in players_with_value if p.age >= 30 and v >= 45]
+    if aging_stars:
+        star = aging_stars[0]
+        # Find teams with top prospects who might trade for win-now help
+        for other_team_name, other_team in teams.items():
+            if other_team_name == team_name:
+                continue
+            _, power_rankings, _ = get_team_rankings()
+            other_rank = power_rankings.get(other_team_name, 6)
+            if other_rank <= 6:  # Contending team
+                prospects_to_get = []
+                for p in other_team.players:
+                    if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100:
+                        prospects_to_get.append((p, p.prospect_rank))
+                if prospects_to_get:
+                    prospects_to_get.sort(key=lambda x: x[1])
+                    top_prospect = prospects_to_get[0][0]
+                    scenarios.append({
+                        'title': "♻️ Youth Movement: Sell High on Veteran",
+                        'target': f"{top_prospect.name} (#{top_prospect.prospect_rank} prospect from {other_team_name})",
+                        'target_value': calculator.calculate_player_value(top_prospect),
+                        'offer': f"{star[0].name} ({star[1]:.0f} value, age {star[0].age})",
+                        'offer_value': star[1],
+                        'reasoning': f"{other_team_name} is contending (#{other_rank}) and might overpay for {star[0].name}'s win-now value. Get younger."
+                    })
+                    break
+
+    # === SCENARIO 3: Positional Surplus Trade ===
+    if surplus_positions and weak_cats:
+        surplus_pos = surplus_positions[0]
+        surplus_players = [(p, v) for p, v in players_with_value
+                          if surplus_pos in (p.position or '').upper() and v >= 25]
+        if len(surplus_players) >= 2:
+            trade_piece = surplus_players[1]  # Not the best one
+            scenarios.append({
+                'title': f"📊 Positional Rebalance: Trade {surplus_pos} Depth",
+                'target': f"Any {weak_cats[0]} contributor",
+                'target_value': trade_piece[1] * 0.9,
+                'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f})",
+                'offer_value': trade_piece[1],
+                'reasoning': f"You have {pos_counts.get(surplus_pos, 0)} players at {surplus_pos}. Convert surplus depth into a category need ({weak_cats[0]})."
+            })
+
+    return scenarios[:3]  # Max 3 scenarios
 
 
 def generate_rivalry_analysis(team_name, rival_name):
@@ -3591,18 +3922,60 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
                     targets_text += f"<span style='color:#00d4ff'>For {cat}:</span> {player_list}<br>"
             analysis_parts.append(targets_text.rstrip('<br>'))
 
-    # Buy-Low / Sell-High Alerts
+    # Buy-Low / Sell-High Alerts - Enhanced GM-style
     alerts = get_buy_low_sell_high_alerts(team_name, team)
     if alerts['sell_high'] or alerts['buy_low']:
-        alerts_text = "<b>📈 VALUE ALERTS:</b><br>"
+        alerts_text = "<b>📈 MARKET OPPORTUNITIES:</b><br>"
+
+        # Sell-high with reasoning
         if alerts['sell_high']:
-            sell_list = ", ".join([f"<span style='color:#f87171'>{a['name']}</span>" for a in alerts['sell_high'][:2]])
-            alerts_text += f"⬆️ <b>Sell-high:</b> {sell_list} (maximize return before decline)<br>"
+            alerts_text += "⬆️ <b>Sell Window Open:</b><br>"
+            for a in alerts['sell_high'][:3]:
+                urgency_color = '#f87171' if a['urgency'] == 'critical' else '#fbbf24' if a['urgency'] == 'high' else '#facc15'
+                alerts_text += f"&nbsp;&nbsp;• <span style='color:{urgency_color}'>{a['name']}</span>: {a['reason']}<br>"
+
+        # Buy-low with more detail
         if alerts['buy_low']:
-            # Show team name for buy-low targets since they're on other teams
-            buy_list = ", ".join([f"<span style='color:#4ade80'>{a['name']}</span> ({a.get('team', 'FA')[:10]})" for a in alerts['buy_low'][:3]])
-            alerts_text += f"⬇️ <b>Buy-low targets:</b> {buy_list}"
+            alerts_text += "⬇️ <b>Acquisition Targets (other teams):</b><br>"
+            for a in alerts['buy_low'][:6]:
+                alerts_text += f"&nbsp;&nbsp;• <span style='color:#4ade80'>{a['name']}</span> ({a['team'][:15]}): {a['reason']}<br>"
+
         analysis_parts.append(alerts_text.rstrip('<br>'))
+
+    # === GM TRADE SCENARIOS ===
+    gm_scenarios = generate_gm_trade_scenarios(team_name, team)
+    if gm_scenarios:
+        scenario_text = "<b>💼 GM TRADE SCENARIOS:</b><br>"
+        scenario_text += "<i>If I were running this team, here's what I'd explore:</i><br><br>"
+        for i, s in enumerate(gm_scenarios, 1):
+            scenario_text += f"<b>{s['title']}</b><br>"
+            scenario_text += f"&nbsp;&nbsp;🎯 Target: {s['target']} (~{s['target_value']:.0f} value)<br>"
+            scenario_text += f"&nbsp;&nbsp;💰 Offer: {s['offer']} (~{s['offer_value']:.0f} value)<br>"
+            scenario_text += f"&nbsp;&nbsp;📋 Why: {s['reasoning']}<br>"
+            if i < len(gm_scenarios):
+                scenario_text += "<br>"
+        analysis_parts.append(scenario_text)
+
+    # === LEAGUE TRADE MARKET SCAN ===
+    league_scan = scan_league_for_opportunities(team_name)
+    if league_scan:
+        scan_text = "<b>🔎 LEAGUE TRADE MARKET:</b><br>"
+        scan_text += f"<i>{league_scan['trade_market_summary']}</i><br><br>"
+
+        # Show rebuilding teams with sellable assets
+        if league_scan['rebuilding_teams']:
+            scan_text += "<b>Teams Selling:</b><br>"
+            for t in league_scan['rebuilding_teams'][:3]:
+                assets = ", ".join([f"{n} ({v:.0f}, age {a})" for n, v, a in t['sellable_assets'][:2]])
+                scan_text += f"&nbsp;&nbsp;• <span style='color:#fbbf24'>{t['team']}</span> (#{t['rank']}): {assets}<br>"
+
+        # Show veteran teams that might overpay
+        if league_scan['veteran_heavy_teams']:
+            scan_text += "<b>Win-Now Teams (potential buyers):</b><br>"
+            for t in league_scan['veteran_heavy_teams'][:2]:
+                scan_text += f"&nbsp;&nbsp;• <span style='color:#4ade80'>{t['team']}</span>: {t['veteran_count']} vets, avg age {t['avg_age']:.1f}<br>"
+
+        analysis_parts.append(scan_text.rstrip('<br>'))
 
     # Draft Pick Recommendations
     if draft_order_config and team_name in draft_order_config:
