@@ -2346,17 +2346,30 @@ def load_prospect_rankings():
     # Sort by averaged rank and re-assign sequential rankings (1, 2, 3, ...) to eliminate duplicates
     sorted_prospects = sorted(merged_rankings.items(), key=lambda x: x[1])
 
+    # Exclude specific players who are established MLB players, not true prospects
+    EXCLUDED_PLAYERS = {
+        "Munetaka Murakami",  # Japanese MLB player
+        "Kazuma Okamoto",     # Japanese MLB player
+        "Tatsuya Imai",       # Japanese MLB player
+    }
+
     # Filter out players who are too old to be considered prospects (26+ years old)
-    # This removes established MLB players like Julian Garcia (30), Munetaka Murakami (25 but MLB), etc.
+    # Also filter out explicitly excluded players
     MAX_PROSPECT_AGE = 25
     filtered_prospects = []
+    excluded_count = 0
     for name, avg_rank in sorted_prospects:
+        # Skip excluded players
+        if name in EXCLUDED_PLAYERS:
+            excluded_count += 1
+            continue
         age = csv_metadata.get(name, {}).get('age', 0)
         # Keep if age is unknown (0) or under the max age
         if age == 0 or age <= MAX_PROSPECT_AGE:
             filtered_prospects.append((name, avg_rank))
 
-    print(f"Filtered {len(sorted_prospects) - len(filtered_prospects)} players over age {MAX_PROSPECT_AGE}")
+    print(f"Excluded {excluded_count} specific players: {EXCLUDED_PLAYERS}")
+    print(f"Filtered {len(sorted_prospects) - len(filtered_prospects) - excluded_count} players over age {MAX_PROSPECT_AGE}")
 
     # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
     # IMPORTANT: Only keep the top 200 prospects to ensure a complete 1-200 ranking
