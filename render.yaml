@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: dynasty-trade-analyzer
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: FANTRAX_LEAGUE_ID
+        value: 3iibc548mhhszwor
+      - key: PYTHON_VERSION
+        value: 3.11.0

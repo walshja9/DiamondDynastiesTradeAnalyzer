@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Local files (don't commit these)
+.fantrax_cookies.pkl
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Don't commit the original CSV (we use league_data.json instead)
+Fantrax*.csv
+fantrax*.csv
