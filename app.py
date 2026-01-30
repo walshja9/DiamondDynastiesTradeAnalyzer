@@ -1738,24 +1738,42 @@ def calculate_fa_dynasty_value(fa):
     else:
         ros_bonus = 0
 
-    # Prospect bonus - if FA is a ranked prospect, give significant boost
-    prospect_bonus = 0
+    # Prospect handling - FA prospects should have values similar to rostered prospects
+    # Use VALUE FLOORS to ensure ranked prospects have appropriate minimum values
     if fa.get('is_prospect') and fa.get('prospect_rank'):
         prospect_rank = fa['prospect_rank']
-        if prospect_rank <= 10:
-            prospect_bonus = 25
-        elif prospect_rank <= 25:
-            prospect_bonus = 20
-        elif prospect_rank <= 50:
-            prospect_bonus = 15
-        elif prospect_rank <= 100:
-            prospect_bonus = 10
-        elif prospect_rank <= 150:
-            prospect_bonus = 6
-        else:
-            prospect_bonus = 3
 
-    value = (base_value * age_mult) + rank_bonus + ros_bonus + prospect_bonus
+        # Calculate preliminary value
+        preliminary_value = (base_value * age_mult) + rank_bonus + ros_bonus
+
+        # Apply prospect floors (matching the main dynasty calculator)
+        # These ensure a Top 20 FA prospect isn't valued at 25 just because they have no Fantrax score
+        if prospect_rank <= 10:
+            # Elite prospects: floor 85, multiplier 1.20
+            value = max(preliminary_value, 85) * 1.20
+        elif prospect_rank <= 25:
+            # Top 25: floor 75, multiplier 1.15
+            value = max(preliminary_value, 75) * 1.15
+        elif prospect_rank <= 50:
+            # Top 50: floor 68, multiplier 1.10
+            value = max(preliminary_value, 68) * 1.10
+        elif prospect_rank <= 100:
+            # Top 100: floor 50, multiplier 1.05
+            value = max(preliminary_value, 50) * 1.05
+        elif prospect_rank <= 150:
+            # Rank 101-150: floor 40
+            value = max(preliminary_value, 40)
+        elif prospect_rank <= 200:
+            # Rank 151-200: floor 32
+            value = max(preliminary_value, 32)
+        else:
+            # Rank 201+: floor 25
+            value = max(preliminary_value, 25)
+
+        return round(value, 1)
+
+    # Non-prospect FA value calculation
+    value = (base_value * age_mult) + rank_bonus + ros_bonus
     return round(value, 1)
 
 
