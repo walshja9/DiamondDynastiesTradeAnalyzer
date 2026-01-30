@@ -72,6 +72,100 @@ def add_name_aliases_to_projections():
         if proj_name in RELIEVER_PROJECTIONS and fantrax_name not in RELIEVER_PROJECTIONS:
             RELIEVER_PROJECTIONS[fantrax_name] = RELIEVER_PROJECTIONS[proj_name]
 
+
+# Normalized prospect name lookup table (built after prospect rankings are loaded)
+NORMALIZED_PROSPECT_LOOKUP = {}  # normalized_name -> original_name
+
+
+def normalize_name(name):
+    """Normalize a player name for matching purposes.
+
+    - Strips whitespace
+    - Converts to lowercase
+    - Removes accents (José -> jose)
+    - Normalizes Jr./Jr/Junior suffixes
+    - Removes periods and hyphens
+    """
+    import unicodedata
+
+    if not name:
+        return ""
+
+    # Strip whitespace
+    name = name.strip()
+
+    # Convert to lowercase
+    name = name.lower()
+
+    # Remove accents by decomposing unicode and keeping only ASCII
+    name = unicodedata.normalize('NFD', name)
+    name = ''.join(c for c in name if unicodedata.category(c) != 'Mn')
+
+    # Normalize Jr variations
+    name = name.replace(' jr.', ' jr').replace(' jr', '').replace(' junior', '')
+
+    # Remove periods and hyphens
+    name = name.replace('.', '').replace('-', ' ')
+
+    # Collapse multiple spaces
+    name = ' '.join(name.split())
+
+    return name
+
+
+def build_normalized_prospect_lookup():
+    """Build a normalized lookup table for prospect names.
+
+    This allows matching 'Jose Garcia' to 'José García' in prospect rankings.
+    """
+    global NORMALIZED_PROSPECT_LOOKUP
+    NORMALIZED_PROSPECT_LOOKUP.clear()
+
+    for original_name in PROSPECT_RANKINGS.keys():
+        normalized = normalize_name(original_name)
+        NORMALIZED_PROSPECT_LOOKUP[normalized] = original_name
+
+    print(f"Built normalized prospect lookup with {len(NORMALIZED_PROSPECT_LOOKUP)} entries")
+
+
+def get_prospect_rank_for_name(name):
+    """Get prospect rank for a player name, using normalized matching.
+
+    Returns (rank, matched_name) tuple, or (None, None) if not found.
+    """
+    if not name:
+        return None, None
+
+    # Try exact match first
+    if name in PROSPECT_RANKINGS:
+        return PROSPECT_RANKINGS[name], name
+
+    # Try normalized match
+    normalized = normalize_name(name)
+    if normalized in NORMALIZED_PROSPECT_LOOKUP:
+        original_name = NORMALIZED_PROSPECT_LOOKUP[normalized]
+        return PROSPECT_RANKINGS[original_name], original_name
+
+    # Debug: Log failed lookups for names that look like they might be prospects
+    # (young players typically have lower roster %)
+    return None, None
+
+
+def debug_prospect_lookup_sample():
+    """Debug function to print sample prospect lookups on startup."""
+    print(f"\n=== PROSPECT LOOKUP DEBUG ===")
+    print(f"PROSPECT_RANKINGS has {len(PROSPECT_RANKINGS)} entries")
+    print(f"NORMALIZED_PROSPECT_LOOKUP has {len(NORMALIZED_PROSPECT_LOOKUP)} entries")
+
+    # Show first 5 prospects for verification
+    sample_prospects = list(PROSPECT_RANKINGS.items())[:5]
+    print(f"Sample prospects: {sample_prospects}")
+
+    # Show first 5 normalized entries
+    sample_normalized = list(NORMALIZED_PROSPECT_LOOKUP.items())[:5]
+    print(f"Sample normalized: {sample_normalized}")
+    print(f"=== END DEBUG ===\n")
+
 # Global state
 teams = {}
 interactive = None
@@ -1658,14 +1752,15 @@ def load_free_agents():
                         'adp': float(row.get('ADP', 999) or 999),
                     }
 
-                    # Check if FA is a ranked prospect
-                    prospect_rank = PROSPECT_RANKINGS.get(fa_name)
+                    # Check if FA is a ranked prospect (using normalized name matching)
+                    prospect_rank, matched_name = get_prospect_rank_for_name(fa_name)
                     fa['is_prospect'] = prospect_rank is not None and prospect_rank <= 200
                     fa['prospect_rank'] = prospect_rank if fa['is_prospect'] else None
 
                     # Debug: Log FA prospects found
                     if fa['is_prospect']:
-                        print(f"FA PROSPECT FOUND: {fa_name} - Rank #{prospect_rank}")
+                        match_info = f" (matched as '{matched_name}')" if matched_name != fa_name else ""
+                        print(f"FA PROSPECT FOUND: {fa_name}{match_info} - Rank #{prospect_rank}")
 
                     # Calculate dynasty value for FA (with prospect bonus if applicable)
                     fa['dynasty_value'] = calculate_fa_dynasty_value(fa)
@@ -1788,11 +1883,15 @@ def calculate_fa_dynasty_value(fa):
             # Rank 201+: floor 25
             value = max(preliminary_value, 25)
 
-        return round(value, 1)
+        final_value = round(value, 1)
+        print(f"  -> PROSPECT FLOOR APPLIED: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
+        return final_value
 
     # Non-prospect FA value calculation
     value = (base_value * age_mult) + rank_bonus + ros_bonus
-    return round(value, 1)
+    final_value = round(value, 1)
+    print(f"  -> NON-PROSPECT PATH: {fa.get('name')} -> value {final_value}")
+    return final_value
 
 
 def load_ages_from_fantrax_csv():
@@ -4203,6 +4302,12 @@ add_name_aliases_to_projections()
 
 # Load prospect rankings from consensus CSV files
 load_prospect_rankings()
+
+# Build normalized lookup for prospect name matching (handles accents, Jr., etc.)
+build_normalized_prospect_lookup()
+
+# Debug: Print sample lookups to verify prospect matching works
+debug_prospect_lookup_sample()
 
 # Try JSON first (exported by data_exporter.py - has all data including standings/matchups)
 print("Looking for league_data.json...")
