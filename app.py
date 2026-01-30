@@ -1911,29 +1911,37 @@ def calculate_fa_dynasty_value(fa):
         preliminary_value = (base_value * age_mult) + rank_bonus + ros_bonus
         print(f"  -> preliminary_value={preliminary_value}, applying prospect floor for rank {prospect_rank}")
 
-        # Apply prospect floors (matching the main dynasty calculator)
-        # These ensure a Top 20 FA prospect isn't valued at 25 just because they have no Fantrax score
+        # Apply prospect value floors using a graduated scale
+        # Scale: Rank 1 = ~100, Rank 50 = ~75, Rank 100 = ~55, Rank 150 = ~32, Rank 200 = ~15
+        # Formula-based approach for smooth curve
         if prospect_rank <= 10:
-            # Elite prospects: floor 85, multiplier 1.20
-            value = max(preliminary_value, 85) * 1.20
+            # Elite prospects (1-10): 100 to 95
+            floor = 100 - (prospect_rank - 1) * 0.5
+            value = max(preliminary_value, floor)
         elif prospect_rank <= 25:
-            # Top 25: floor 75, multiplier 1.15
-            value = max(preliminary_value, 75) * 1.15
+            # Top 25 (11-25): 94 to 80
+            floor = 95 - (prospect_rank - 10) * 1.0
+            value = max(preliminary_value, floor)
         elif prospect_rank <= 50:
-            # Top 50: floor 68, multiplier 1.10
-            value = max(preliminary_value, 68) * 1.10
+            # Top 50 (26-50): 79 to 67
+            floor = 80 - (prospect_rank - 25) * 0.5
+            value = max(preliminary_value, floor)
         elif prospect_rank <= 100:
-            # Top 100: floor 50, multiplier 1.05
-            value = max(preliminary_value, 50) * 1.05
+            # Top 100 (51-100): 66 to 46
+            floor = 67 - (prospect_rank - 50) * 0.4
+            value = max(preliminary_value, floor)
         elif prospect_rank <= 150:
-            # Rank 101-150: floor 40
-            value = max(preliminary_value, 40)
+            # Rank 101-150: 45 to 26
+            floor = 46 - (prospect_rank - 100) * 0.4
+            value = max(preliminary_value, floor)
         elif prospect_rank <= 200:
-            # Rank 151-200: floor 32
-            value = max(preliminary_value, 32)
+            # Rank 151-200: 25 to 15
+            floor = 26 - (prospect_rank - 150) * 0.22
+            value = max(preliminary_value, floor)
         else:
-            # Rank 201+: floor 25
-            value = max(preliminary_value, 25)
+            # Rank 201+: 14 and below
+            floor = max(10, 15 - (prospect_rank - 200) * 0.1)
+            value = max(preliminary_value, floor)
 
         final_value = round(value, 1)
         print(f"  -> PROSPECT FLOOR APPLIED: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
@@ -2745,19 +2753,20 @@ def get_prospects():
     for name, rank in PROSPECT_RANKINGS.items():
         if name not in found_prospects:
             metadata = PROSPECT_METADATA.get(name, {})
-            # Calculate estimated value based on rank
+            # Calculate estimated value based on rank using graduated scale
+            # Scale: Rank 1 = ~100, Rank 50 = ~75, Rank 100 = ~55, Rank 150 = ~32, Rank 200 = ~15
             if rank <= 10:
-                est_value = 102.0  # Elite prospect floor * multiplier
+                est_value = 100 - (rank - 1) * 0.5
             elif rank <= 25:
-                est_value = 86.3
+                est_value = 95 - (rank - 10) * 1.0
             elif rank <= 50:
-                est_value = 74.8
+                est_value = 80 - (rank - 25) * 0.5
             elif rank <= 100:
-                est_value = 52.5
+                est_value = 67 - (rank - 50) * 0.4
             elif rank <= 150:
-                est_value = 40.0
+                est_value = 46 - (rank - 100) * 0.4
             else:
-                est_value = 32.0
+                est_value = 26 - (rank - 150) * 0.22
 
             found_prospects[name] = {
                 "name": name,
@@ -2766,7 +2775,7 @@ def get_prospects():
                 "age": metadata.get('age', 0),
                 "mlb_team": metadata.get('mlb_team', 'N/A'),
                 "fantasy_team": "Not in League",
-                "value": est_value,
+                "value": round(est_value, 1),
                 "is_free_agent": False,
                 "not_in_league": True
             }
