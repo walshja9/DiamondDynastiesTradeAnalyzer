@@ -76,6 +76,9 @@ def add_name_aliases_to_projections():
 # Normalized prospect name lookup table (built after prospect rankings are loaded)
 NORMALIZED_PROSPECT_LOOKUP = {}  # normalized_name -> original_name
 
+# Prospect metadata (position, age, mlb_team) for displaying prospects not in league
+PROSPECT_METADATA = {}  # name -> {position, age, mlb_team}
+
 
 def normalize_name(name):
     """Normalize a player name for matching purposes.
@@ -580,19 +583,34 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         const tierColor = p.rank <= 10 ? '#ffd700' : p.rank <= 25 ? '#00d4ff' : p.rank <= 50 ? '#7b2cbf' : '#4a90d9';
                         const tierBg = p.rank <= 10 ? 'linear-gradient(145deg, #3d3d00, #4a4a00)' : p.rank <= 25 ? 'linear-gradient(145deg, #002a33, #003d4d)' : p.rank <= 50 ? 'linear-gradient(145deg, #2a1a3d, #3d2a50)' : 'linear-gradient(145deg, #151535, #1e1e50)';
                         const isFreeAgent = p.is_free_agent || p.fantasy_team === 'Free Agent';
-                        const faBadge = isFreeAgent ? '<span style="background: #00ff88; color: #000; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 8px; font-weight: bold;">FA</span>' : '';
-                        const ownerStyle = isFreeAgent ? 'color: #00ff88; font-weight: bold;' : 'color: #c0c0e0;';
+                        const isNotInLeague = p.not_in_league || p.fantasy_team === 'Not in League';
+                        let statusBadge = '';
+                        let ownerText = '';
+                        let ownerStyle = 'color: #c0c0e0;';
+                        if (isNotInLeague) {
+                            statusBadge = '<span style="background: #666; color: #fff; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 8px; font-weight: bold;">N/A</span>';
+                            ownerText = '<span style="color: #888;">Not Available in League</span>';
+                        } else if (isFreeAgent) {
+                            statusBadge = '<span style="background: #00ff88; color: #000; font-size: 0.65rem; padding: 2px 6px; border-radius: 8px; margin-left: 8px; font-weight: bold;">FA</span>';
+                            ownerStyle = 'color: #00ff88; font-weight: bold;';
+                            ownerText = '<span style="' + ownerStyle + '">AVAILABLE - Free Agent</span>';
+                        } else {
+                            ownerText = 'Owner: <span style="' + ownerStyle + '">' + p.fantasy_team + '</span>';
+                        }
+                        const clickHandler = isNotInLeague ? '' : `onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')"`;
+                        const cursorStyle = isNotInLeague ? 'cursor: default;' : 'cursor: pointer;';
+                        const opacityStyle = isNotInLeague ? 'opacity: 0.7;' : '';
                         return `
-                        <div onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')" style="background: ${tierBg}; border-radius: 12px; padding: 18px; border-left: 4px solid ${tierColor}; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(${p.rank <= 10 ? '255,215,0' : p.rank <= 25 ? '0,212,255' : p.rank <= 50 ? '123,44,191' : '74,144,217'}, 0.3);" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 25px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
+                        <div ${clickHandler} style="background: ${tierBg}; border-radius: 12px; padding: 18px; border-left: 4px solid ${tierColor}; ${cursorStyle} transition: all 0.3s ease; border: 1px solid rgba(${p.rank <= 10 ? '255,215,0' : p.rank <= 25 ? '0,212,255' : p.rank <= 50 ? '123,44,191' : '74,144,217'}, 0.3); ${opacityStyle}" ${isNotInLeague ? '' : 'onmouseover="this.style.transform=\\'translateY(-3px)\\';this.style.boxShadow=\\'0 8px 25px rgba(0,0,0,0.3)\\';" onmouseout="this.style.transform=\\'translateY(0)\\';this.style.boxShadow=\\'none\\';"'}>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <span style="font-weight: bold; font-size: 1.05rem; color: ${tierColor};">#${p.rank} ${p.name}${faBadge}</span>
+                                <span style="font-weight: bold; font-size: 1.05rem; color: ${tierColor};">#${p.rank} ${p.name}${statusBadge}</span>
                                 <span style="color: #00d4ff; font-weight: bold; font-size: 1.1rem;">${p.value.toFixed(1)}</span>
                             </div>
                             <div style="font-size: 0.9rem; color: #a0a0c0;">
-                                ${p.position} | Age ${p.age} | ${p.mlb_team}
+                                ${p.position} | ${p.age ? 'Age ' + p.age : 'Age N/A'} | ${p.mlb_team}
                             </div>
                             <div style="font-size: 0.85rem; color: #7070a0; margin-top: 8px;">
-                                ${isFreeAgent ? '<span style="' + ownerStyle + '">AVAILABLE - Free Agent</span>' : 'Owner: <span style="' + ownerStyle + '">' + p.fantasy_team + '</span>'}
+                                ${ownerText}
                             </div>
                         </div>
                     `}).join('');
@@ -2246,8 +2264,9 @@ def load_prospect_rankings():
     # Store the original rankings from prospects.json (already loaded)
     json_rankings = dict(PROSPECT_RANKINGS)
 
-    # Load rankings from consensus CSV files
+    # Load rankings and metadata from consensus CSV files
     csv_rankings = {}
+    csv_metadata = {}  # name -> {position, age, mlb_team}
     prospect_files = glob.glob(os.path.join(script_dir, 'Consensus*Ranks*.csv'))
 
     for csv_file in prospect_files:
@@ -2266,6 +2285,14 @@ def load_prospect_rankings():
                         # Keep the better (lower) rank if player appears in multiple CSV files
                         if name not in csv_rankings or avg_rank < csv_rankings[name]:
                             csv_rankings[name] = avg_rank
+                            # Store metadata for this prospect
+                            age_str = row.get('Age', '')
+                            csv_metadata[name] = {
+                                'position': row.get('Pos', 'UTIL'),
+                                'age': int(age_str) if age_str.isdigit() else 0,
+                                'mlb_team': row.get('Team', 'N/A'),
+                                'level': row.get('Level', 'N/A')
+                            }
                     except (ValueError, TypeError):
                         continue
 
@@ -2299,10 +2326,23 @@ def load_prospect_rankings():
     # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
     # IMPORTANT: Only keep the top 200 prospects to ensure a complete 1-200 ranking
     PROSPECT_RANKINGS.clear()
+    PROSPECT_METADATA.clear()
     for new_rank, (name, _) in enumerate(sorted_prospects[:200], start=1):
         PROSPECT_RANKINGS[name] = new_rank
+        # Store metadata if available from CSV
+        if name in csv_metadata:
+            PROSPECT_METADATA[name] = csv_metadata[name]
+        else:
+            # Default metadata for prospects only in JSON
+            PROSPECT_METADATA[name] = {
+                'position': 'UTIL',
+                'age': 0,
+                'mlb_team': 'N/A',
+                'level': 'N/A'
+            }
 
     print(f"Prospect rankings merged and re-ranked: {len(PROSPECT_RANKINGS)} total (limited to top 200)")
+    print(f"Prospect metadata stored for {len(PROSPECT_METADATA)} prospects")
 
     # Debug: Print top 10 prospects to verify correct ordering
     top_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r <= 10], key=lambda x: x[1])
@@ -2593,15 +2633,16 @@ def get_teams():
 
 @app.route('/prospects')
 def get_prospects():
-    """Get all prospects across all teams AND free agents, sorted by rank."""
-    all_prospects = []
+    """Get all 200 prospects, including those not in the league."""
+    # Track which prospects we've found (by name)
+    found_prospects = {}  # name -> prospect_data
 
     # Get prospects from team rosters
     for team_name, team in teams.items():
         for player in team.players:
             if player.is_prospect and player.prospect_rank and player.prospect_rank <= 200:
                 value = calculator.calculate_player_value(player)
-                all_prospects.append({
+                found_prospects[player.name] = {
                     "name": player.name,
                     "rank": player.prospect_rank,
                     "position": player.position,
@@ -2609,24 +2650,60 @@ def get_prospects():
                     "mlb_team": player.mlb_team,
                     "fantasy_team": team_name,
                     "value": round(value, 1),
-                    "is_free_agent": False
-                })
+                    "is_free_agent": False,
+                    "not_in_league": False
+                }
 
     # Get prospects from free agents
     for fa in FREE_AGENTS:
         if fa.get('is_prospect') and fa.get('prospect_rank') and fa['prospect_rank'] <= 200:
-            all_prospects.append({
-                "name": fa['name'],
-                "rank": fa['prospect_rank'],
-                "position": fa['position'],
-                "age": fa['age'],
-                "mlb_team": fa['mlb_team'],
-                "fantasy_team": "Free Agent",
-                "value": fa['dynasty_value'],
-                "is_free_agent": True
-            })
+            # Don't overwrite rostered players
+            if fa['name'] not in found_prospects:
+                found_prospects[fa['name']] = {
+                    "name": fa['name'],
+                    "rank": fa['prospect_rank'],
+                    "position": fa['position'],
+                    "age": fa['age'],
+                    "mlb_team": fa['mlb_team'],
+                    "fantasy_team": "Free Agent",
+                    "value": fa['dynasty_value'],
+                    "is_free_agent": True,
+                    "not_in_league": False
+                }
 
-    # Sort by rank
+    # Add any prospects from PROSPECT_RANKINGS (1-200) that weren't found
+    # These are prospects who aren't rostered and aren't in the FA list
+    for name, rank in PROSPECT_RANKINGS.items():
+        if name not in found_prospects:
+            metadata = PROSPECT_METADATA.get(name, {})
+            # Calculate estimated value based on rank
+            if rank <= 10:
+                est_value = 102.0  # Elite prospect floor * multiplier
+            elif rank <= 25:
+                est_value = 86.3
+            elif rank <= 50:
+                est_value = 74.8
+            elif rank <= 100:
+                est_value = 52.5
+            elif rank <= 150:
+                est_value = 40.0
+            else:
+                est_value = 32.0
+
+            found_prospects[name] = {
+                "name": name,
+                "rank": rank,
+                "position": metadata.get('position', 'UTIL'),
+                "age": metadata.get('age', 0),
+                "mlb_team": metadata.get('mlb_team', 'N/A'),
+                "fantasy_team": "Not in League",
+                "value": est_value,
+                "is_free_agent": False,
+                "not_in_league": True
+            }
+
+    # Convert to list and sort by rank
+    all_prospects = list(found_prospects.values())
     all_prospects.sort(key=lambda x: x["rank"])
 
     return jsonify({"prospects": all_prospects})
