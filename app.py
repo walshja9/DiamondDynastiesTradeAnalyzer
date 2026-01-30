@@ -68,7 +68,8 @@ PROSPECT_NAME_ALIASES = {
     "J.R. Ritchie": "JR Ritchie",
     "Elmer Rodriguez": "Elmer Rodriguez-Cruz",
     "Sean Paul Linan": "Sean Linan",
-    "Kala'i Rosario": "Kala'i Rosario",  # Different apostrophe character
+    "Kalai Rosario": "Kala'i Rosario",  # FA CSV has no apostrophe
+    "Hao-Yu Lee": "Hao-Yu  Lee",  # Prospect ranking has extra space
 }
 
 def add_name_aliases_to_projections():
@@ -81,6 +82,20 @@ def add_name_aliases_to_projections():
             PITCHER_PROJECTIONS[fantrax_name] = PITCHER_PROJECTIONS[proj_name]
         if proj_name in RELIEVER_PROJECTIONS and fantrax_name not in RELIEVER_PROJECTIONS:
             RELIEVER_PROJECTIONS[fantrax_name] = RELIEVER_PROJECTIONS[proj_name]
+
+
+def add_prospect_name_aliases_to_rankings():
+    """Add alternate name lookups to PROSPECT_RANKINGS dictionary.
+
+    This allows the dynasty_trade_analyzer_v2 module to find prospects
+    using Fantrax names (e.g., "J.R. Ritchie") even when the prospect
+    ranking uses a different format (e.g., "JR Ritchie").
+    """
+    for fantrax_name, prospect_name in PROSPECT_NAME_ALIASES.items():
+        # If prospect exists under the ranking name, add it under the Fantrax name too
+        if prospect_name in PROSPECT_RANKINGS and fantrax_name not in PROSPECT_RANKINGS:
+            PROSPECT_RANKINGS[fantrax_name] = PROSPECT_RANKINGS[prospect_name]
+            print(f"Added prospect alias: {fantrax_name} -> {prospect_name} (rank {PROSPECT_RANKINGS[prospect_name]})")
 
 
 # Normalized prospect name lookup table (built after prospect rankings are loaded)
@@ -4461,6 +4476,9 @@ add_name_aliases_to_projections()
 
 # Load prospect rankings from consensus CSV files
 load_prospect_rankings()
+
+# Add prospect name aliases so direct lookups work in dynasty_trade_analyzer_v2
+add_prospect_name_aliases_to_rankings()
 
 # Build normalized lookup for prospect name matching (handles accents, Jr., etc.)
 build_normalized_prospect_lookup()
