@@ -762,6 +762,10 @@ class DynastyValueCalculator:
                 # Cap is BELOW floor of rank 26-50, ensuring proper ordering
                 value = min(value, 65)
                 value = max(value, 50) * 1.05
+            else:
+                # Rank >100: Known prospect but not top 100
+                # Cap below the floor of rank 51-100 to ensure proper ordering
+                value = min(value, 50)
 
         return value
     
