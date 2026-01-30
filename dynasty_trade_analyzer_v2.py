@@ -689,14 +689,11 @@ class DynastyValueCalculator:
         # Reliever discount - only elite closers should approach SP value
         # This caps most relievers well below top starters
         value = value * 0.85
-        
-        # Age adjustment (less impactful for relievers)
-        if player.age <= 28:
-            value *= 1.05
-        elif player.age >= 33:
-            value *= 0.92
-        
-        # Cap reliever value - only the very best should exceed 85
+
+        # Apply dynasty adjustments (age, prospect status) - same as SP and hitters
+        value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
+
+        # Cap reliever value - prospects can exceed this via the prospect bonus above
         return min(value, 92)
     
     @staticmethod
