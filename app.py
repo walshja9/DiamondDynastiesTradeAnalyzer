@@ -2729,7 +2729,6 @@ def get_prospects():
                     "is_free_agent": True,
                     "not_in_league": False
                 }
-                found_prospect_ranks.add(fa['prospect_rank'])
 
     # Add any prospects from PROSPECT_RANKINGS (1-200) that weren't found
     # These are prospects who aren't rostered and aren't in the FA list
