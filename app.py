@@ -4808,18 +4808,24 @@ def analyze_trade():
             'RBI': sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p in players),
             'R': sum(HITTER_PROJECTIONS.get(p.name, {}).get('R', 0) for p in players),
             'SB': sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in players),
+            'SO': sum(HITTER_PROJECTIONS.get(p.name, {}).get('SO', 0) for p in players),  # Hitter strikeouts
             'AVG': 0,
             'OPS': 0,
             # Pitching
             'K': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in players),
+            'BB': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('BB', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('BB', 0)) for p in players),
             'ERA': 0,
             'WHIP': 0,
             'SV': sum(RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) for p in players),
             'HLD': sum(RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0) for p in players),
             'QS': sum(PITCHER_PROJECTIONS.get(p.name, {}).get('QS', 0) for p in players),
             'W': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('W', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('W', 0)) for p in players),
+            'L': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('L', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('L', 0)) for p in players),  # Losses
             'IP': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('IP', 0)) for p in players),
         }
+        # Calculate K/BB ratio
+        stats['K/BB'] = stats['K'] / stats['BB'] if stats['BB'] > 0 else 0
+
         # Calculate weighted AVG and OPS
         total_ab = sum(HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) for p in players)
         if total_ab > 0:
@@ -4840,10 +4846,11 @@ def analyze_trade():
     stat_diffs = {}
     for stat in stats_a:
         diff = stats_b[stat] - stats_a[stat]  # What team_a receives minus what they send
-        stat_diffs[stat] = round(diff, 3) if stat in ['AVG', 'OPS', 'ERA', 'WHIP'] else int(diff)
+        stat_diffs[stat] = round(diff, 3) if stat in ['AVG', 'OPS', 'ERA', 'WHIP', 'K/BB'] else int(diff)
 
     # Category impact analysis with more detail
     cat_impacts = []
+    # Hitting categories
     if abs(stat_diffs['HR']) >= 5:
         winner = team_a if stat_diffs['HR'] > 0 else team_b
         cat_impacts.append(f"{winner} gains {abs(stat_diffs['HR'])} HR")
@@ -4856,6 +4863,12 @@ def analyze_trade():
     if abs(stat_diffs['R']) >= 20:
         winner = team_a if stat_diffs['R'] > 0 else team_b
         cat_impacts.append(f"{winner} gains {abs(stat_diffs['R'])} R")
+    # SO - lower is better, so negative diff is good for team_a
+    if abs(stat_diffs['SO']) >= 15:
+        winner = team_a if stat_diffs['SO'] < 0 else team_b  # Lower SO is better
+        cat_impacts.append(f"{winner} reduces SO by {abs(stat_diffs['SO'])}")
+
+    # Pitching categories
     if abs(stat_diffs['K']) >= 30:
         winner = team_a if stat_diffs['K'] > 0 else team_b
         cat_impacts.append(f"{winner} gains {abs(stat_diffs['K'])} K")
@@ -4865,6 +4878,14 @@ def analyze_trade():
     if abs(stat_diffs['QS']) >= 5:
         winner = team_a if stat_diffs['QS'] > 0 else team_b
         cat_impacts.append(f"{winner} gains {abs(stat_diffs['QS'])} QS")
+    # L - lower is better, so negative diff is good for team_a
+    if abs(stat_diffs['L']) >= 3:
+        winner = team_a if stat_diffs['L'] < 0 else team_b  # Fewer losses is better
+        cat_impacts.append(f"{winner} reduces L by {abs(stat_diffs['L'])}")
+    # K/BB - higher is better
+    if abs(stat_diffs['K/BB']) >= 0.5:
+        winner = team_a if stat_diffs['K/BB'] > 0 else team_b
+        cat_impacts.append(f"{winner} improves K/BB by {abs(stat_diffs['K/BB']):.2f}")
 
     category_analysis = ""
     if cat_impacts:
