@@ -810,6 +810,66 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                 const verdictClass = data.verdict.toLowerCase().includes('fair') ? 'fair' : data.verdict.toLowerCase().includes('unfair') ? 'unfair' : 'questionable';
 
+                // Build stat comparison table
+                const stats = data.stat_comparison || {};
+                const statRows = [
+                    { label: 'HR', key: 'HR', type: 'hit' },
+                    { label: 'RBI', key: 'RBI', type: 'hit' },
+                    { label: 'R', key: 'R', type: 'hit' },
+                    { label: 'SB', key: 'SB', type: 'hit' },
+                    { label: 'AVG', key: 'AVG', type: 'hit', format: v => v ? v.toFixed(3) : '.000' },
+                    { label: 'OPS', key: 'OPS', type: 'hit', format: v => v ? v.toFixed(3) : '.000' },
+                    { label: 'K', key: 'K', type: 'pitch' },
+                    { label: 'QS', key: 'QS', type: 'pitch' },
+                    { label: 'SV+HLD', key: null, type: 'pitch', getValue: s => (s.SV || 0) + (s.HLD || 0) },
+                    { label: 'ERA', key: 'ERA', type: 'pitch', format: v => v ? v.toFixed(2) : '0.00', inverse: true },
+                    { label: 'WHIP', key: 'WHIP', type: 'pitch', format: v => v ? v.toFixed(2) : '0.00', inverse: true },
+                ];
+
+                let statTableHtml = '';
+                if (stats.team_a_sends && stats.team_b_sends) {
+                    statTableHtml = `
+                        <div style="margin: 20px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="color: #00d4ff; margin: 0;">Stat Comparison</h4>
+                                <button onclick="document.getElementById('stat-details').style.display = document.getElementById('stat-details').style.display === 'none' ? 'block' : 'none'" style="background: linear-gradient(135deg, #3a3a7a, #4a4a9a); border: none; color: #fff; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Toggle Details</button>
+                            </div>
+                            <div id="stat-details" style="display: none; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 12px; padding: 15px; border: 1px solid rgba(0, 212, 255, 0.2);">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid rgba(0, 212, 255, 0.3);">
+                                            <th style="text-align: left; padding: 10px; color: #7070a0;">Stat</th>
+                                            <th style="text-align: center; padding: 10px; color: #7b2cbf;">${teamA} Sends</th>
+                                            <th style="text-align: center; padding: 10px; color: #7b2cbf;">${teamB} Sends</th>
+                                            <th style="text-align: center; padding: 10px; color: #00d4ff;">Net for ${teamA}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${statRows.map(row => {
+                                            const aVal = row.getValue ? row.getValue(stats.team_a_sends) : stats.team_a_sends[row.key] || 0;
+                                            const bVal = row.getValue ? row.getValue(stats.team_b_sends) : stats.team_b_sends[row.key] || 0;
+                                            const net = row.getValue ? row.getValue(stats.net_for_team_a) : stats.net_for_team_a[row.key] || 0;
+                                            const format = row.format || (v => Math.round(v));
+                                            const isPositive = row.inverse ? net < 0 : net > 0;
+                                            const isNegative = row.inverse ? net > 0 : net < 0;
+                                            const netColor = isPositive ? '#00ff88' : isNegative ? '#ff4d6d' : '#a0a0c0';
+                                            const netSign = net > 0 ? '+' : '';
+                                            return `
+                                                <tr style="border-bottom: 1px solid rgba(123, 44, 191, 0.15);">
+                                                    <td style="padding: 8px 10px; color: #c0c0e0;">${row.label}</td>
+                                                    <td style="text-align: center; padding: 8px; color: #a0a0c0;">${format(aVal)}</td>
+                                                    <td style="text-align: center; padding: 8px; color: #a0a0c0;">${format(bVal)}</td>
+                                                    <td style="text-align: center; padding: 8px; color: ${netColor}; font-weight: 600;">${netSign}${format(net)}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 results.innerHTML = `
                     <div class="result-card">
                         <div class="verdict ${verdictClass}">${data.verdict}</div>
@@ -817,23 +877,24 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             <div class="value-box">
                                 <h4>${teamA} Receives</h4>
                                 <div class="value">${data.value_a_receives.toFixed(1)}</div>
-                                ${data.age_analysis?.team_b_sends_avg_age ? `<div style="color:#888;font-size:0.8rem;margin-top:5px;">Avg Age: ${data.age_analysis.team_b_sends_avg_age}</div>` : ''}
+                                ${data.age_analysis?.team_b_sends_avg_age ? `<div style="color:#a0a0c0;font-size:0.85rem;margin-top:8px;">Avg Age: ${data.age_analysis.team_b_sends_avg_age}</div>` : ''}
                             </div>
                             <div class="value-box">
                                 <h4>${teamB} Receives</h4>
                                 <div class="value">${data.value_b_receives.toFixed(1)}</div>
-                                ${data.age_analysis?.team_a_sends_avg_age ? `<div style="color:#888;font-size:0.8rem;margin-top:5px;">Avg Age: ${data.age_analysis.team_a_sends_avg_age}</div>` : ''}
+                                ${data.age_analysis?.team_a_sends_avg_age ? `<div style="color:#a0a0c0;font-size:0.85rem;margin-top:8px;">Avg Age: ${data.age_analysis.team_a_sends_avg_age}</div>` : ''}
                             </div>
                         </div>
-                        <div style="padding: 15px; background: #1a1a2e; border-radius: 8px; margin: 15px 0;">
-                            <div style="white-space: pre-line; line-height: 1.6; color: #ccc;">${data.detailed_analysis || data.reasoning}</div>
+                        <div style="padding: 18px; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 12px; margin: 18px 0; border-left: 4px solid #7b2cbf;">
+                            <div style="white-space: pre-line; line-height: 1.7; color: #d0d0e0;">${data.detailed_analysis || data.reasoning}</div>
                         </div>
                         ${data.category_impact && data.category_impact.length > 0 ? `
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0;">
-                                ${data.category_impact.map(c => `<span style="background:#3a3a5a;padding:6px 12px;border-radius:15px;font-size:0.85rem;">${c}</span>`).join('')}
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0;">
+                                ${data.category_impact.map(c => `<span style="background: linear-gradient(135deg, #2a2a5a, #3a3a7a); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; border: 1px solid rgba(0, 212, 255, 0.2);">${c}</span>`).join('')}
                             </div>
                         ` : ''}
-                        <div style="padding: 12px 20px; background: ${data.recommendation?.includes('✓') ? '#16331a' : data.recommendation?.includes('⚠') ? '#332d16' : '#331616'}; border-radius: 8px; font-weight: 500; text-align: center;">
+                        ${statTableHtml}
+                        <div style="padding: 14px 24px; background: ${data.recommendation?.includes('✓') ? 'linear-gradient(135deg, #0a2a15, #153d20)' : data.recommendation?.includes('⚠') ? 'linear-gradient(135deg, #2a2510, #3d3515)' : 'linear-gradient(135deg, #2a1015, #3d1520)'}; border-radius: 12px; font-weight: 600; text-align: center; font-size: 1.05rem; border: 1px solid ${data.recommendation?.includes('✓') ? 'rgba(0, 255, 136, 0.3)' : data.recommendation?.includes('⚠') ? 'rgba(255, 190, 11, 0.3)' : 'rgba(255, 77, 109, 0.3)'};">
                             ${data.recommendation || ''}
                         </div>
                     </div>
@@ -841,6 +902,30 @@ HTML_CONTENT = '''<!DOCTYPE html>
             } catch (e) {
                 results.innerHTML = `<div class="result-card"><p style="color: #f87171;">Failed to analyze trade: ${e.message}</p></div>`;
             }
+        }
+
+        function getRankColor(rank, total) {
+            const pct = rank / total;
+            if (pct <= 0.33) return '#4ade80';  // Top third - green
+            if (pct <= 0.66) return '#ffd700';  // Middle third - gold
+            return '#f87171';  // Bottom third - red
+        }
+
+        function renderCategoryBar(cat, value, rank, total, isReverse = false) {
+            const rankPct = ((total - rank + 1) / total) * 100;
+            const color = getRankColor(rank, total);
+            const displayVal = typeof value === 'number' && value < 10 ? value.toFixed(3).replace('0.', '.') : Math.round(value);
+            return `
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: #e4e4e4; font-weight: 500;">${cat}</span>
+                        <span style="color: ${color}; font-weight: bold;">${displayVal} <span style="color: #888; font-weight: normal;">(#${rank})</span></span>
+                    </div>
+                    <div style="background: #2a2a3e; height: 8px; border-radius: 4px; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, ${color}, ${color}88); width: ${rankPct}%; height: 100%; border-radius: 4px;"></div>
+                    </div>
+                </div>
+            `;
         }
 
         async function showTeamDetails(teamName) {
@@ -852,50 +937,109 @@ HTML_CONTENT = '''<!DOCTYPE html>
             try {
                 const res = await fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`);
                 const data = await res.json();
+                const numTeams = data.num_teams || 12;
+                const cats = data.category_details || {};
+                const comp = data.roster_composition || {};
+                const posDepth = data.positional_depth || {};
 
                 content.innerHTML = `
                     <h2 style="color: #ffd700; margin-bottom: 5px;">#${data.power_rank} ${data.name}</h2>
                     <div style="font-size: 0.9rem; color: #888; margin-bottom: 15px;">2026 Draft Pick: #${data.draft_pick}</div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 25px;">
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
-                            <div style="color: #888; font-size: 0.85rem;">Total Value</div>
-                            <div style="color: #ffd700; font-size: 1.5rem; font-weight: bold;">${data.total_value.toFixed(1)}</div>
+                    <!-- Quick Stats -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                            <div style="color: #888; font-size: 0.75rem;">Total Value</div>
+                            <div style="color: #ffd700; font-size: 1.3rem; font-weight: bold;">${data.total_value.toFixed(1)}</div>
                         </div>
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
-                            <div style="color: #888; font-size: 0.85rem;">Power Rank</div>
-                            <div style="color: #ffd700; font-size: 1.5rem; font-weight: bold;">#${data.power_rank}</div>
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                            <div style="color: #888; font-size: 0.75rem;">Avg Age</div>
+                            <div style="color: #e4e4e4; font-size: 1.3rem; font-weight: bold;">${comp.avg_age || 'N/A'}</div>
                         </div>
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
-                            <div style="color: #888; font-size: 0.85rem;">2026 Pick</div>
-                            <div style="color: #ffd700; font-size: 1.5rem; font-weight: bold;">#${data.draft_pick}</div>
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                            <div style="color: #888; font-size: 0.75rem;">Roster</div>
+                            <div style="color: #e4e4e4; font-size: 1.3rem; font-weight: bold;">${data.player_count}</div>
                         </div>
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px; text-align: center;">
-                            <div style="color: #888; font-size: 0.85rem;">Players</div>
-                            <div style="color: #e4e4e4; font-size: 1.5rem; font-weight: bold;">${data.player_count}</div>
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                            <div style="color: #888; font-size: 0.75rem;">Prospects</div>
+                            <div style="color: #4ade80; font-size: 1.3rem; font-weight: bold;">${(data.prospects || []).length}</div>
                         </div>
                     </div>
 
+                    <!-- Roster Composition -->
+                    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                        <h4 style="color: #00d4ff; margin: 0 0 12px 0; font-size: 0.9rem;">ROSTER COMPOSITION</h4>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <div><span style="color: #888;">Hitters:</span> <span style="color: #e4e4e4; font-weight: bold;">${comp.hitters || 0}</span></div>
+                            <div><span style="color: #888;">SP:</span> <span style="color: #e4e4e4; font-weight: bold;">${comp.starters || 0}</span></div>
+                            <div><span style="color: #888;">RP:</span> <span style="color: #e4e4e4; font-weight: bold;">${comp.relievers || 0}</span></div>
+                            <div style="margin-left: auto;">
+                                <span style="color: #4ade80;">${comp.young || 0} young</span> |
+                                <span style="color: #ffd700;">${comp.prime || 0} prime</span> |
+                                <span style="color: #f87171;">${comp.veteran || 0} vet</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Category Rankings -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
+                            <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">HITTING CATEGORIES</h4>
+                            ${cats.HR ? renderCategoryBar('HR', cats.HR.value, cats.HR.rank, numTeams) : ''}
+                            ${cats.RBI ? renderCategoryBar('RBI', cats.RBI.value, cats.RBI.rank, numTeams) : ''}
+                            ${cats.R ? renderCategoryBar('R', cats.R.value, cats.R.rank, numTeams) : ''}
+                            ${cats.SB ? renderCategoryBar('SB', cats.SB.value, cats.SB.rank, numTeams) : ''}
+                            ${cats.AVG ? renderCategoryBar('AVG', cats.AVG.value, cats.AVG.rank, numTeams) : ''}
+                            ${cats.OPS ? renderCategoryBar('OPS', cats.OPS.value, cats.OPS.rank, numTeams) : ''}
+                        </div>
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
+                            <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">PITCHING CATEGORIES</h4>
+                            ${cats.K ? renderCategoryBar('K', cats.K.value, cats.K.rank, numTeams) : ''}
+                            ${cats.ERA ? renderCategoryBar('ERA', cats.ERA.value, cats.ERA.rank, numTeams, true) : ''}
+                            ${cats.WHIP ? renderCategoryBar('WHIP', cats.WHIP.value, cats.WHIP.rank, numTeams, true) : ''}
+                            ${cats['SV+HLD'] ? renderCategoryBar('SV+HLD', cats['SV+HLD'].value, cats['SV+HLD'].rank, numTeams) : ''}
+                        </div>
+                    </div>
+
+                    <!-- Strengths & Weaknesses Summary -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Hitting Strengths</div>
-                            <div style="color: #4ade80;">${(data.hitting_strengths || []).join(', ') || 'None'}</div>
+                        <div style="background: rgba(74, 222, 128, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(74, 222, 128, 0.3);">
+                            <div style="color: #4ade80; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">💪 STRENGTHS</div>
+                            <div style="color: #e4e4e4;">${[...(data.hitting_strengths || []), ...(data.pitching_strengths || [])].join(', ') || 'None'}</div>
                         </div>
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Hitting Weaknesses</div>
-                            <div style="color: #f87171;">${(data.hitting_weaknesses || []).join(', ') || 'None'}</div>
-                        </div>
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Pitching Strengths</div>
-                            <div style="color: #4ade80;">${(data.pitching_strengths || []).join(', ') || 'None'}</div>
-                        </div>
-                        <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
-                            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">Pitching Weaknesses</div>
-                            <div style="color: #f87171;">${(data.pitching_weaknesses || []).join(', ') || 'None'}</div>
+                        <div style="background: rgba(248, 113, 113, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(248, 113, 113, 0.3);">
+                            <div style="color: #f87171; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">📉 WEAKNESSES</div>
+                            <div style="color: #e4e4e4;">${[...(data.hitting_weaknesses || []), ...(data.pitching_weaknesses || [])].join(', ') || 'None'}</div>
                         </div>
                     </div>
 
-                    ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: #1a1a2e; border-radius: 8px; line-height: 1.7;">${data.analysis}</div>` : ''}
+                    <!-- Analysis -->
+                    ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 10px; line-height: 1.7; border: 1px solid #3a3a5a;">${data.analysis}</div>` : ''}
+
+                    <!-- Positional Depth -->
+                    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #3a3a5a;">
+                        <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">POSITIONAL DEPTH</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+                            ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
+                                const players = posDepth[pos] || [];
+                                const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
+                                return `
+                                    <div style="background: #2a2a3e; padding: 10px; border-radius: 6px;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                            <span style="color: #00d4ff; font-weight: bold;">${pos}</span>
+                                            <span style="color: ${depthColor}; font-size: 0.8rem;">${players.length} deep</span>
+                                        </div>
+                                        ${players.slice(0, 3).map((p, i) => `
+                                            <div style="font-size: 0.75rem; color: ${i === 0 ? '#e4e4e4' : '#888'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                ${p.name} (${p.value})
+                                            </div>
+                                        `).join('')}
+                                        ${players.length === 0 ? '<div style="font-size: 0.75rem; color: #666;">No depth</div>' : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
 
                     <h4 style="color: #ffd700; margin-bottom: 15px;">Top Players</h4>
                     ${(data.top_players || data.players.slice(0, 20)).map(p => `
@@ -909,10 +1053,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     `).join('')}
 
                     ${(data.prospects && data.prospects.length > 0) ? `
-                        <h4 style="color: #ffd700; margin: 25px 0 15px;">Prospects</h4>
+                        <h4 style="color: #ffd700; margin: 25px 0 15px;">Prospects (${data.prospects.length})</h4>
                         ${data.prospects.map(p => `
                             <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
-                                <div class="name player-link">${p.name}</div>
+                                <div>
+                                    <div class="name player-link">${p.name}</div>
+                                    <div style="color: #888; font-size: 0.8rem;">${p.position || ''} | Age ${p.age || '?'}</div>
+                                </div>
                                 <div class="value" style="color: #4ade80;">#${p.rank}</div>
                             </div>
                         `).join('')}
@@ -1165,13 +1312,49 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                 allCurrentSuggestions = append ? [...allCurrentSuggestions, ...data.suggestions] : data.suggestions;
 
-                let html = allCurrentSuggestions.map((s, idx) => `
+                // Show team needs if available
+                let needsHtml = '';
+                if (data.team_needs) {
+                    const needs = data.team_needs;
+                    needsHtml = `
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                                <div>
+                                    <span style="color: #888; font-size: 0.85rem;">Your Window:</span>
+                                    <span style="color: #ffd700; font-weight: bold; margin-left: 8px; text-transform: capitalize;">${needs.window}</span>
+                                </div>
+                                ${needs.weaknesses && needs.weaknesses.length > 0 ? `
+                                    <div>
+                                        <span style="color: #888; font-size: 0.85rem;">Need:</span>
+                                        <span style="color: #f87171; margin-left: 8px;">${needs.weaknesses.join(', ')}</span>
+                                    </div>
+                                ` : ''}
+                                ${needs.strengths && needs.strengths.length > 0 ? `
+                                    <div>
+                                        <span style="color: #888; font-size: 0.85rem;">Strength:</span>
+                                        <span style="color: #4ade80; margin-left: 8px;">${needs.strengths.join(', ')}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                let html = needsHtml + allCurrentSuggestions.map((s, idx) => {
+                    const fitLabel = s.fit_score >= 110 ? 'Excellent Fit' : (s.fit_score >= 95 ? 'Great Fit' : (s.fit_score >= 80 ? 'Good Fit' : 'Fair'));
+                    const fitColor = s.fit_score >= 110 ? '#4ade80' : (s.fit_score >= 95 ? '#ffd700' : (s.fit_score >= 80 ? '#60a5fa' : '#888'));
+                    const reasonsHtml = s.reasons && s.reasons.length > 0
+                        ? `<div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            ${s.reasons.map(r => `<span style="background: rgba(74, 222, 128, 0.15); color: #4ade80; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem;">${r}</span>`).join('')}
+                           </div>`
+                        : '';
+                    return `
                     <div class="suggestion-card" onclick="applySuggestion(${idx})">
                         <div class="suggestion-header">
                             <span>Trade with ${s.other_team}</span>
                             <div style="display:flex;gap:8px;align-items:center;">
                                 <span style="background:#3a3a5a;padding:4px 10px;border-radius:12px;font-size:0.75rem;">${s.trade_type || '1-for-1'}</span>
-                                <span class="suggestion-verdict ${s.value_diff < 5 ? 'great' : 'good'}">${s.value_diff < 5 ? 'Great Deal' : 'Good Deal'}</span>
+                                <span style="background: rgba(255,215,0,0.15); color: ${fitColor}; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">${fitLabel}</span>
                             </div>
                         </div>
                         <div class="suggestion-sides">
@@ -1186,8 +1369,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 <div class="suggestion-value">Value: ${s.you_receive_value.toFixed(1)}</div>
                             </div>
                         </div>
+                        ${reasonsHtml}
                     </div>
-                `).join('');
+                `}).join('');
 
                 if (data.has_more) {
                     html += `<div style="text-align:center;margin-top:20px;"><button class="btn btn-secondary" onclick="loadMoreSuggestions()">More Suggestions</button></div>`;
@@ -2043,6 +2227,57 @@ def get_prospects():
     return jsonify({"prospects": all_prospects})
 
 
+def calculate_league_category_rankings():
+    """Calculate each team's category totals and rankings across the league."""
+    team_cats = {}
+    for t_name, t in teams.items():
+        # Calculate team totals
+        hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in t.players)
+        sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in t.players)
+        rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p in t.players)
+        runs = sum(HITTER_PROJECTIONS.get(p.name, {}).get('R', 0) for p in t.players)
+        k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in t.players)
+        sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in t.players)
+        ip = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) for p in t.players)
+
+        # Calculate weighted ERA and WHIP
+        era_weighted = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('ERA', 0) * PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) for p in t.players)
+        whip_weighted = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('WHIP', 0) * PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) for p in t.players)
+        era = era_weighted / ip if ip > 0 else 5.00
+        whip = whip_weighted / ip if ip > 0 else 1.50
+
+        # Calculate weighted AVG and OPS
+        ab = sum(HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) for p in t.players)
+        pa = sum(HITTER_PROJECTIONS.get(p.name, {}).get('PA', 0) for p in t.players)
+        hits = sum(HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) * HITTER_PROJECTIONS.get(p.name, {}).get('AVG', 0) for p in t.players)
+        ops_weighted = sum(HITTER_PROJECTIONS.get(p.name, {}).get('OPS', 0) * HITTER_PROJECTIONS.get(p.name, {}).get('PA', 0) for p in t.players)
+        avg = hits / ab if ab > 0 else .250
+        ops = ops_weighted / pa if pa > 0 else .700
+
+        team_cats[t_name] = {
+            'HR': hr, 'SB': sb, 'RBI': rbi, 'R': runs, 'K': k, 'SV+HLD': sv_hld,
+            'ERA': era, 'WHIP': whip, 'AVG': avg, 'OPS': ops, 'IP': ip
+        }
+
+    # Calculate rankings for each category
+    rankings = {}
+    for t_name in teams.keys():
+        rankings[t_name] = {}
+
+    for cat in ['HR', 'SB', 'RBI', 'R', 'K', 'SV+HLD', 'AVG', 'OPS']:
+        sorted_teams = sorted(team_cats.keys(), key=lambda x: team_cats[x][cat], reverse=True)
+        for rank, t_name in enumerate(sorted_teams, 1):
+            rankings[t_name][cat] = rank
+
+    # ERA and WHIP - lower is better
+    for cat in ['ERA', 'WHIP']:
+        sorted_teams = sorted(team_cats.keys(), key=lambda x: team_cats[x][cat])
+        for rank, t_name in enumerate(sorted_teams, 1):
+            rankings[t_name][cat] = rank
+
+    return team_cats, rankings
+
+
 @app.route('/team/<team_name>')
 def get_team(team_name):
     if team_name not in teams:
@@ -2083,32 +2318,96 @@ def get_team(team_name):
 
     # Get top players and prospects
     top_players = players[:20]
-    prospects = [{"name": p.name, "rank": p.prospect_rank, "age": p.age}
+    prospects = [{"name": p.name, "rank": p.prospect_rank, "age": p.age, "position": p.position}
                  for p in team.players if p.is_prospect and p.prospect_rank]
     prospects.sort(key=lambda x: x['rank'])
 
-    # Calculate category strengths/weaknesses
+    # Calculate league-wide category rankings
+    team_cats, league_rankings = calculate_league_category_rankings()
+    my_cats = team_cats.get(team_name, {})
+    my_rankings = league_rankings.get(team_name, {})
+    num_teams = len(teams)
+
+    # Build category details with values and rankings
+    category_details = {
+        'HR': {'value': my_cats.get('HR', 0), 'rank': my_rankings.get('HR', 0)},
+        'SB': {'value': my_cats.get('SB', 0), 'rank': my_rankings.get('SB', 0)},
+        'RBI': {'value': my_cats.get('RBI', 0), 'rank': my_rankings.get('RBI', 0)},
+        'R': {'value': my_cats.get('R', 0), 'rank': my_rankings.get('R', 0)},
+        'AVG': {'value': round(my_cats.get('AVG', .250), 3), 'rank': my_rankings.get('AVG', 0)},
+        'OPS': {'value': round(my_cats.get('OPS', .700), 3), 'rank': my_rankings.get('OPS', 0)},
+        'K': {'value': my_cats.get('K', 0), 'rank': my_rankings.get('K', 0)},
+        'ERA': {'value': round(my_cats.get('ERA', 4.50), 2), 'rank': my_rankings.get('ERA', 0)},
+        'WHIP': {'value': round(my_cats.get('WHIP', 1.30), 2), 'rank': my_rankings.get('WHIP', 0)},
+        'SV+HLD': {'value': my_cats.get('SV+HLD', 0), 'rank': my_rankings.get('SV+HLD', 0)},
+    }
+
+    # Calculate category strengths/weaknesses based on rankings
     hitting_strengths, hitting_weaknesses = [], []
     pitching_strengths, pitching_weaknesses = [], []
 
-    # Calculate team totals
-    total_hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in team.players)
-    total_sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in team.players)
-    total_rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p in team.players)
-    total_k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in team.players)
-    total_sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in team.players)
+    top_third = num_teams // 3
+    bottom_third = num_teams - top_third
 
-    # Compare to league averages (simple threshold-based)
-    if total_hr >= 200: hitting_strengths.append("HR")
-    elif total_hr < 150: hitting_weaknesses.append("HR")
-    if total_sb >= 100: hitting_strengths.append("SB")
-    elif total_sb < 60: hitting_weaknesses.append("SB")
-    if total_rbi >= 600: hitting_strengths.append("RBI")
-    elif total_rbi < 450: hitting_weaknesses.append("RBI")
-    if total_k >= 1200: pitching_strengths.append("K")
-    elif total_k < 800: pitching_weaknesses.append("K")
-    if total_sv_hld >= 60: pitching_strengths.append("SV+HLD")
-    elif total_sv_hld < 30: pitching_weaknesses.append("SV+HLD")
+    for cat in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS']:
+        rank = my_rankings.get(cat, num_teams)
+        if rank <= top_third:
+            hitting_strengths.append(cat)
+        elif rank >= bottom_third:
+            hitting_weaknesses.append(cat)
+
+    for cat in ['K', 'ERA', 'WHIP', 'SV+HLD']:
+        rank = my_rankings.get(cat, num_teams)
+        if rank <= top_third:
+            pitching_strengths.append(cat)
+        elif rank >= bottom_third:
+            pitching_weaknesses.append(cat)
+
+    # Positional depth analysis
+    pos_depth = {'C': [], '1B': [], '2B': [], 'SS': [], '3B': [], 'OF': [], 'SP': [], 'RP': []}
+    for p, v in players_with_value:
+        pos = p.position.upper() if p.position else ''
+        player_info = {"name": p.name, "value": round(v, 1), "age": p.age}
+        if 'C' in pos and '1B' not in pos and 'CF' not in pos:
+            pos_depth['C'].append(player_info)
+        if '1B' in pos:
+            pos_depth['1B'].append(player_info)
+        if '2B' in pos:
+            pos_depth['2B'].append(player_info)
+        if 'SS' in pos:
+            pos_depth['SS'].append(player_info)
+        if '3B' in pos:
+            pos_depth['3B'].append(player_info)
+        if 'OF' in pos or 'LF' in pos or 'CF' in pos or 'RF' in pos:
+            pos_depth['OF'].append(player_info)
+        if 'SP' in pos:
+            pos_depth['SP'].append(player_info)
+        if 'RP' in pos or 'CL' in pos:
+            pos_depth['RP'].append(player_info)
+
+    # Sort each position by value and keep top 5
+    for pos in pos_depth:
+        pos_depth[pos] = sorted(pos_depth[pos], key=lambda x: x['value'], reverse=True)[:5]
+
+    # Calculate roster composition
+    hitters = len([p for p in team.players if p.name in HITTER_PROJECTIONS])
+    starters = len([p for p in team.players if p.name in PITCHER_PROJECTIONS])
+    relievers = len([p for p in team.players if p.name in RELIEVER_PROJECTIONS])
+    ages = [p.age for p in team.players if p.age > 0]
+    avg_age = round(sum(ages) / len(ages), 1) if ages else 0
+    young_count = len([a for a in ages if a <= 25])
+    prime_count = len([a for a in ages if 26 <= a <= 30])
+    vet_count = len([a for a in ages if a > 30])
+
+    roster_composition = {
+        'hitters': hitters,
+        'starters': starters,
+        'relievers': relievers,
+        'avg_age': avg_age,
+        'young': young_count,
+        'prime': prime_count,
+        'veteran': vet_count
+    }
 
     # Generate analysis
     analysis = generate_team_analysis(team_name, team, players_with_value, power_rank, len(teams))
@@ -2117,7 +2416,7 @@ def get_team(team_name):
         "name": team_name,
         "players": players,
         "top_players": top_players,
-        "prospects": prospects,  # Show all prospects
+        "prospects": prospects,
         "player_count": len(players),
         "total_value": round(total_value, 1),
         "power_rank": power_rank,
@@ -2126,6 +2425,10 @@ def get_team(team_name):
         "hitting_weaknesses": hitting_weaknesses,
         "pitching_strengths": pitching_strengths,
         "pitching_weaknesses": pitching_weaknesses,
+        "category_details": category_details,
+        "positional_depth": pos_depth,
+        "roster_composition": roster_composition,
+        "num_teams": num_teams,
         "analysis": analysis
     })
 
@@ -2551,35 +2854,73 @@ def analyze_trade():
     elif prospects_a and prospects_b:
         prospect_analysis = "Both sides exchanging prospect value. "
 
-    # Category impact analysis
-    category_analysis = ""
-    hr_a = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in found_players_a)
-    hr_b = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in found_players_b)
-    sb_a = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in found_players_a)
-    sb_b = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in found_players_b)
-    k_a = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in found_players_a)
-    k_b = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in found_players_b)
-    sv_hld_a = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in found_players_a)
-    sv_hld_b = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in found_players_b)
+    # Comprehensive stat breakdown for both sides
+    def get_player_stats(players):
+        stats = {
+            # Hitting
+            'HR': sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in players),
+            'RBI': sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p in players),
+            'R': sum(HITTER_PROJECTIONS.get(p.name, {}).get('R', 0) for p in players),
+            'SB': sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in players),
+            'AVG': 0,
+            'OPS': 0,
+            # Pitching
+            'K': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in players),
+            'ERA': 0,
+            'WHIP': 0,
+            'SV': sum(RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) for p in players),
+            'HLD': sum(RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0) for p in players),
+            'QS': sum(PITCHER_PROJECTIONS.get(p.name, {}).get('QS', 0) for p in players),
+            'W': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('W', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('W', 0)) for p in players),
+            'IP': sum((PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('IP', 0)) for p in players),
+        }
+        # Calculate weighted AVG and OPS
+        total_ab = sum(HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) for p in players)
+        if total_ab > 0:
+            stats['AVG'] = sum(HITTER_PROJECTIONS.get(p.name, {}).get('AVG', 0) * HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) for p in players) / total_ab
+            stats['OPS'] = sum(HITTER_PROJECTIONS.get(p.name, {}).get('OPS', 0) * HITTER_PROJECTIONS.get(p.name, {}).get('AB', 0) for p in players) / total_ab
+        # Calculate weighted ERA and WHIP
+        if stats['IP'] > 0:
+            total_er = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('ERA', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('ERA', 0)) * (PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('IP', 0)) / 9 for p in players)
+            stats['ERA'] = (total_er * 9) / stats['IP'] if stats['IP'] > 0 else 0
+            total_whip_ip = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('WHIP', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('WHIP', 0)) * (PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('IP', 0)) for p in players)
+            stats['WHIP'] = total_whip_ip / stats['IP'] if stats['IP'] > 0 else 0
+        return stats
 
+    stats_a = get_player_stats(found_players_a)
+    stats_b = get_player_stats(found_players_b)
+
+    # Calculate stat differences (positive = team_a gains, negative = team_b gains)
+    stat_diffs = {}
+    for stat in stats_a:
+        diff = stats_b[stat] - stats_a[stat]  # What team_a receives minus what they send
+        stat_diffs[stat] = round(diff, 3) if stat in ['AVG', 'OPS', 'ERA', 'WHIP'] else int(diff)
+
+    # Category impact analysis with more detail
     cat_impacts = []
-    if hr_a - hr_b >= 15:
-        cat_impacts.append(f"{team_b} gains power ({hr_a - hr_b} HR)")
-    elif hr_b - hr_a >= 15:
-        cat_impacts.append(f"{team_a} gains power ({hr_b - hr_a} HR)")
-    if sb_a - sb_b >= 10:
-        cat_impacts.append(f"{team_b} gains speed ({sb_a - sb_b} SB)")
-    elif sb_b - sb_a >= 10:
-        cat_impacts.append(f"{team_a} gains speed ({sb_b - sb_a} SB)")
-    if k_a - k_b >= 50:
-        cat_impacts.append(f"{team_b} gains strikeouts ({k_a - k_b} K)")
-    elif k_b - k_a >= 50:
-        cat_impacts.append(f"{team_a} gains strikeouts ({k_b - k_a} K)")
-    if sv_hld_a - sv_hld_b >= 10:
-        cat_impacts.append(f"{team_b} gains saves/holds ({sv_hld_a - sv_hld_b} SV+HLD)")
-    elif sv_hld_b - sv_hld_a >= 10:
-        cat_impacts.append(f"{team_a} gains saves/holds ({sv_hld_b - sv_hld_a} SV+HLD)")
+    if abs(stat_diffs['HR']) >= 5:
+        winner = team_a if stat_diffs['HR'] > 0 else team_b
+        cat_impacts.append(f"{winner} gains {abs(stat_diffs['HR'])} HR")
+    if abs(stat_diffs['SB']) >= 5:
+        winner = team_a if stat_diffs['SB'] > 0 else team_b
+        cat_impacts.append(f"{winner} gains {abs(stat_diffs['SB'])} SB")
+    if abs(stat_diffs['RBI']) >= 20:
+        winner = team_a if stat_diffs['RBI'] > 0 else team_b
+        cat_impacts.append(f"{winner} gains {abs(stat_diffs['RBI'])} RBI")
+    if abs(stat_diffs['R']) >= 20:
+        winner = team_a if stat_diffs['R'] > 0 else team_b
+        cat_impacts.append(f"{winner} gains {abs(stat_diffs['R'])} R")
+    if abs(stat_diffs['K']) >= 30:
+        winner = team_a if stat_diffs['K'] > 0 else team_b
+        cat_impacts.append(f"{winner} gains {abs(stat_diffs['K'])} K")
+    if abs(stat_diffs['SV'] + stat_diffs['HLD']) >= 5:
+        winner = team_a if (stat_diffs['SV'] + stat_diffs['HLD']) > 0 else team_b
+        cat_impacts.append(f"{winner} gains {abs(stat_diffs['SV'] + stat_diffs['HLD'])} SV+HLD")
+    if abs(stat_diffs['QS']) >= 5:
+        winner = team_a if stat_diffs['QS'] > 0 else team_b
+        cat_impacts.append(f"{winner} gains {abs(stat_diffs['QS'])} QS")
 
+    category_analysis = ""
     if cat_impacts:
         category_analysis = "Category impact: " + "; ".join(cat_impacts) + ". "
 
@@ -2624,11 +2965,30 @@ def analyze_trade():
     else:
         recommendation = f"✗ {loser} should decline unless addressing urgent need"
 
+    # Build player details for each side
+    players_a_details = [{
+        "name": p.name,
+        "position": p.position,
+        "age": p.age,
+        "value": round(calculator.calculate_player_value(p), 1),
+        "is_prospect": p.is_prospect,
+        "prospect_rank": p.prospect_rank if p.is_prospect else None
+    } for p in found_players_a]
+
+    players_b_details = [{
+        "name": p.name,
+        "position": p.position,
+        "age": p.age,
+        "value": round(calculator.calculate_player_value(p), 1),
+        "is_prospect": p.is_prospect,
+        "prospect_rank": p.prospect_rank if p.is_prospect else None
+    } for p in found_players_b]
+
     return jsonify({
         "verdict": verdict,
-        "value_a_receives": value_b_sends,
-        "value_b_receives": value_a_sends,
-        "value_diff": value_diff,
+        "value_a_receives": round(value_b_sends, 1),
+        "value_b_receives": round(value_a_sends, 1),
+        "value_diff": round(value_diff, 1),
         "reasoning": reasoning,
         "detailed_analysis": detailed_analysis,
         "age_analysis": {
@@ -2636,8 +2996,254 @@ def analyze_trade():
             "team_b_sends_avg_age": round(avg_age_b_sends, 1) if avg_age_b_sends else None,
         },
         "category_impact": cat_impacts,
-        "recommendation": recommendation
+        "recommendation": recommendation,
+        "players_a": players_a_details,
+        "players_b": players_b_details,
+        "picks_a": picks_a,
+        "picks_b": picks_b,
+        "stat_comparison": {
+            "team_a_sends": {k: round(v, 3) if isinstance(v, float) else v for k, v in stats_a.items()},
+            "team_b_sends": {k: round(v, 3) if isinstance(v, float) else v for k, v in stats_b.items()},
+            "net_for_team_a": stat_diffs
+        }
     })
+
+
+def calculate_team_needs(team_name):
+    """Calculate a team's category needs and positional depth."""
+    team = teams.get(team_name)
+    if not team:
+        return {}, {}, "unknown"
+
+    # Calculate category totals
+    total_hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p in team.players)
+    total_sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in team.players)
+    total_rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p in team.players)
+    total_runs = sum(HITTER_PROJECTIONS.get(p.name, {}).get('R', 0) for p in team.players)
+    total_k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in team.players)
+    total_sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in team.players)
+    total_ip = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) for p in team.players)
+
+    # Calculate weighted ERA and WHIP
+    total_era_weighted = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('ERA', 0) * PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) for p in team.players)
+    total_whip_weighted = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('WHIP', 0) * PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) for p in team.players)
+    avg_era = total_era_weighted / total_ip if total_ip > 0 else 4.50
+    avg_whip = total_whip_weighted / total_ip if total_ip > 0 else 1.30
+
+    # Define thresholds for needs (lower = more need, higher = strength)
+    # Scores from -2 (desperate need) to +2 (major strength)
+    category_scores = {}
+    category_scores['HR'] = 2 if total_hr >= 250 else (1 if total_hr >= 200 else (0 if total_hr >= 170 else (-1 if total_hr >= 140 else -2)))
+    category_scores['SB'] = 2 if total_sb >= 130 else (1 if total_sb >= 100 else (0 if total_sb >= 75 else (-1 if total_sb >= 50 else -2)))
+    category_scores['RBI'] = 2 if total_rbi >= 700 else (1 if total_rbi >= 600 else (0 if total_rbi >= 500 else (-1 if total_rbi >= 400 else -2)))
+    category_scores['R'] = 2 if total_runs >= 700 else (1 if total_runs >= 600 else (0 if total_runs >= 500 else (-1 if total_runs >= 400 else -2)))
+    category_scores['K'] = 2 if total_k >= 1400 else (1 if total_k >= 1200 else (0 if total_k >= 1000 else (-1 if total_k >= 800 else -2)))
+    category_scores['SV+HLD'] = 2 if total_sv_hld >= 80 else (1 if total_sv_hld >= 60 else (0 if total_sv_hld >= 40 else (-1 if total_sv_hld >= 25 else -2)))
+    category_scores['ERA'] = 2 if avg_era <= 3.50 else (1 if avg_era <= 3.80 else (0 if avg_era <= 4.10 else (-1 if avg_era <= 4.40 else -2)))
+    category_scores['WHIP'] = 2 if avg_whip <= 1.15 else (1 if avg_whip <= 1.22 else (0 if avg_whip <= 1.30 else (-1 if avg_whip <= 1.38 else -2)))
+
+    # Positional depth (count rostered players by position group)
+    pos_depth = {'C': 0, '1B': 0, '2B': 0, 'SS': 0, '3B': 0, 'OF': 0, 'SP': 0, 'RP': 0}
+    for p in team.players:
+        pos = p.position.upper() if p.position else ''
+        if 'C' in pos and '1B' not in pos and 'CF' not in pos:
+            pos_depth['C'] += 1
+        if '1B' in pos:
+            pos_depth['1B'] += 1
+        if '2B' in pos:
+            pos_depth['2B'] += 1
+        if 'SS' in pos:
+            pos_depth['SS'] += 1
+        if '3B' in pos:
+            pos_depth['3B'] += 1
+        if 'OF' in pos or 'LF' in pos or 'CF' in pos or 'RF' in pos:
+            pos_depth['OF'] += 1
+        if 'SP' in pos:
+            pos_depth['SP'] += 1
+        if 'RP' in pos or 'CL' in pos:
+            pos_depth['RP'] += 1
+
+    # Determine competitive window
+    ages = [p.age for p in team.players if p.age > 0]
+    avg_age = sum(ages) / len(ages) if ages else 27
+    prospects = len([p for p in team.players if p.is_prospect])
+
+    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    total_value = sum(v for _, v in players_with_value)
+
+    # Determine window based on value and age profile
+    if total_value >= 900 and avg_age <= 27:
+        window = "dynasty"
+    elif total_value >= 800:
+        window = "contender" if avg_age <= 28 else "win-now"
+    elif total_value >= 650:
+        window = "rising" if avg_age <= 27 else "competitive"
+    elif prospects >= 6 or avg_age <= 26:
+        window = "rebuilding"
+    else:
+        window = "retooling"
+
+    return category_scores, pos_depth, window
+
+
+def get_player_categories(player):
+    """Get the category contributions for a player."""
+    proj = HITTER_PROJECTIONS.get(player.name, {})
+    if proj:
+        return {
+            'type': 'hitter',
+            'HR': proj.get('HR', 0),
+            'SB': proj.get('SB', 0),
+            'RBI': proj.get('RBI', 0),
+            'R': proj.get('R', 0),
+        }
+    proj = PITCHER_PROJECTIONS.get(player.name, {})
+    if proj:
+        return {
+            'type': 'pitcher',
+            'K': proj.get('K', 0),
+            'ERA': proj.get('ERA', 4.50),
+            'WHIP': proj.get('WHIP', 1.30),
+            'IP': proj.get('IP', 0),
+        }
+    proj = RELIEVER_PROJECTIONS.get(player.name, {})
+    if proj:
+        return {
+            'type': 'reliever',
+            'K': proj.get('K', 0),
+            'SV': proj.get('SV', 0),
+            'HLD': proj.get('HD', 0),
+            'ERA': proj.get('ERA', 4.00),
+            'WHIP': proj.get('WHIP', 1.25),
+        }
+    return {'type': 'unknown'}
+
+
+def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_diff):
+    """Score how well a trade fits both teams' needs. Returns (score, reasons)."""
+    my_cats, my_pos, my_window = calculate_team_needs(my_team_name)
+    their_cats, their_pos, their_window = calculate_team_needs(their_team_name)
+
+    score = 100  # Start with base score
+    reasons = []
+
+    # Penalize for value difference (0-15 range typical)
+    fairness_penalty = value_diff * 2
+    score -= fairness_penalty
+
+    # Calculate category changes for my team
+    my_cat_gains = {'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'K': 0, 'SV+HLD': 0}
+    my_cat_losses = {'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'K': 0, 'SV+HLD': 0}
+
+    for p in you_receive:
+        cats = get_player_categories(p)
+        if cats['type'] == 'hitter':
+            my_cat_gains['HR'] += cats.get('HR', 0)
+            my_cat_gains['SB'] += cats.get('SB', 0)
+            my_cat_gains['RBI'] += cats.get('RBI', 0)
+            my_cat_gains['R'] += cats.get('R', 0)
+        elif cats['type'] in ['pitcher', 'reliever']:
+            my_cat_gains['K'] += cats.get('K', 0)
+            if cats['type'] == 'reliever':
+                my_cat_gains['SV+HLD'] += cats.get('SV', 0) + cats.get('HLD', 0)
+
+    for p in you_send:
+        cats = get_player_categories(p)
+        if cats['type'] == 'hitter':
+            my_cat_losses['HR'] += cats.get('HR', 0)
+            my_cat_losses['SB'] += cats.get('SB', 0)
+            my_cat_losses['RBI'] += cats.get('RBI', 0)
+            my_cat_losses['R'] += cats.get('R', 0)
+        elif cats['type'] in ['pitcher', 'reliever']:
+            my_cat_losses['K'] += cats.get('K', 0)
+            if cats['type'] == 'reliever':
+                my_cat_losses['SV+HLD'] += cats.get('SV', 0) + cats.get('HLD', 0)
+
+    # Score based on filling needs vs losing strengths
+    for cat in ['HR', 'SB', 'RBI', 'R', 'K', 'SV+HLD']:
+        net_change = my_cat_gains[cat] - my_cat_losses[cat]
+        need_score = my_cats.get(cat, 0)
+
+        if net_change > 0 and need_score < 0:
+            # Gaining in an area of need - big bonus!
+            bonus = min(20, net_change * abs(need_score) * 2)
+            score += bonus
+            if need_score <= -1:
+                reasons.append(f"+{net_change:.0f} {cat} (fills need)")
+        elif net_change < 0 and need_score >= 1:
+            # Losing in an area of strength - acceptable
+            score += 5  # Small bonus for trading from strength
+        elif net_change < 0 and need_score < 0:
+            # Losing in an area of need - penalty
+            penalty = min(15, abs(net_change) * abs(need_score))
+            score -= penalty
+
+    # Age-based adjustments based on window
+    avg_age_receive = sum(p.age for p in you_receive if p.age > 0) / len(you_receive) if you_receive else 27
+    avg_age_send = sum(p.age for p in you_send if p.age > 0) / len(you_send) if you_send else 27
+    age_diff = avg_age_send - avg_age_receive  # Positive = getting younger
+
+    if my_window in ['rebuilding', 'rising', 'dynasty']:
+        if age_diff > 2:
+            score += 10
+            reasons.append("Gets younger")
+        elif age_diff < -3:
+            score -= 10
+    elif my_window in ['win-now', 'contender']:
+        if age_diff < -1 and avg_age_receive <= 32:
+            score += 5  # Getting proven vets is fine for contenders
+
+    # Prospect acquisition bonus for rebuilding teams
+    prospects_gained = len([p for p in you_receive if p.is_prospect])
+    prospects_lost = len([p for p in you_send if p.is_prospect])
+    if my_window in ['rebuilding', 'rising']:
+        if prospects_gained > prospects_lost:
+            score += 8 * (prospects_gained - prospects_lost)
+            reasons.append(f"+{prospects_gained - prospects_lost} prospects")
+    elif my_window in ['win-now', 'contender']:
+        if prospects_lost > prospects_gained:
+            score += 5  # Trading prospects for talent is fine for contenders
+
+    # Check if trade makes sense for the other team too (more likely to be accepted)
+    their_benefits = []
+    for p in you_send:
+        cats = get_player_categories(p)
+        if cats['type'] == 'hitter':
+            for cat in ['HR', 'SB', 'RBI']:
+                if their_cats.get(cat, 0) < 0 and cats.get(cat, 0) > 15:
+                    their_benefits.append(cat)
+        elif cats['type'] in ['pitcher', 'reliever']:
+            if their_cats.get('K', 0) < 0 and cats.get('K', 0) > 80:
+                their_benefits.append('K')
+
+    if their_benefits:
+        score += 5
+        reasons.append(f"Fills their need: {', '.join(set(their_benefits))}")
+
+    # Position swap bonus (like-for-like is easier to justify)
+    send_positions = set()
+    receive_positions = set()
+    for p in you_send:
+        pos = p.position.upper() if p.position else ''
+        if 'SP' in pos:
+            send_positions.add('SP')
+        elif 'RP' in pos:
+            send_positions.add('RP')
+        else:
+            send_positions.add('Hitter')
+    for p in you_receive:
+        pos = p.position.upper() if p.position else ''
+        if 'SP' in pos:
+            receive_positions.add('SP')
+        elif 'RP' in pos:
+            receive_positions.add('RP')
+        else:
+            receive_positions.add('Hitter')
+
+    if send_positions == receive_positions:
+        score += 3
+
+    return score, reasons
 
 
 @app.route('/suggest')
@@ -2656,6 +3262,9 @@ def get_suggestions():
     my_players.sort(key=lambda x: x[1], reverse=True)
     my_tradeable = [(p, v) for p, v in my_players if 15 <= v <= 85][:15]
 
+    # Get my team's needs for insights
+    my_cats, my_pos, my_window = calculate_team_needs(my_team)
+
     target_teams = [target_team] if target_team else [t for t in teams.keys() if t != my_team]
 
     for other_team in target_teams:
@@ -2672,6 +3281,9 @@ def get_suggestions():
                 for their_p, their_val in their_tradeable:
                     diff = abs(my_val - their_val)
                     if diff < 15:
+                        fit_score, reasons = score_trade_fit(
+                            my_team, other_team, [my_p], [their_p], diff
+                        )
                         suggestions.append({
                             "my_team": my_team,
                             "other_team": other_team,
@@ -2680,7 +3292,9 @@ def get_suggestions():
                             "you_send_value": round(my_val, 1),
                             "you_receive_value": round(their_val, 1),
                             "value_diff": round(diff, 1),
-                            "trade_type": "1-for-1"
+                            "trade_type": "1-for-1",
+                            "fit_score": round(fit_score, 1),
+                            "reasons": reasons[:3]  # Top 3 reasons
                         })
 
         # 2-for-1 trades (you send 2, receive 1 better player)
@@ -2692,6 +3306,9 @@ def get_suggestions():
                         diff = abs(combined_val - their_val)
                         # 2-for-1 should get a better player (their_val > max of yours)
                         if diff < 20 and their_val > max(my_v1, my_v2) * 1.1:
+                            fit_score, reasons = score_trade_fit(
+                                my_team, other_team, [my_p1, my_p2], [their_p], diff
+                            )
                             suggestions.append({
                                 "my_team": my_team,
                                 "other_team": other_team,
@@ -2700,7 +3317,9 @@ def get_suggestions():
                                 "you_send_value": round(combined_val, 1),
                                 "you_receive_value": round(their_val, 1),
                                 "value_diff": round(diff, 1),
-                                "trade_type": "2-for-1"
+                                "trade_type": "2-for-1",
+                                "fit_score": round(fit_score, 1),
+                                "reasons": reasons[:3]
                             })
 
         # 2-for-2 trades
@@ -2713,6 +3332,9 @@ def get_suggestions():
                             their_combined = their_v1 + their_v2
                             diff = abs(my_combined - their_combined)
                             if diff < 20:
+                                fit_score, reasons = score_trade_fit(
+                                    my_team, other_team, [my_p1, my_p2], [their_p1, their_p2], diff
+                                )
                                 suggestions.append({
                                     "my_team": my_team,
                                     "other_team": other_team,
@@ -2721,23 +3343,33 @@ def get_suggestions():
                                     "you_send_value": round(my_combined, 1),
                                     "you_receive_value": round(their_combined, 1),
                                     "value_diff": round(diff, 1),
-                                    "trade_type": "2-for-2"
+                                    "trade_type": "2-for-2",
+                                    "fit_score": round(fit_score, 1),
+                                    "reasons": reasons[:3]
                                 })
 
-    # Sort by value difference (fairest first), limit to prevent too many
-    suggestions.sort(key=lambda x: x['value_diff'])
+    # Sort by fit score (best fits first), not just value difference
+    suggestions.sort(key=lambda x: x['fit_score'], reverse=True)
     suggestions = suggestions[:200]  # Cap at 200 total suggestions
 
     # Paginate
     paginated = suggestions[offset:offset + limit]
     has_more = len(suggestions) > offset + limit
 
+    # Add team needs summary to response
+    needs_summary = {
+        'weaknesses': [cat for cat, score in my_cats.items() if score < 0],
+        'strengths': [cat for cat, score in my_cats.items() if score > 0],
+        'window': my_window
+    }
+
     return jsonify({
         "suggestions": paginated,
         "has_more": has_more,
         "total_found": len(suggestions),
         "offset": offset,
-        "limit": limit
+        "limit": limit,
+        "team_needs": needs_summary
     })
 
 
