@@ -1744,6 +1744,10 @@ def load_prospect_rankings():
     print(f"Prospect rankings: {merged_count} averaged (JSON+CSV), {json_only_count} JSON-only, {csv_only_count} CSV-only, {filtered_count} filtered (rank>200)")
     print(f"Total prospects in rankings: {len(PROSPECT_RANKINGS)}")
 
+    # Debug: Print top 5 prospects
+    top_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r <= 10], key=lambda x: x[1])[:5]
+    print(f"Top 5 prospects: {top_prospects}")
+
 
 def load_data_from_json():
     """Load all league data from league_data.json (exported by data_exporter.py)."""
@@ -1807,6 +1811,10 @@ def load_data_from_json():
                 )
                 team.players.append(player)
                 total_players += 1
+
+                # Debug: log top prospects being loaded
+                if is_prospect and prospect_rank and prospect_rank <= 15:
+                    print(f"Top prospect loaded: {player_name} (rank {prospect_rank}) - team: {team_name}")
 
                 # Load projections if available
                 proj = p.get('projections')
