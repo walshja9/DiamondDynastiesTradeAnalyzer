@@ -23,6 +23,7 @@ from dynasty_trade_analyzer_v2 import (
     PITCHER_PROJECTIONS,
     RELIEVER_PROJECTIONS,
     PROSPECT_RANKINGS,
+    PLAYER_AGES,
 )
 
 # Fantrax API imports
@@ -968,13 +969,18 @@ def load_data_from_json():
             team = Team(name=team_name)
 
             for p in team_data.get('players', []):
+                # Get age from JSON, fallback to PLAYER_AGES dictionary
+                player_age = p.get('age', 0)
+                if player_age == 0:
+                    player_age = PLAYER_AGES.get(p['name'], 0)
+
                 player = Player(
                     name=p['name'],
                     position=p.get('position', 'N/A'),
                     mlb_team=p.get('mlb_team', 'FA'),
                     fantasy_team=team_name,
                     roster_status=p.get('status', 'Active'),
-                    age=p.get('age', 0),
+                    age=player_age,
                     is_prospect=p.get('is_prospect', False),
                     prospect_rank=p.get('prospect_rank') or 999,
                 )
