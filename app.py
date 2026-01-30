@@ -1698,6 +1698,10 @@ def load_data_from_json():
                 if player_age == 0:
                     player_age = PLAYER_AGES.get(player_name, 0)  # Static dictionary
 
+                # Get prospect rank from PROSPECT_RANKINGS (averaged from JSON + CSV)
+                prospect_rank = PROSPECT_RANKINGS.get(player_name)
+                is_prospect = prospect_rank is not None
+
                 player = Player(
                     name=p['name'],
                     position=p.get('position', 'N/A'),
@@ -1705,8 +1709,8 @@ def load_data_from_json():
                     fantasy_team=team_name,
                     roster_status=p.get('status', 'Active'),
                     age=player_age,
-                    is_prospect=p.get('is_prospect', False),
-                    prospect_rank=p.get('prospect_rank') or 999,
+                    is_prospect=is_prospect,
+                    prospect_rank=prospect_rank if is_prospect else 999,
                 )
                 team.players.append(player)
                 total_players += 1
