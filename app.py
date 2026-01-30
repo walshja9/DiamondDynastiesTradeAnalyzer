@@ -278,6 +278,20 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
 
         <div id="teams-panel" class="panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin:0;">All Teams</h3>
+                <button class="btn" onclick="showDraftOrderConfig()" style="font-size: 0.85rem; padding: 8px 16px;">Configure Draft Order</button>
+            </div>
+            <div id="draftOrderConfig" style="display:none; background:#1a1a2e; border-radius:10px; padding:20px; margin-bottom:20px;">
+                <h4 style="color:#ffd700; margin-bottom:15px;">2026 Draft Order</h4>
+                <p style="color:#888; font-size:0.85rem; margin-bottom:15px;">Set each team's draft pick position (1 = first pick). Leave empty to use calculated order based on team value.</p>
+                <div id="draftOrderInputs" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px;"></div>
+                <div style="margin-top:15px; display:flex; gap:10px;">
+                    <button class="btn" onclick="saveDraftOrder()">Save Draft Order</button>
+                    <button class="btn" onclick="clearDraftOrder()" style="background:#444;">Use Calculated Order</button>
+                    <button class="btn" onclick="hideDraftOrderConfig()" style="background:#444;">Cancel</button>
+                </div>
+            </div>
             <div id="teams-loading" class="loading">Loading teams...</div>
             <div id="teams-grid" class="team-grid"></div>
         </div>
@@ -385,6 +399,66 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </div>
                 </div>
             `).join('');
+        }
+
+        async function showDraftOrderConfig() {
+            document.getElementById('draftOrderConfig').style.display = 'block';
+            const inputs = document.getElementById('draftOrderInputs');
+            try {
+                const res = await fetch(`${API_BASE}/draft-order`);
+                const data = await res.json();
+                inputs.innerHTML = teamsData.map(t => `
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="flex:1; font-size:0.9rem;">${t.name}</span>
+                        <input type="number" id="pick_${t.name.replace(/[^a-zA-Z0-9]/g,'_')}" min="1" max="${teamsData.length}"
+                            value="${data.draft_order[t.name] || ''}" placeholder="${t.draft_pick}"
+                            style="width:60px; padding:6px; border-radius:4px; border:1px solid #444; background:#252540; color:#e4e4e4;">
+                    </div>
+                `).join('');
+            } catch (err) { inputs.innerHTML = `<div style="color:#f87171">Error loading draft order</div>`; }
+        }
+
+        function hideDraftOrderConfig() {
+            document.getElementById('draftOrderConfig').style.display = 'none';
+        }
+
+        async function saveDraftOrder() {
+            const draftOrder = {};
+            teamsData.forEach(t => {
+                const input = document.getElementById(`pick_${t.name.replace(/[^a-zA-Z0-9]/g,'_')}`);
+                if (input && input.value) {
+                    draftOrder[t.name] = parseInt(input.value);
+                }
+            });
+            try {
+                const res = await fetch(`${API_BASE}/draft-order`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({draft_order: draftOrder})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    hideDraftOrderConfig();
+                    loadTeams();
+                } else {
+                    alert(data.error || 'Failed to save');
+                }
+            } catch (err) { alert('Error saving draft order: ' + err.message); }
+        }
+
+        async function clearDraftOrder() {
+            try {
+                const res = await fetch(`${API_BASE}/draft-order`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({draft_order: {}})
+                });
+                const data = await res.json();
+                alert(data.message);
+                hideDraftOrderConfig();
+                loadTeams();
+            } catch (err) { alert('Error: ' + err.message); }
         }
 
         function showPanel(panel) {
