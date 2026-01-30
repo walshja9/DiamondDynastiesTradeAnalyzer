@@ -463,27 +463,30 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 loading.style.display = 'none';
 
                 if (data.prospects && data.prospects.length > 0) {
-                    grid.innerHTML = data.prospects.map(p => `
-                        <div style="background: #1a1a2e; border-radius: 10px; padding: 15px; border-left: 4px solid ${p.rank <= 10 ? '#ffd700' : p.rank <= 25 ? '#c0c0c0' : p.rank <= 50 ? '#cd7f32' : '#4a90d9'};">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="font-weight: bold; color: ${p.rank <= 10 ? '#ffd700' : p.rank <= 25 ? '#c0c0c0' : p.rank <= 50 ? '#cd7f32' : '#fff'};">#${p.rank} ${p.name}</span>
-                                <span style="color: #4a90d9; font-weight: bold;">${p.value.toFixed(1)}</span>
+                    grid.innerHTML = data.prospects.map(p => {
+                        const tierColor = p.rank <= 10 ? '#ffd700' : p.rank <= 25 ? '#00d4ff' : p.rank <= 50 ? '#7b2cbf' : '#4a90d9';
+                        const tierBg = p.rank <= 10 ? 'linear-gradient(145deg, #3d3d00, #4a4a00)' : p.rank <= 25 ? 'linear-gradient(145deg, #002a33, #003d4d)' : p.rank <= 50 ? 'linear-gradient(145deg, #2a1a3d, #3d2a50)' : 'linear-gradient(145deg, #151535, #1e1e50)';
+                        return `
+                        <div onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')" style="background: ${tierBg}; border-radius: 12px; padding: 18px; border-left: 4px solid ${tierColor}; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(${p.rank <= 10 ? '255,215,0' : p.rank <= 25 ? '0,212,255' : p.rank <= 50 ? '123,44,191' : '74,144,217'}, 0.3);" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 25px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="font-weight: bold; font-size: 1.05rem; color: ${tierColor};">#${p.rank} ${p.name}</span>
+                                <span style="color: #00d4ff; font-weight: bold; font-size: 1.1rem;">${p.value.toFixed(1)}</span>
                             </div>
-                            <div style="font-size: 0.85rem; color: #888;">
+                            <div style="font-size: 0.9rem; color: #a0a0c0;">
                                 ${p.position} | Age ${p.age} | ${p.mlb_team}
                             </div>
-                            <div style="font-size: 0.8rem; color: #666; margin-top: 5px;">
-                                Owner: <span style="color: #aaa;">${p.fantasy_team}</span>
+                            <div style="font-size: 0.85rem; color: #7070a0; margin-top: 8px;">
+                                Owner: <span style="color: #c0c0e0;">${p.fantasy_team}</span>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                 } else {
-                    grid.innerHTML = '<div style="color: #888; text-align: center; grid-column: 1/-1;">No prospects found.</div>';
+                    grid.innerHTML = '<div style="color: #7070a0; text-align: center; grid-column: 1/-1;">No prospects found.</div>';
                 }
             } catch (e) {
                 console.error('Failed to load prospects:', e);
                 loading.style.display = 'none';
-                grid.innerHTML = '<div style="color: #f66; text-align: center; grid-column: 1/-1;">Failed to load prospects.</div>';
+                grid.innerHTML = '<div style="color: #ff4d6d; text-align: center; grid-column: 1/-1;">Failed to load prospects.</div>';
             }
         }
 
