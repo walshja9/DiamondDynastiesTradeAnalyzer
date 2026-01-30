@@ -1056,6 +1056,12 @@ def load_projection_csvs():
                             "AVG": float(row.get('AVG', 0) or 0),
                             "OBP": float(row.get('OBP', 0) or 0),
                             "OPS": float(row.get('OPS', 0) or 0),
+                            "H": int(float(row.get('H', 0) or 0)),
+                            "2B": int(float(row.get('2B', 0) or 0)),
+                            "3B": int(float(row.get('3B', 0) or 0)),
+                            "BB": int(float(row.get('BB', 0) or 0)),
+                            "SO": int(float(row.get('SO', 0) or 0)),
+                            "SLG": float(row.get('SLG', 0) or 0),
                         }
                         if proj["AB"] > 0:
                             HITTER_PROJECTIONS[player_name] = proj
@@ -1082,8 +1088,16 @@ def load_projection_csvs():
                             "IP": float(row.get('IP', 0) or 0),
                             "K": int(float(row.get('K', 0) or 0)),
                             "W": int(float(row.get('W', 0) or 0)),
+                            "L": int(float(row.get('L', 0) or 0)),
+                            "SV": int(float(row.get('SV', 0) or 0)),
                             "ERA": float(row.get('ERA', 0) or 0),
                             "WHIP": float(row.get('WHIP', 0) or 0),
+                            "ER": int(float(row.get('ER', 0) or 0)),
+                            "H": int(float(row.get('H', 0) or 0)),
+                            "BB": int(float(row.get('BB', 0) or 0)),
+                            "HR": int(float(row.get('HR', 0) or 0)),
+                            "G": int(float(row.get('G', 0) or 0)),
+                            "GS": int(float(row.get('GS', 0) or 0)),
                         }
                         if proj["IP"] > 0:
                             PITCHER_PROJECTIONS[player_name] = proj
@@ -1109,10 +1123,18 @@ def load_projection_csvs():
                         proj = {
                             "IP": float(row.get('IP', 0) or 0),
                             "K": int(float(row.get('K', 0) or 0)),
+                            "W": int(float(row.get('W', 0) or 0)),
+                            "L": int(float(row.get('L', 0) or 0)),
                             "SV": int(float(row.get('SV', 0) or 0)),
+                            "BS": int(float(row.get('BS', 0) or 0)),
                             "HD": int(float(row.get('HD', row.get('HLD', 0)) or 0)),
                             "ERA": float(row.get('ERA', 0) or 0),
                             "WHIP": float(row.get('WHIP', 0) or 0),
+                            "ER": int(float(row.get('ER', 0) or 0)),
+                            "H": int(float(row.get('H', 0) or 0)),
+                            "BB": int(float(row.get('BB', 0) or 0)),
+                            "HR": int(float(row.get('HR', 0) or 0)),
+                            "G": int(float(row.get('G', 0) or 0)),
                         }
                         if proj["IP"] > 0:
                             RELIEVER_PROJECTIONS[player_name] = proj
