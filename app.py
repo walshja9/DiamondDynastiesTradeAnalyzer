@@ -1099,6 +1099,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             ${cats.SB ? renderCategoryBar('SB', cats.SB.value, cats.SB.rank, numTeams) : ''}
                             ${cats.AVG ? renderCategoryBar('AVG', cats.AVG.value, cats.AVG.rank, numTeams) : ''}
                             ${cats.OPS ? renderCategoryBar('OPS', cats.OPS.value, cats.OPS.rank, numTeams) : ''}
+                            ${cats.SO ? renderCategoryBar('SO', cats.SO.value, cats.SO.rank, numTeams, true) : ''}
                         </div>
                         <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
                             <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">PITCHING CATEGORIES</h4>
@@ -2823,6 +2824,7 @@ def calculate_league_category_rankings():
         sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p in t.players)
         rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p in t.players)
         runs = sum(HITTER_PROJECTIONS.get(p.name, {}).get('R', 0) for p in t.players)
+        so = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SO', 0) for p in t.players)  # Hitter strikeouts (lower is better)
         k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p in t.players)
         sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p in t.players)
         ip = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('IP', 0) for p in t.players)
@@ -2851,7 +2853,7 @@ def calculate_league_category_rankings():
         ops = ops_weighted / ab if ab > 0 else .700
 
         team_cats[t_name] = {
-            'HR': hr, 'SB': sb, 'RBI': rbi, 'R': runs, 'K': k, 'SV+HLD': sv_hld,
+            'HR': hr, 'SB': sb, 'RBI': rbi, 'R': runs, 'SO': so, 'K': k, 'SV+HLD': sv_hld,
             'ERA': era, 'WHIP': whip, 'AVG': avg, 'OPS': ops, 'IP': ip,
             'QS': qs, 'L': losses, 'K/BB': k_bb
         }
@@ -2867,8 +2869,8 @@ def calculate_league_category_rankings():
         for rank, t_name in enumerate(sorted_teams, 1):
             rankings[t_name][cat] = rank
 
-    # Lower is better categories (ERA, WHIP, L)
-    for cat in ['ERA', 'WHIP', 'L']:
+    # Lower is better categories (SO for hitters, ERA/WHIP/L for pitchers)
+    for cat in ['SO', 'ERA', 'WHIP', 'L']:
         sorted_teams = sorted(team_cats.keys(), key=lambda x: team_cats[x][cat])
         for rank, t_name in enumerate(sorted_teams, 1):
             rankings[t_name][cat] = rank
@@ -2934,6 +2936,7 @@ def get_team(team_name):
         'R': {'value': my_cats.get('R', 0), 'rank': my_rankings.get('R', 0)},
         'AVG': {'value': round(my_cats.get('AVG', .250), 3), 'rank': my_rankings.get('AVG', 0)},
         'OPS': {'value': round(my_cats.get('OPS', .700), 3), 'rank': my_rankings.get('OPS', 0)},
+        'SO': {'value': my_cats.get('SO', 0), 'rank': my_rankings.get('SO', 0)},
         'K': {'value': my_cats.get('K', 0), 'rank': my_rankings.get('K', 0)},
         'ERA': {'value': round(my_cats.get('ERA', 4.50), 2), 'rank': my_rankings.get('ERA', 0)},
         'WHIP': {'value': round(my_cats.get('WHIP', 1.30), 2), 'rank': my_rankings.get('WHIP', 0)},
@@ -2950,7 +2953,7 @@ def get_team(team_name):
     top_third = num_teams // 3
     bottom_third = num_teams - top_third
 
-    for cat in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS']:
+    for cat in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS', 'SO']:
         rank = my_rankings.get(cat, num_teams)
         if rank <= top_third:
             hitting_strengths.append(cat)
