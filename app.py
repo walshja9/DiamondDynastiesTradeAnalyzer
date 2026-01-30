@@ -55,6 +55,28 @@ league_transactions = []
 # Draft order configuration (team_name -> pick_number for 2026)
 # If empty, draft order is calculated based on team value (worst team = pick 1)
 draft_order_config = {}
+draft_order_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'draft_order.json')
+
+
+def load_draft_order_config():
+    """Load draft order configuration from file."""
+    global draft_order_config
+    if os.path.exists(draft_order_file):
+        try:
+            with open(draft_order_file, 'r') as f:
+                draft_order_config.update(json.load(f))
+            print(f"Loaded draft order configuration for {len(draft_order_config)} teams")
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Could not load draft order config: {e}")
+
+
+def save_draft_order_config():
+    """Save draft order configuration to file."""
+    try:
+        with open(draft_order_file, 'w') as f:
+            json.dump(draft_order_config, f, indent=2)
+    except IOError as e:
+        print(f"Warning: Could not save draft order config: {e}")
 
 
 def get_team_rankings():
@@ -1711,6 +1733,7 @@ def handle_draft_order():
         if not new_order:
             # Clear the draft order
             draft_order_config.clear()
+            save_draft_order_config()
             return jsonify({
                 "success": True,
                 "message": "Draft order cleared. Using calculated order based on team value."
@@ -1724,6 +1747,7 @@ def handle_draft_order():
         # Save the new draft order
         draft_order_config.clear()
         draft_order_config.update(new_order)
+        save_draft_order_config()
 
         return jsonify({
             "success": True,
@@ -1764,6 +1788,9 @@ else:
             print("Successfully loaded data from CSV (standings/matchups unavailable)")
         else:
             print("Warning: Could not load data. App may have limited functionality.")
+
+# Load draft order configuration
+load_draft_order_config()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
