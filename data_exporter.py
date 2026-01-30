@@ -34,6 +34,48 @@ from dynasty_trade_analyzer_v2 import (
     DynastyValueCalculator,
 )
 
+# Load ages from CSV if available (more complete than PLAYER_AGES dict)
+def load_ages_from_csv():
+    """Load player ages from Fantrax CSV export if available."""
+    import csv
+    import glob
+
+    ages = {}
+    search_paths = [
+        os.path.dirname(os.path.abspath(__file__)),
+        os.getcwd(),
+        os.path.expanduser('~'),
+        os.path.join(os.path.expanduser('~'), 'Downloads'),
+    ]
+
+    csv_path = None
+    for path in search_paths:
+        for pattern in ['Fantrax*.csv', 'fantrax*.csv']:
+            matches = glob.glob(os.path.join(path, pattern))
+            if matches:
+                csv_path = matches[0]
+                break
+        if csv_path:
+            break
+
+    if csv_path:
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    name = row.get('Player', '')
+                    age_str = row.get('Age', '')
+                    if name and age_str.isdigit():
+                        ages[name] = int(age_str)
+            print(f"Loaded {len(ages)} player ages from CSV: {csv_path}")
+        except Exception as e:
+            print(f"Warning: Could not load ages from CSV: {e}")
+
+    return ages
+
+# Load CSV ages at module level
+CSV_AGES = load_ages_from_csv()
+
 
 def save_cookies(cookies):
     """Save cookies to file for reuse."""
@@ -202,8 +244,10 @@ def export_league_data():
                 # Get position and status from player object
                 pos = p.pos_short_name if hasattr(p, 'pos_short_name') else (p.position if hasattr(p, 'position') else "N/A")
                 mlb_team = p.team_short_name if hasattr(p, 'team_short_name') else "FA"
-                # Get age from API, fallback to PLAYER_AGES dictionary
+                # Get age: API first, then CSV ages, then PLAYER_AGES dictionary
                 age = p.age if hasattr(p, 'age') and p.age else 0
+                if age == 0:
+                    age = CSV_AGES.get(p.name, 0)
                 if age == 0:
                     age = PLAYER_AGES.get(p.name, 0)
 
