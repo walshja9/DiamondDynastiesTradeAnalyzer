@@ -1668,35 +1668,66 @@ def load_free_agents():
 
 
 def calculate_fa_dynasty_value(fa):
-    """Calculate dynasty value for a free agent based on score, age, and rank."""
-    base_value = fa['score']
+    """Calculate dynasty value for a free agent.
 
-    # Age adjustment (younger players more valuable in dynasty)
+    The Fantrax 'Score' is projected fantasy points (0-100+ scale).
+    We need to convert this to dynasty value (typically 5-90 for most players).
+    FAs are generally worth less than rostered players, so we scale accordingly.
+    """
+    fantrax_score = fa['score']
+    rank = fa['rank']
     age = fa['age']
-    if age <= 25:
+    roster_pct = fa['roster_pct']
+
+    # Convert Fantrax score to dynasty value scale
+    # Elite FA (score 80+) -> dynasty ~40-50
+    # Good FA (score 60-80) -> dynasty ~25-40
+    # Average FA (score 40-60) -> dynasty ~15-25
+    # Below average (score <40) -> dynasty ~5-15
+    if fantrax_score >= 80:
+        base_value = 35 + (fantrax_score - 80) * 0.5  # 35-45 range
+    elif fantrax_score >= 60:
+        base_value = 20 + (fantrax_score - 60) * 0.75  # 20-35 range
+    elif fantrax_score >= 40:
+        base_value = 10 + (fantrax_score - 40) * 0.5  # 10-20 range
+    else:
+        base_value = max(5, fantrax_score * 0.25)  # 5-10 range
+
+    # Age adjustment - younger FAs more valuable in dynasty
+    if age <= 24:
+        age_mult = 1.25
+    elif age <= 26:
         age_mult = 1.15
     elif age <= 28:
         age_mult = 1.05
     elif age <= 30:
-        age_mult = 1.0
+        age_mult = 0.95
     elif age <= 33:
-        age_mult = 0.9
+        age_mult = 0.80
     else:
-        age_mult = 0.75
+        age_mult = 0.60
 
-    # Rank adjustment
-    rank = fa['rank']
-    if rank <= 100:
-        rank_bonus = 10
-    elif rank <= 200:
+    # Rank bonus - top ranked FAs get a boost
+    if rank <= 50:
+        rank_bonus = 8
+    elif rank <= 100:
         rank_bonus = 5
+    elif rank <= 200:
+        rank_bonus = 3
     elif rank <= 400:
-        rank_bonus = 2
+        rank_bonus = 1
     else:
         rank_bonus = 0
 
-    # Roster percentage indicates demand
-    ros_bonus = fa['roster_pct'] * 0.1  # Up to 10 points for 100% rostered
+    # Roster % as quality indicator (if 80%+ of leagues roster them, they're good)
+    if roster_pct >= 80:
+        ros_bonus = 5
+    elif roster_pct >= 60:
+        ros_bonus = 3
+    elif roster_pct >= 40:
+        ros_bonus = 1
+    else:
+        ros_bonus = 0
 
     value = (base_value * age_mult) + rank_bonus + ros_bonus
     return round(value, 1)
@@ -2902,9 +2933,11 @@ def search_players():
 
 @app.route('/player/<player_name>')
 def get_player(player_name):
-    # Find player
+    # Find player on a team roster first
     player = None
     fantasy_team = None
+    is_free_agent = False
+    fa_data = None
 
     for team_name, team in teams.items():
         for p in team.players:
@@ -2915,8 +2948,46 @@ def get_player(player_name):
         if player:
             break
 
+    # If not found on a team, check free agents
     if not player:
+        for fa in FREE_AGENTS:
+            if fa['name'].lower() == player_name.lower():
+                is_free_agent = True
+                fa_data = fa
+                fantasy_team = "Free Agent"
+                break
+
+    if not player and not is_free_agent:
         return jsonify({"error": f"Player '{player_name}' not found"}), 404
+
+    # Handle free agent display
+    if is_free_agent:
+        return jsonify({
+            "name": fa_data['name'],
+            "position": fa_data['position'],
+            "mlb_team": fa_data['mlb_team'],
+            "fantasy_team": "Free Agent",
+            "age": fa_data['age'],
+            "value": fa_data['dynasty_value'],
+            "is_prospect": False,
+            "prospect_rank": None,
+            "trajectory": "Ascending" if fa_data['age'] <= 26 else ("Prime" if fa_data['age'] <= 30 else "Declining"),
+            "trajectory_desc": f"Age {fa_data['age']} free agent available for pickup.",
+            "age_adjustment": 5 if fa_data['age'] <= 26 else (0 if fa_data['age'] <= 30 else -5),
+            "prospect_bonus": 0,
+            "projections": HITTER_PROJECTIONS.get(fa_data['name'], {}) or PITCHER_PROJECTIONS.get(fa_data['name'], {}) or RELIEVER_PROJECTIONS.get(fa_data['name'], {}),
+            "projections_estimated": False,
+            "actual_stats": None,
+            "fantasy_points": None,
+            "fppg": None,
+            "category_contributions": [],
+            "trade_advice": f"Free agent with {fa_data['roster_pct']:.0f}% roster rate. Fantrax rank #{fa_data['rank']}. Consider adding if he fills a need.",
+            "fa_info": {
+                "roster_pct": fa_data['roster_pct'],
+                "fantrax_rank": fa_data['rank'],
+                "fantrax_score": fa_data['score']
+            }
+        })
 
     value = calculator.calculate_player_value(player)
 
