@@ -1591,19 +1591,21 @@ def load_projection_csvs():
 
 
 def load_prospect_rankings():
-    """Load prospect rankings from consensus ranking CSV files."""
+    """Load prospect rankings from consensus ranking CSV files and average with prospects.json."""
     import csv
     import glob
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    total_count = 0
 
-    # Look for consensus ranking files
+    # Store the original rankings from prospects.json (already loaded)
+    json_rankings = dict(PROSPECT_RANKINGS)
+
+    # Load rankings from consensus CSV files
+    csv_rankings = {}
     prospect_files = glob.glob(os.path.join(script_dir, 'Consensus*Ranks*.csv'))
 
     for csv_file in prospect_files:
         try:
-            count = 0
             with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
@@ -1615,24 +1617,39 @@ def load_prospect_rankings():
 
                     try:
                         avg_rank = float(avg_rank_str)
-                        # Convert avg rank to an integer rank (round to nearest)
                         rank = int(round(avg_rank))
 
-                        # Only add if not already in PROSPECT_RANKINGS or if this rank is better
-                        if name not in PROSPECT_RANKINGS or rank < PROSPECT_RANKINGS[name]:
-                            PROSPECT_RANKINGS[name] = rank
-                            count += 1
+                        # Keep the better (lower) rank if player appears in multiple CSV files
+                        if name not in csv_rankings or rank < csv_rankings[name]:
+                            csv_rankings[name] = rank
                     except (ValueError, TypeError):
                         continue
 
-            if count > 0:
-                print(f"Loaded {count} prospect rankings from {os.path.basename(csv_file)}")
-                total_count += count
+            print(f"Loaded prospect rankings from {os.path.basename(csv_file)}")
         except Exception as e:
             print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
 
-    if total_count > 0:
-        print(f"Total prospect rankings loaded: {total_count}")
+    # Now merge: average rankings when player is in both sources
+    merged_count = 0
+    csv_only_count = 0
+
+    for name, csv_rank in csv_rankings.items():
+        if name in json_rankings:
+            # Player in both sources - take the average
+            json_rank = json_rankings[name]
+            averaged_rank = int(round((json_rank + csv_rank) / 2))
+            PROSPECT_RANKINGS[name] = averaged_rank
+            merged_count += 1
+        else:
+            # Player only in CSV - use CSV rank
+            PROSPECT_RANKINGS[name] = csv_rank
+            csv_only_count += 1
+
+    # Players only in JSON are already in PROSPECT_RANKINGS
+    json_only_count = len(json_rankings) - merged_count
+
+    print(f"Prospect rankings: {merged_count} averaged (JSON+CSV), {json_only_count} JSON-only, {csv_only_count} CSV-only")
+    print(f"Total prospects in rankings: {len(PROSPECT_RANKINGS)}")
 
 
 def load_data_from_json():
