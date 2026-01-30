@@ -1170,14 +1170,15 @@ fantrax_ages = {}
 
 
 def load_ages_from_fantrax_csv():
-    """Load player ages from Fantrax CSV export."""
+    """Load player ages from Fantrax CSV export and prospect ranking files."""
     import csv
     import glob
 
     global fantrax_ages
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    total_count = 0
 
-    # Look for Fantrax CSV files
+    # Load from Fantrax player CSV (primary source)
     search_patterns = [
         os.path.join(script_dir, 'Fantrax*.csv'),
         os.path.join(script_dir, 'fantrax*.csv'),
@@ -1190,44 +1191,75 @@ def load_ages_from_fantrax_csv():
             csv_file = matches[0]
             break
 
-    if not csv_file:
-        return
+    if csv_file:
+        try:
+            count = 0
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    name = row.get('Player', '').strip()
+                    age_str = row.get('Age', '')
+                    if name and age_str and age_str.isdigit():
+                        fantrax_ages[name] = int(age_str)
+                        count += 1
+            print(f"Loaded {count} player ages from Fantrax CSV")
+            total_count += count
+        except Exception as e:
+            print(f"Warning: Could not load ages from Fantrax CSV: {e}")
 
-    try:
-        count = 0
-        with open(csv_file, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                name = row.get('Player', '').strip()
-                age_str = row.get('Age', '')
-                if name and age_str and age_str.isdigit():
-                    fantrax_ages[name] = int(age_str)
-                    count += 1
-        print(f"Loaded {count} player ages from Fantrax CSV")
-    except Exception as e:
-        print(f"Warning: Could not load ages from Fantrax CSV: {e}")
+    # Also load from prospect ranking files (for prospects not in Fantrax)
+    prospect_patterns = [
+        os.path.join(script_dir, 'Consensus*Ranks*Hitters*.csv'),
+        os.path.join(script_dir, 'Consensus*Ranks*Pitchers*.csv'),
+    ]
+
+    for pattern in prospect_patterns:
+        for csv_file in glob.glob(pattern):
+            try:
+                count = 0
+                with open(csv_file, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        name = row.get('Name', '').strip()
+                        age_str = row.get('Age', '')
+                        # Only add if not already in fantrax_ages (Fantrax is primary)
+                        if name and age_str and age_str.isdigit() and name not in fantrax_ages:
+                            fantrax_ages[name] = int(age_str)
+                            count += 1
+                if count > 0:
+                    print(f"Loaded {count} additional ages from {os.path.basename(csv_file)}")
+                    total_count += count
+            except Exception as e:
+                print(f"Warning: Could not load ages from {csv_file}: {e}")
+
+    print(f"Total player ages loaded: {total_count}")
 
 
 def load_projection_csvs():
-    """Load projection data from CSV files."""
+    """Load projection data from CSV files, averaging ZiPS and Steamer when available."""
     import csv
     import glob
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Load hitter projections
-    hitter_files = glob.glob(os.path.join(script_dir, '*hitter*projection*.csv'))
-    if hitter_files:
+    def avg_val(v1, v2):
+        """Average two values, handling None/0 cases."""
+        if v1 and v2:
+            return (v1 + v2) / 2
+        return v1 or v2 or 0
+
+    def load_fangraphs_hitters(csv_file):
+        """Load hitter projections from a FanGraphs CSV."""
+        projections = {}
         try:
-            count = 0
-            with open(hitter_files[0], 'r', encoding='utf-8') as f:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    player_name = row.get('Player', '').strip()
-                    if not player_name:
+                    name = row.get('Name', '').strip().strip('"')
+                    if not name:
                         continue
                     try:
-                        proj = {
+                        projections[name] = {
                             "AB": int(float(row.get('AB', 0) or 0)),
                             "R": int(float(row.get('R', 0) or 0)),
                             "HR": int(float(row.get('HR', 0) or 0)),
@@ -1243,89 +1275,282 @@ def load_projection_csvs():
                             "SO": int(float(row.get('SO', 0) or 0)),
                             "SLG": float(row.get('SLG', 0) or 0),
                         }
-                        if proj["AB"] > 0:
-                            HITTER_PROJECTIONS[player_name] = proj
-                            count += 1
                     except (ValueError, TypeError):
                         continue
-            print(f"Loaded {count} hitter projections from CSV")
         except Exception as e:
-            print(f"Warning: Failed to load hitter projections: {e}")
+            print(f"Warning: Error loading {csv_file}: {e}")
+        return projections
 
-    # Load pitcher projections
-    pitcher_files = [f for f in glob.glob(os.path.join(script_dir, '*pitcher*projection*.csv')) if 'relief' not in f.lower()]
-    if pitcher_files:
+    def load_fangraphs_pitchers(csv_file):
+        """Load pitcher projections from a FanGraphs CSV."""
+        projections = {}
         try:
-            count = 0
-            with open(pitcher_files[0], 'r', encoding='utf-8') as f:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    player_name = row.get('Player', '').strip()
-                    if not player_name:
+                    name = row.get('Name', '').strip().strip('"')
+                    if not name:
                         continue
                     try:
                         gs = int(float(row.get('GS', 0) or 0))
-                        proj = {
+                        sv = int(float(row.get('SV', 0) or 0))
+                        hld = int(float(row.get('HLD', 0) or 0))
+                        projections[name] = {
                             "IP": float(row.get('IP', 0) or 0),
-                            "K": int(float(row.get('K', 0) or 0)),
+                            "K": int(float(row.get('SO', 0) or 0)),  # FanGraphs uses SO for pitcher K
                             "W": int(float(row.get('W', 0) or 0)),
                             "L": int(float(row.get('L', 0) or 0)),
-                            "SV": int(float(row.get('SV', 0) or 0)),
+                            "SV": sv,
+                            "HD": hld,
                             "ERA": float(row.get('ERA', 0) or 0),
                             "WHIP": float(row.get('WHIP', 0) or 0),
-                            "ER": int(float(row.get('ER', 0) or 0)),
                             "H": int(float(row.get('H', 0) or 0)),
                             "BB": int(float(row.get('BB', 0) or 0)),
                             "HR": int(float(row.get('HR', 0) or 0)),
                             "G": int(float(row.get('G', 0) or 0)),
                             "GS": gs,
-                            "QS": int(gs * 0.55),  # Estimate QS as ~55% of GS
+                            "QS": int(float(row.get('QS', 0) or gs * 0.55)),
                         }
-                        if proj["IP"] > 0:
-                            PITCHER_PROJECTIONS[player_name] = proj
-                            count += 1
                     except (ValueError, TypeError):
                         continue
-            print(f"Loaded {count} pitcher projections from CSV")
         except Exception as e:
-            print(f"Warning: Failed to load pitcher projections: {e}")
+            print(f"Warning: Error loading {csv_file}: {e}")
+        return projections
 
-    # Load reliever projections
-    relief_files = glob.glob(os.path.join(script_dir, '*relief*projection*.csv'))
-    if relief_files:
+    # Try to load FanGraphs ZiPS and Steamer projections
+    zips_hitters = os.path.join(script_dir, 'fangraphs-leaderboard-projections-zips.csv')
+    steamer_hitters = os.path.join(script_dir, 'fangraphs-leaderboard-projections-steamer.csv')
+    zips_pitchers = os.path.join(script_dir, 'fangraphs-leaderboard-projections-pitcher-zips.csv')
+    steamer_pitchers = os.path.join(script_dir, 'fangraphs-leaderboard-projections-pitcher-steamer.csv')
+
+    hitter_count = 0
+    pitcher_count = 0
+
+    # Load and average hitter projections
+    if os.path.exists(zips_hitters) or os.path.exists(steamer_hitters):
+        zips_h = load_fangraphs_hitters(zips_hitters) if os.path.exists(zips_hitters) else {}
+        steamer_h = load_fangraphs_hitters(steamer_hitters) if os.path.exists(steamer_hitters) else {}
+
+        all_hitters = set(zips_h.keys()) | set(steamer_h.keys())
+        for name in all_hitters:
+            z = zips_h.get(name, {})
+            s = steamer_h.get(name, {})
+            if z or s:
+                HITTER_PROJECTIONS[name] = {
+                    "AB": int(avg_val(z.get('AB'), s.get('AB'))),
+                    "R": int(avg_val(z.get('R'), s.get('R'))),
+                    "HR": int(avg_val(z.get('HR'), s.get('HR'))),
+                    "RBI": int(avg_val(z.get('RBI'), s.get('RBI'))),
+                    "SB": int(avg_val(z.get('SB'), s.get('SB'))),
+                    "AVG": round(avg_val(z.get('AVG'), s.get('AVG')), 3),
+                    "OBP": round(avg_val(z.get('OBP'), s.get('OBP')), 3),
+                    "OPS": round(avg_val(z.get('OPS'), s.get('OPS')), 3),
+                    "H": int(avg_val(z.get('H'), s.get('H'))),
+                    "2B": int(avg_val(z.get('2B'), s.get('2B'))),
+                    "3B": int(avg_val(z.get('3B'), s.get('3B'))),
+                    "BB": int(avg_val(z.get('BB'), s.get('BB'))),
+                    "SO": int(avg_val(z.get('SO'), s.get('SO'))),
+                    "SLG": round(avg_val(z.get('SLG'), s.get('SLG')), 3),
+                }
+                hitter_count += 1
+
+        print(f"Loaded {hitter_count} hitter projections (ZiPS + Steamer averaged)")
+    else:
+        # Fallback to old projection files
+        hitter_files = glob.glob(os.path.join(script_dir, '*hitter*projection*.csv'))
+        if hitter_files:
+            try:
+                with open(hitter_files[0], 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        player_name = row.get('Player', '').strip()
+                        if not player_name:
+                            continue
+                        try:
+                            proj = {
+                                "AB": int(float(row.get('AB', 0) or 0)),
+                                "R": int(float(row.get('R', 0) or 0)),
+                                "HR": int(float(row.get('HR', 0) or 0)),
+                                "RBI": int(float(row.get('RBI', 0) or 0)),
+                                "SB": int(float(row.get('SB', 0) or 0)),
+                                "AVG": float(row.get('AVG', 0) or 0),
+                                "OBP": float(row.get('OBP', 0) or 0),
+                                "OPS": float(row.get('OPS', 0) or 0),
+                                "H": int(float(row.get('H', 0) or 0)),
+                                "2B": int(float(row.get('2B', 0) or 0)),
+                                "3B": int(float(row.get('3B', 0) or 0)),
+                                "BB": int(float(row.get('BB', 0) or 0)),
+                                "SO": int(float(row.get('SO', 0) or 0)),
+                                "SLG": float(row.get('SLG', 0) or 0),
+                            }
+                            if proj["AB"] > 0:
+                                HITTER_PROJECTIONS[player_name] = proj
+                                hitter_count += 1
+                        except (ValueError, TypeError):
+                            continue
+                print(f"Loaded {hitter_count} hitter projections from CSV")
+            except Exception as e:
+                print(f"Warning: Failed to load hitter projections: {e}")
+
+    # Load and average pitcher projections (ZiPS + Steamer)
+    if os.path.exists(zips_pitchers) or os.path.exists(steamer_pitchers):
+        zips_p = load_fangraphs_pitchers(zips_pitchers) if os.path.exists(zips_pitchers) else {}
+        steamer_p = load_fangraphs_pitchers(steamer_pitchers) if os.path.exists(steamer_pitchers) else {}
+
+        all_pitchers = set(zips_p.keys()) | set(steamer_p.keys())
+        for name in all_pitchers:
+            z = zips_p.get(name, {})
+            s = steamer_p.get(name, {})
+            if z or s:
+                gs = int(avg_val(z.get('GS'), s.get('GS')))
+                sv = int(avg_val(z.get('SV'), s.get('SV')))
+                hld = int(avg_val(z.get('HD'), s.get('HD')))
+
+                proj = {
+                    "IP": round(avg_val(z.get('IP'), s.get('IP')), 1),
+                    "K": int(avg_val(z.get('K'), s.get('K'))),
+                    "W": int(avg_val(z.get('W'), s.get('W'))),
+                    "L": int(avg_val(z.get('L'), s.get('L'))),
+                    "SV": sv,
+                    "HD": hld,
+                    "ERA": round(avg_val(z.get('ERA'), s.get('ERA')), 2),
+                    "WHIP": round(avg_val(z.get('WHIP'), s.get('WHIP')), 3),
+                    "H": int(avg_val(z.get('H'), s.get('H'))),
+                    "BB": int(avg_val(z.get('BB'), s.get('BB'))),
+                    "HR": int(avg_val(z.get('HR'), s.get('HR'))),
+                    "G": int(avg_val(z.get('G'), s.get('G'))),
+                    "GS": gs,
+                    "QS": int(avg_val(z.get('QS'), s.get('QS')) or gs * 0.55),
+                }
+
+                # Separate into SP and RP based on saves/holds
+                if sv > 0 or hld > 0 or gs == 0:
+                    RELIEVER_PROJECTIONS[name] = proj
+                else:
+                    PITCHER_PROJECTIONS[name] = proj
+                pitcher_count += 1
+
+        print(f"Loaded {pitcher_count} pitcher projections (ZiPS + Steamer averaged)")
+    else:
+        # Fallback to old projection files
+        pitcher_files = [f for f in glob.glob(os.path.join(script_dir, '*pitcher*projection*.csv')) if 'relief' not in f.lower()]
+        if pitcher_files:
+            try:
+                with open(pitcher_files[0], 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        player_name = row.get('Player', '').strip()
+                        if not player_name:
+                            continue
+                        try:
+                            gs = int(float(row.get('GS', 0) or 0))
+                            proj = {
+                                "IP": float(row.get('IP', 0) or 0),
+                                "K": int(float(row.get('K', 0) or 0)),
+                                "W": int(float(row.get('W', 0) or 0)),
+                                "L": int(float(row.get('L', 0) or 0)),
+                                "SV": int(float(row.get('SV', 0) or 0)),
+                                "ERA": float(row.get('ERA', 0) or 0),
+                                "WHIP": float(row.get('WHIP', 0) or 0),
+                                "ER": int(float(row.get('ER', 0) or 0)),
+                                "H": int(float(row.get('H', 0) or 0)),
+                                "BB": int(float(row.get('BB', 0) or 0)),
+                                "HR": int(float(row.get('HR', 0) or 0)),
+                                "G": int(float(row.get('G', 0) or 0)),
+                                "GS": gs,
+                                "QS": int(gs * 0.55),
+                            }
+                            if proj["IP"] > 0:
+                                PITCHER_PROJECTIONS[player_name] = proj
+                                pitcher_count += 1
+                        except (ValueError, TypeError):
+                            continue
+                print(f"Loaded {pitcher_count} pitcher projections from CSV")
+            except Exception as e:
+                print(f"Warning: Failed to load pitcher projections: {e}")
+
+    # Load reliever projections (only if we didn't load from FanGraphs which includes RPs)
+    if not (os.path.exists(zips_pitchers) or os.path.exists(steamer_pitchers)):
+        relief_files = glob.glob(os.path.join(script_dir, '*relief*projection*.csv'))
+        if relief_files:
+            try:
+                count = 0
+                with open(relief_files[0], 'r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        player_name = row.get('Player', '').strip()
+                        if not player_name:
+                            continue
+                        try:
+                            proj = {
+                                "IP": float(row.get('IP', 0) or 0),
+                                "K": int(float(row.get('K', 0) or 0)),
+                                "W": int(float(row.get('W', 0) or 0)),
+                                "L": int(float(row.get('L', 0) or 0)),
+                                "SV": int(float(row.get('SV', 0) or 0)),
+                                "BS": int(float(row.get('BS', 0) or 0)),
+                                "HD": int(float(row.get('HD', row.get('HLD', 0)) or 0)),
+                                "ERA": float(row.get('ERA', 0) or 0),
+                                "WHIP": float(row.get('WHIP', 0) or 0),
+                                "ER": int(float(row.get('ER', 0) or 0)),
+                                "H": int(float(row.get('H', 0) or 0)),
+                                "BB": int(float(row.get('BB', 0) or 0)),
+                                "HR": int(float(row.get('HR', 0) or 0)),
+                                "G": int(float(row.get('G', 0) or 0)),
+                            }
+                            if proj["IP"] > 0:
+                                RELIEVER_PROJECTIONS[player_name] = proj
+                                count += 1
+                        except (ValueError, TypeError):
+                            continue
+                print(f"Loaded {count} reliever projections from CSV")
+            except Exception as e:
+                print(f"Warning: Failed to load reliever projections: {e}")
+
+
+def load_prospect_rankings():
+    """Load prospect rankings from consensus ranking CSV files."""
+    import csv
+    import glob
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    total_count = 0
+
+    # Look for consensus ranking files
+    prospect_files = glob.glob(os.path.join(script_dir, 'Consensus*Ranks*.csv'))
+
+    for csv_file in prospect_files:
         try:
             count = 0
-            with open(relief_files[0], 'r', encoding='utf-8') as f:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    player_name = row.get('Player', '').strip()
-                    if not player_name:
+                    name = row.get('Name', '').strip()
+                    avg_rank_str = row.get('Avg Rank', '')
+
+                    if not name or not avg_rank_str:
                         continue
+
                     try:
-                        proj = {
-                            "IP": float(row.get('IP', 0) or 0),
-                            "K": int(float(row.get('K', 0) or 0)),
-                            "W": int(float(row.get('W', 0) or 0)),
-                            "L": int(float(row.get('L', 0) or 0)),
-                            "SV": int(float(row.get('SV', 0) or 0)),
-                            "BS": int(float(row.get('BS', 0) or 0)),
-                            "HD": int(float(row.get('HD', row.get('HLD', 0)) or 0)),
-                            "ERA": float(row.get('ERA', 0) or 0),
-                            "WHIP": float(row.get('WHIP', 0) or 0),
-                            "ER": int(float(row.get('ER', 0) or 0)),
-                            "H": int(float(row.get('H', 0) or 0)),
-                            "BB": int(float(row.get('BB', 0) or 0)),
-                            "HR": int(float(row.get('HR', 0) or 0)),
-                            "G": int(float(row.get('G', 0) or 0)),
-                        }
-                        if proj["IP"] > 0:
-                            RELIEVER_PROJECTIONS[player_name] = proj
+                        avg_rank = float(avg_rank_str)
+                        # Convert avg rank to an integer rank (round to nearest)
+                        rank = int(round(avg_rank))
+
+                        # Only add if not already in PROSPECT_RANKINGS or if this rank is better
+                        if name not in PROSPECT_RANKINGS or rank < PROSPECT_RANKINGS[name]:
+                            PROSPECT_RANKINGS[name] = rank
                             count += 1
                     except (ValueError, TypeError):
                         continue
-            print(f"Loaded {count} reliever projections from CSV")
+
+            if count > 0:
+                print(f"Loaded {count} prospect rankings from {os.path.basename(csv_file)}")
+                total_count += count
         except Exception as e:
-            print(f"Warning: Failed to load reliever projections: {e}")
+            print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
+
+    if total_count > 0:
+        print(f"Total prospect rankings loaded: {total_count}")
 
 
 def load_data_from_json():
@@ -1366,12 +1591,13 @@ def load_data_from_json():
             team = Team(name=team_name)
 
             for p in team_data.get('players', []):
-                # Get age from JSON, fallback to Fantrax CSV, then PLAYER_AGES dictionary
-                player_age = p.get('age', 0)
+                # Get age: prefer Fantrax CSV (most current), fallback to JSON, then PLAYER_AGES
+                player_name = p['name']
+                player_age = fantrax_ages.get(player_name, 0)  # Fantrax CSV is most current
                 if player_age == 0:
-                    player_age = fantrax_ages.get(p['name'], 0)
+                    player_age = p.get('age', 0)  # JSON age
                 if player_age == 0:
-                    player_age = PLAYER_AGES.get(p['name'], 0)
+                    player_age = PLAYER_AGES.get(player_name, 0)  # Static dictionary
 
                 player = Player(
                     name=p['name'],
@@ -2359,6 +2585,9 @@ load_ages_from_fantrax_csv()
 
 # Load projection CSVs (if available)
 load_projection_csvs()
+
+# Load prospect rankings from consensus CSV files
+load_prospect_rankings()
 
 # Try JSON first (exported by data_exporter.py - has all data including standings/matchups)
 print("Looking for league_data.json...")
