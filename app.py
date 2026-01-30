@@ -2807,16 +2807,31 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
 
     analysis_parts.append(strategy)
 
-    # Position depth analysis
-    pos_counts = {}
-    for p, _ in players_with_value:
-        main_pos = p.position.split('/')[0] if '/' in p.position else p.position
-        if main_pos not in pos_counts:
-            pos_counts[main_pos] = []
-        pos_counts[main_pos].append(p.name)
+    # Position depth analysis - normalize positions and count properly
+    pos_counts = {'C': 0, '1B': 0, '2B': 0, 'SS': 0, '3B': 0, 'OF': 0, 'SP': 0, 'RP': 0}
+    exclude_positions = ['DH', 'UTIL', 'UT', 'P', '']
 
-    thin_positions = [pos for pos, players in pos_counts.items() if len(players) <= 2 and pos not in ['DH', 'UTIL']]
-    deep_positions = [pos for pos, players in pos_counts.items() if len(players) >= 5]
+    for p, _ in players_with_value:
+        pos_str = (p.position or '').upper()
+        # Count each position the player can play
+        positions_found = set()
+        for pos in pos_str.replace('/', ',').split(','):
+            pos = pos.strip()
+            # Normalize outfield positions
+            if pos in ['LF', 'CF', 'RF', 'OF']:
+                positions_found.add('OF')
+            elif pos in pos_counts and pos not in exclude_positions:
+                positions_found.add(pos)
+        # Add to counts (each player counts once per position type)
+        for pos in positions_found:
+            pos_counts[pos] += 1
+
+    # Determine thin (<=2) and deep (>=5) positions, excluding overlap
+    thin_positions = [pos for pos, count in pos_counts.items() if count <= 2 and count > 0]
+    deep_positions = [pos for pos, count in pos_counts.items() if count >= 5]
+
+    # A position can't be both thin and deep - remove any overlap
+    thin_positions = [p for p in thin_positions if p not in deep_positions]
 
     depth_text = "<b>🔍 POSITIONAL DEPTH:</b> "
     if thin_positions:

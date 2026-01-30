@@ -19,6 +19,7 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Don't commit the original CSV (we use league_data.json instead)
-Fantrax*.csv
-fantrax*.csv
+# Don't commit the original roster CSV (we use league_data.json instead)
+Fantrax-Players*.csv
+# But DO include fantrax_available_players.csv for FA data
+!fantrax_available_players.csv
