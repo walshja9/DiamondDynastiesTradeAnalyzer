@@ -3259,43 +3259,98 @@ def get_trade_package_suggestions(team_name, team, target_value, weak_cats):
 
 
 def get_draft_recommendations(team_name, draft_pick, weak_positions, weak_categories):
-    """Generate draft pick recommendations based on team needs."""
+    """Generate detailed, personalized draft pick recommendations based on team context."""
     recommendations = []
 
+    # Get team's competitive window for context
+    _, power_rankings, _ = get_team_rankings()
+    power_rank = power_rankings.get(team_name, 6)
+    is_contender = power_rank <= 4
+    is_rebuilding = power_rank >= 9
+
     # General tier guidance based on pick number
-    if draft_pick <= 4:
+    if draft_pick <= 3:
         tier = "elite"
-        rec = "At this pick, take the best player available (BPA) regardless of position. Elite talent is rare."
-    elif draft_pick <= 8:
+        pick_context = f"<b>Pick #{draft_pick} - Elite Tier:</b> You're selecting in the top 3. Best Player Available (BPA) is the only strategy here — elite talent trumps positional need every time."
+        if is_contender:
+            pick_context += " As a contender, target MLB-ready talent who can contribute immediately."
+        elif is_rebuilding:
+            pick_context += " As a rebuilder, prioritize ceiling and youth — the best 21-year-old prospect available."
+    elif draft_pick <= 6:
         tier = "high"
-        rec = "Strong pick - lean BPA but can factor in positional need if talent is close."
-    else:
+        pick_context = f"<b>Pick #{draft_pick} - High Tier:</b> Strong draft position. Still prioritize BPA, but can factor in positional need if two players are close in value."
+        if is_contender:
+            pick_context += " Look for immediate impact at a position of need."
+        elif is_rebuilding:
+            pick_context += " Target high-ceiling prospects who project as future stars."
+    elif draft_pick <= 9:
         tier = "mid"
-        rec = "Target positional needs if comparable talent available."
+        pick_context = f"<b>Pick #{draft_pick} - Mid Tier:</b> Balance BPA with team needs. The difference between players here is smaller, so fit matters more."
+        if weak_positions:
+            pick_context += f" Your thin spots ({', '.join(weak_positions[:2])}) should guide your pick."
+    else:
+        tier = "late"
+        pick_context = f"<b>Pick #{draft_pick} - Value Hunting:</b> At this pick, target specific needs and high-upside gambles. Look for undervalued players who fit your roster holes."
 
-    recommendations.append(rec)
+    recommendations.append(pick_context)
 
-    # Position-specific advice
+    # Position-specific advice with more detail
     if weak_positions:
-        pos_advice = f"Your roster is thin at {', '.join(weak_positions[:2])}. "
+        pos_advice = f"<b>Positional Needs:</b> "
+        pos_details = []
         if 'C' in weak_positions:
-            pos_advice += "Quality catchers are scarce - prioritize if elite C available. "
-        if 'SS' in weak_positions or '2B' in weak_positions:
-            pos_advice += "Middle infield depth is valuable. "
+            pos_details.append("C (premium position — quality catchers are RARE in dynasty)")
+        if 'SS' in weak_positions:
+            pos_details.append("SS (elite SS combine power + speed — prioritize young options)")
+        if '2B' in weak_positions:
+            pos_details.append("2B (middle infield depth is valuable for flexibility)")
+        if '3B' in weak_positions:
+            pos_details.append("3B (corner power is replaceable — don't reach)")
+        if 'OF' in weak_positions:
+            pos_details.append("OF (deepest position — many options available)")
         if 'SP' in weak_positions:
-            pos_advice += "Aces are difference-makers in H2H. "
-        recommendations.append(pos_advice)
+            pos_details.append("SP (aces are difference-makers — elite SP is worth reaching for)")
+        if 'RP' in weak_positions:
+            pos_details.append("RP (volatile — don't draft closers early, find them on waivers)")
 
-    # Category-specific advice
+        if pos_details:
+            pos_advice += ", ".join(pos_details[:3])
+            recommendations.append(pos_advice)
+
+    # Category-specific advice with detail
     if weak_categories:
-        cat_advice = f"You need {', '.join(weak_categories[:2])} help. "
-        if 'SB' in weak_categories:
-            cat_advice += "Target speedsters - SB is hard to find. "
-        if 'K' in weak_categories:
-            cat_advice += "High-K pitchers are premium assets. "
-        if 'HR' in weak_categories:
-            cat_advice += "Power bats should be prioritized. "
-        recommendations.append(cat_advice)
+        cat_names = [c if isinstance(c, str) else c[0] for c in weak_categories[:3]]
+        cat_advice = f"<b>Category Targets:</b> "
+        cat_details = []
+
+        if 'SB' in cat_names:
+            cat_details.append("SB (speed is scarce — elite base stealers are PREMIUM assets)")
+        if 'HR' in cat_names:
+            cat_details.append("HR (power is more available but young power bats are gold)")
+        if 'K' in cat_names:
+            cat_details.append("K (high-K arms anchor rotations — target 200+ K upside)")
+        if 'QS' in cat_names:
+            cat_details.append("QS (workload matters — target durable innings eaters)")
+        if 'SV+HLD' in cat_names:
+            cat_details.append("SV+HLD (don't overdraft relievers — role volatility is real)")
+        if 'SO' in cat_names:
+            cat_details.append("SO (contact hitters help — look for low-K bats)")
+        if 'K/BB' in cat_names:
+            cat_details.append("K/BB (elite command = elite pitchers — target sub-2.0 BB/9)")
+
+        if cat_details:
+            cat_advice += " | ".join(cat_details[:3])
+            recommendations.append(cat_advice)
+
+    # Window-specific final advice
+    if is_contender:
+        window_advice = "<b>Contender Strategy:</b> Balance win-now pieces with future value. An MLB-ready player who fills a need > a better prospect who won't contribute for 2 years."
+    elif is_rebuilding:
+        window_advice = "<b>Rebuilder Strategy:</b> Youth and ceiling over floor. Target the youngest, highest-upside player available. Avoid 28+ year olds even if they're 'better' now."
+    else:
+        window_advice = "<b>Middle-Tier Strategy:</b> Use this draft to push toward contention OR accelerate a rebuild. Pick a direction and draft accordingly."
+
+    recommendations.append(window_advice)
 
     return recommendations
 
@@ -3447,6 +3502,21 @@ def get_buy_low_sell_high_alerts(team_name, team):
                     if ab >= 300 and so <= 100:
                         cat_contribution = (150 - so) / 3
                         reason = f"Only {so} SO in {ab} AB"
+                elif cat == 'L' and proj_p:  # Lower is better - look for low loss pitchers
+                    losses = proj_p.get('L', 10)
+                    ip = proj_p.get('IP', 0)
+                    if ip >= 100 and losses <= 8:
+                        cat_contribution = (12 - losses) * 4
+                        reason = f"Only {losses} L over {ip:.0f} IP"
+                elif cat == 'K/BB' and proj_p:  # Higher is better - elite command
+                    k = proj_p.get('K', 0)
+                    bb = proj_p.get('BB', 50)
+                    ip = proj_p.get('IP', 0)
+                    if ip >= 80 and bb > 0:
+                        k_bb = k / bb
+                        if k_bb >= 3.5:
+                            cat_contribution = k_bb * 8
+                            reason = f"{k_bb:.2f} K/BB ({k} K, {bb} BB)"
 
                 if cat_contribution > 0:
                     # Bonus for age (younger = more valuable in dynasty)
@@ -3857,7 +3927,10 @@ def generate_rivalry_analysis(team_name, rival_name):
 
 
 def generate_team_analysis(team_name, team, players_with_value=None, power_rank=None, total_teams=12):
-    """Generate a comprehensive, personalized text analysis/description of a team."""
+    """
+    Generate comprehensive, personalized GM-level analysis for each team.
+    Acts as a dedicated Assistant GM providing strategic insights.
+    """
     if players_with_value is None:
         players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
         players_with_value.sort(key=lambda x: x[1], reverse=True)
@@ -3867,123 +3940,300 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         power_rank = power_rankings.get(team_name, 0)
 
     analysis_parts = []
+    total_value = sum(v for _, v in players_with_value)
 
-    # Calculate roster demographics
+    # ============ DETAILED ROSTER DEMOGRAPHICS ============
     ages = [p.age for p in team.players if p.age > 0]
     avg_age = sum(ages) / len(ages) if ages else 0
-    young_players = len([a for a in ages if a <= 25])
-    prime_players = len([a for a in ages if 26 <= a <= 30])
-    veteran_players = len([a for a in ages if a > 30])
+    young_players = [(p, v) for p, v in players_with_value if p.age <= 25 and p.age > 0]
+    prime_players = [(p, v) for p, v in players_with_value if 26 <= p.age <= 30]
+    veteran_players = [(p, v) for p, v in players_with_value if p.age > 30]
     prospects = [p for p in team.players if p.is_prospect]
 
-    # Calculate team totals and category analysis
+    # Hitters vs Pitchers breakdown
+    hitters = [(p, v) for p, v in players_with_value if p.name in HITTER_PROJECTIONS]
+    starters = [(p, v) for p, v in players_with_value if p.name in PITCHER_PROJECTIONS]
+    relievers = [(p, v) for p, v in players_with_value if p.name in RELIEVER_PROJECTIONS]
+    hitter_value = sum(v for _, v in hitters)
+    pitcher_value = sum(v for _, v in starters) + sum(v for _, v in relievers)
+
+    # Calculate comprehensive category totals
     total_hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p, _ in players_with_value)
     total_sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p, _ in players_with_value)
     total_rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p, _ in players_with_value)
+    total_r = sum(HITTER_PROJECTIONS.get(p.name, {}).get('R', 0) for p, _ in players_with_value)
+    total_so = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SO', 0) for p, _ in players_with_value)
     total_k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p, _ in players_with_value)
+    total_qs = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('QS', 0) for p, _ in players_with_value)
+    total_w = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('W', 0) for p, _ in players_with_value)
+    total_l = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('L', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('L', 0)) for p, _ in players_with_value)
     total_sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p, _ in players_with_value)
+    total_bb = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('BB', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('BB', 0)) for p, _ in players_with_value)
+    k_bb_ratio = total_k / total_bb if total_bb > 0 else 0
 
-    # Identify strengths and weaknesses
-    cat_strengths, cat_weaknesses = [], []
-    if total_hr >= 220: cat_strengths.append("HR")
-    elif total_hr < 160: cat_weaknesses.append("HR")
-    if total_sb >= 120: cat_strengths.append("SB")
-    elif total_sb < 70: cat_weaknesses.append("SB")
-    if total_k >= 1300: cat_strengths.append("K")
-    elif total_k < 900: cat_weaknesses.append("K")
-    if total_sv_hld >= 70: cat_strengths.append("SV+HLD")
-    elif total_sv_hld < 35: cat_weaknesses.append("SV+HLD")
+    # Get league-wide category rankings
+    team_cats, rankings = calculate_league_category_rankings()
+    my_ranks = rankings.get(team_name, {})
 
-    # Determine competitive window
+    # Identify category strengths and weaknesses by rank
+    cat_strengths = [(cat, rank) for cat, rank in my_ranks.items() if rank <= 4]
+    cat_weaknesses = [(cat, rank) for cat, rank in my_ranks.items() if rank >= 9]
+    cat_strengths.sort(key=lambda x: x[1])
+    cat_weaknesses.sort(key=lambda x: -x[1])
+
+    # Determine competitive window with nuance
     top_third = total_teams // 3
     bottom_third = total_teams - top_third
-    is_old_roster = avg_age >= 28 or veteran_players > prime_players
-    is_young_roster = avg_age <= 26 or len(prospects) >= 6
+    young_value = sum(v for _, v in young_players)
+    prime_value = sum(v for _, v in prime_players)
+    vet_value = sum(v for _, v in veteran_players)
+    is_old_roster = avg_age >= 28 or vet_value > young_value + prime_value
+    is_young_roster = avg_age <= 26.5 or len(prospects) >= 6 or young_value > vet_value * 1.5
 
+    # ============ TEAM IDENTITY - DEEP ANALYSIS ============
     if power_rank <= top_third:
         if is_young_roster:
             window = "dynasty"
-            window_desc = f"{team_name} is a dynasty powerhouse with elite young talent and a championship window that extends for years"
+            window_emoji = "👑"
+            window_desc = f"<span style='color:#ffd700'><b>DYNASTY POWERHOUSE</b></span> — {team_name} has it all: elite talent AND youth"
+            window_detail = f"This is the rarest combination in dynasty fantasy. You have {len(young_players)} players 25 or younger contributing {young_value:.0f} points of value. Your window isn't just open — it's bolted open for years. Play from a position of strength: don't overpay to fill gaps, let others come to you."
         elif is_old_roster:
             window = "win-now"
-            window_desc = f"{team_name} is in win-now mode - a veteran-laden contender that needs to push all chips to the middle"
+            window_emoji = "⏰"
+            window_desc = f"<span style='color:#f59e0b'><b>WIN-NOW MODE</b></span> — {team_name} is built for immediate contention but time is the enemy"
+            window_detail = f"Your roster averages {avg_age:.1f} years old with {len(veteran_players)} veterans contributing {vet_value:.0f} points. This is a championship-caliber roster TODAY, but every month you wait, asset values decline. Be aggressive in trades — overpay for the final pieces if needed. You can't take prospects to the championship."
         else:
             window = "contender"
-            window_desc = f"{team_name} is a legitimate title contender with a balanced, competitive roster"
+            window_emoji = "🎯"
+            window_desc = f"<span style='color:#4ade80'><b>LEGITIMATE CONTENDER</b></span> — {team_name} has the roster to compete now"
+            window_detail = f"Balanced across age groups with a strong core. Your {prime_value:.0f} points of prime-age value gives you a 2-3 year window of contention. Target surgical upgrades that address category weaknesses without mortgaging the future."
     elif power_rank >= bottom_third:
         if is_old_roster:
             window = "teardown"
-            window_desc = f"{team_name} needs a full teardown - an aging roster with limited path to contention"
+            window_emoji = "🔨"
+            window_desc = f"<span style='color:#f87171'><b>TEARDOWN REQUIRED</b></span> — {team_name} has an aging roster with no path to contention"
+            window_detail = f"Hard truth: averaging {avg_age:.1f} years old with {len(veteran_players)} veterans while ranked #{power_rank} means you're not close AND getting older. Every week you delay selling, your veteran assets lose value. Identify your 3-4 tradeable veterans and start shopping them to contenders NOW. Accept prospects and youth — quantity over quality is fine at this stage."
         elif is_young_roster:
             window = "rebuilding"
-            window_desc = f"{team_name} is rebuilding the right way - stockpiling young talent for future success"
+            window_emoji = "🌱"
+            window_desc = f"<span style='color:#60a5fa'><b>REBUILDING (On Track)</b></span> — {team_name} is stockpiling future assets"
+            window_detail = f"The rebuild is progressing. With {len(prospects)} prospects and {len(young_players)} young players, you're accumulating the talent to compete in 2-3 years. Stay patient, resist the urge to buy win-now pieces. If a contender offers to overpay for a veteran, take the deal. Accumulate draft picks."
         else:
             window = "retooling"
-            window_desc = f"{team_name} is stuck in the middle and needs to commit to a clear direction"
+            window_emoji = "⚠️"
+            window_desc = f"<span style='color:#fbbf24'><b>STUCK IN THE MIDDLE</b></span> — {team_name} needs to pick a direction"
+            window_detail = f"This is the danger zone. Not good enough to compete (#{power_rank}), not young enough to rebuild naturally. You have two options: 1) Go all-in by trading prospects for proven talent, or 2) Commit to rebuild by selling veterans. The worst choice is standing pat. Make a decision and commit."
     else:
         if is_young_roster:
             window = "rising"
-            window_desc = f"{team_name} is on the rise - young talent developing that could push into contention soon"
+            window_emoji = "📈"
+            window_desc = f"<span style='color:#34d399'><b>RISING CONTENDER</b></span> — {team_name} is building toward a breakthrough"
+            window_detail = f"Your young core is developing nicely. With {young_value:.0f} points of value from players 25 and under, you're positioned to rise. Look for undervalued veterans on rebuilding teams who can accelerate your timeline. In 1-2 years, you could be a true contender."
         elif is_old_roster:
             window = "declining"
-            window_desc = f"{team_name} is trending downward - aging assets should be sold before values crater"
+            window_emoji = "📉"
+            window_desc = f"<span style='color:#fb923c'><b>DECLINING ASSET BASE</b></span> — {team_name} is trending the wrong direction"
+            window_detail = f"The warning signs are clear: ranked #{power_rank} with an average age of {avg_age:.1f}. Your veteran assets ({vet_value:.0f} points) are depreciating. You're not close enough to contend and your roster is aging out. Start selling veterans now while they still have value."
         else:
             window = "competitive"
-            window_desc = f"{team_name} is competitive but not a frontrunner - needs a move or two to break through"
+            window_emoji = "🔄"
+            window_desc = f"<span style='color:#a78bfa'><b>COMPETITIVE BUT NOT ELITE</b></span> — {team_name} is in the pack but not leading it"
+            window_detail = f"You're competitive but need a spark. Ranked #{power_rank} with a balanced roster, you're one or two moves away from breaking into the top tier. Identify your biggest category weakness and target an upgrade. A single elite addition could vault you into contention."
 
-    analysis_parts.append(f"<b>🏆 TEAM IDENTITY:</b> {window_desc}. Currently ranked <span style='color:#ffd700'>#{power_rank}</span> of {total_teams}.")
+    identity_text = f"<b>{window_emoji} TEAM IDENTITY:</b> {window_desc}<br>"
+    identity_text += f"&nbsp;&nbsp;{window_detail}<br>"
+    identity_text += f"&nbsp;&nbsp;<b>Power Ranking:</b> <span style='color:#ffd700'>#{power_rank}</span> of {total_teams} | <b>Total Value:</b> {total_value:.0f} points"
+    analysis_parts.append(identity_text)
 
-    # Roster composition with character
-    if young_players > veteran_players + 3:
-        roster_vibe = "This is a youth movement in full swing"
-    elif veteran_players > young_players + 3:
-        roster_vibe = "Experience runs deep on this roster"
-    elif prime_players >= young_players and prime_players >= veteran_players:
-        roster_vibe = "The core is locked into their prime years"
+    # ============ ROSTER PROFILE - DETAILED BREAKDOWN ============
+    roster_text = "<b>👥 ROSTER PROFILE:</b><br>"
+
+    # Age distribution with value context
+    roster_text += f"&nbsp;&nbsp;<b>Demographics:</b> Average age {avg_age:.1f}<br>"
+    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Young (≤25): {len(young_players)} players, {young_value:.0f} value ({young_value/total_value*100:.0f}% of roster)<br>"
+    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Prime (26-30): {len(prime_players)} players, {prime_value:.0f} value ({prime_value/total_value*100:.0f}% of roster)<br>"
+    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Veteran (31+): {len(veteran_players)} players, {vet_value:.0f} value ({vet_value/total_value*100:.0f}% of roster)<br>"
+
+    # Hitter/Pitcher split
+    roster_text += f"&nbsp;&nbsp;<b>Roster Construction:</b><br>"
+    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Hitters: {len(hitters)} players, {hitter_value:.0f} value<br>"
+    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Starters: {len(starters)} players, {sum(v for _, v in starters):.0f} value<br>"
+    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Relievers: {len(relievers)} players, {sum(v for _, v in relievers):.0f} value"
+
+    # Roster assessment
+    if hitter_value > pitcher_value * 1.4:
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Offense-heavy roster — consider adding pitching depth</span>"
+    elif pitcher_value > hitter_value * 1.2:
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Pitching-heavy roster — could use more offensive firepower</span>"
     else:
-        roster_vibe = "A balanced mix across all age groups"
-    analysis_parts.append(f"<b>👥 ROSTER PROFILE:</b> {roster_vibe}. Average age {avg_age:.1f} with {young_players} young (≤25), {prime_players} prime (26-30), {veteran_players} veteran (31+).")
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#4ade80'>✓ Well-balanced between hitting and pitching</span>"
 
-    # Cornerstone players with commentary
-    top_3 = players_with_value[:3]
-    if top_3:
-        mvp = top_3[0]
+    analysis_parts.append(roster_text)
+
+    # ============ CORE ASSETS - IN-DEPTH ANALYSIS ============
+    core_text = "<b>⭐ CORE ASSETS:</b><br>"
+
+    # Franchise player analysis
+    if players_with_value:
+        mvp = players_with_value[0]
+        mvp_proj = HITTER_PROJECTIONS.get(mvp[0].name) or PITCHER_PROJECTIONS.get(mvp[0].name) or RELIEVER_PROJECTIONS.get(mvp[0].name) or {}
+
+        # Detailed MVP analysis
         if mvp[0].age <= 25:
-            mvp_note = "is the franchise cornerstone with elite upside"
+            mvp_outlook = "<span style='color:#4ade80'>ELITE LONG-TERM</span> — Franchise cornerstone with 8+ years of prime production ahead"
         elif mvp[0].age <= 28:
-            mvp_note = "is in his prime and driving this team"
+            mvp_outlook = "<span style='color:#34d399'>PRIME YEARS</span> — Peak performance window, maximize value now"
         elif mvp[0].age <= 31:
-            mvp_note = "remains the alpha but the clock is ticking"
+            mvp_outlook = "<span style='color:#fbbf24'>LATE PRIME</span> — Still elite but approaching the back end of his window"
         else:
-            mvp_note = "is still producing but won't be forever"
-        others = ", ".join([f"{p.name} ({v:.0f})" for p, v in top_3[1:3]])
-        analysis_parts.append(f"<b>⭐ CORE ASSETS:</b> {mvp[0].name} ({mvp[1]:.0f}) {mvp_note}. Supported by {others}.")
+            mvp_outlook = "<span style='color:#fb923c'>AGING STAR</span> — Producing now but decline is imminent, consider selling high"
 
-    # Prospect pipeline
-    if prospects:
-        top_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)[:3]
-        if top_prospects:
-            top_p = top_prospects[0]
-            if top_p.prospect_rank <= 20:
-                farm_note = "An elite prospect anchors this farm system"
-            elif top_p.prospect_rank <= 50:
-                farm_note = "Quality prospect capital in the pipeline"
-            else:
-                farm_note = "Some upside brewing in the minors"
-            prospect_list = ", ".join([f"{p.name} (#{p.prospect_rank})" for p in top_prospects])
-            analysis_parts.append(f"<b>🌟 FARM SYSTEM:</b> {farm_note}. Top prospects: {prospect_list}.")
-        elif len(prospects) > 3:
-            analysis_parts.append(f"<b>🌟 FARM SYSTEM:</b> Quantity over quality - {len(prospects)} prospects but none cracking the top 100.")
+        core_text += f"&nbsp;&nbsp;<b>Franchise Player:</b> {mvp[0].name}<br>"
+        core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Value: {mvp[1]:.0f} | Age: {mvp[0].age} | Position: {mvp[0].position}<br>"
+        core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Outlook: {mvp_outlook}<br>"
+
+        # Key stats for franchise player
+        if mvp_proj:
+            if 'HR' in mvp_proj:
+                core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Projection: {mvp_proj.get('HR', 0)} HR, {mvp_proj.get('RBI', 0)} RBI, {mvp_proj.get('R', 0)} R, {mvp_proj.get('SB', 0)} SB<br>"
+            elif 'K' in mvp_proj:
+                core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Projection: {mvp_proj.get('K', 0)} K, {mvp_proj.get('ERA', 0):.2f} ERA, {mvp_proj.get('QS', 0)} QS<br>"
+
+        # Supporting cast
+        if len(players_with_value) >= 2:
+            core_text += f"&nbsp;&nbsp;<b>Supporting Core:</b><br>"
+            for p, v in players_with_value[1:5]:
+                age_tag = f"<span style='color:#4ade80'>({p.age})</span>" if p.age <= 26 else f"<span style='color:#fbbf24'>({p.age})</span>" if p.age <= 30 else f"<span style='color:#fb923c'>({p.age})</span>"
+                core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• {p.name}: {v:.0f} value, age {age_tag}<br>"
+
+        # Core concentration risk
+        top_5_value = sum(v for _, v in players_with_value[:5])
+        concentration = top_5_value / total_value * 100 if total_value > 0 else 0
+        if concentration > 55:
+            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>⚠️ High concentration: Top 5 players = {concentration:.0f}% of value (injury risk)</span>"
+        elif concentration < 35:
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Distributed roster: Top 5 = {concentration:.0f}% (lacks elite talent?)</span>"
+        else:
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>✓ Healthy concentration: Top 5 = {concentration:.0f}% of total value</span>"
+
+    analysis_parts.append(core_text.rstrip('<br>'))
+
+    # ============ FARM SYSTEM - COMPREHENSIVE EVALUATION ============
+    farm_text = "<b>🌟 FARM SYSTEM:</b><br>"
+
+    top_100_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)
+    top_200_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 200], key=lambda x: x.prospect_rank)
+    all_ranked = sorted([p for p in prospects if p.prospect_rank], key=lambda x: x.prospect_rank)
+
+    # Farm system grade
+    elite_count = len([p for p in prospects if p.prospect_rank and p.prospect_rank <= 25])
+    top_50_count = len([p for p in prospects if p.prospect_rank and p.prospect_rank <= 50])
+    top_100_count = len(top_100_prospects)
+
+    if elite_count >= 2 or (elite_count >= 1 and top_50_count >= 3):
+        farm_grade = "A+"
+        farm_color = "#4ade80"
+        farm_desc = "Elite farm system — multiple blue-chip prospects"
+    elif elite_count >= 1 or top_50_count >= 2:
+        farm_grade = "A"
+        farm_color = "#34d399"
+        farm_desc = "Excellent farm — high-end talent in the pipeline"
+    elif top_50_count >= 1 or top_100_count >= 3:
+        farm_grade = "B+"
+        farm_color = "#60a5fa"
+        farm_desc = "Above average farm — solid prospect depth"
+    elif top_100_count >= 2:
+        farm_grade = "B"
+        farm_color = "#a78bfa"
+        farm_desc = "Average farm — some pieces but lacks star power"
+    elif top_100_count >= 1 or len(top_200_prospects) >= 3:
+        farm_grade = "C"
+        farm_color = "#fbbf24"
+        farm_desc = "Below average — limited high-end talent"
     else:
-        analysis_parts.append("<b>🌟 FARM SYSTEM:</b> Bare cupboard - no ranked prospects on the roster.")
+        farm_grade = "D"
+        farm_color = "#f87171"
+        farm_desc = "Depleted farm — rebuild needed"
 
-    # Category outlook with specific analysis
-    cat_text = f"<b>📊 CATEGORY OUTLOOK:</b> Projected {total_hr} HR, {total_sb} SB, {total_rbi} RBI, {total_k} K, {total_sv_hld} SV+HLD."
+    farm_text += f"&nbsp;&nbsp;<b>Farm Grade:</b> <span style='color:{farm_color}'><b>{farm_grade}</b></span> — {farm_desc}<br>"
+    farm_text += f"&nbsp;&nbsp;<b>Prospect Count:</b> {elite_count} elite (1-25) | {top_50_count} top 50 | {top_100_count} top 100 | {len(all_ranked)} total ranked<br>"
+
+    # Top prospects detail
+    if top_100_prospects:
+        farm_text += f"&nbsp;&nbsp;<b>Top Prospects:</b><br>"
+        for p in top_100_prospects[:4]:
+            prospect_value = calculator.calculate_player_value(p)
+            eta = "MLB Ready" if prospect_value >= 40 else "2026" if p.prospect_rank <= 30 else "2027+"
+            farm_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• <b>#{p.prospect_rank}</b> {p.name} ({p.position}) — Value: {prospect_value:.0f}, ETA: {eta}<br>"
+    elif all_ranked:
+        farm_text += f"&nbsp;&nbsp;<b>Best Prospects:</b><br>"
+        for p in all_ranked[:3]:
+            prospect_value = calculator.calculate_player_value(p)
+            farm_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• #{p.prospect_rank} {p.name} — Value: {prospect_value:.0f}<br>"
+    else:
+        farm_text += f"&nbsp;&nbsp;<span style='color:#f87171'>No ranked prospects on roster — farm is bare</span><br>"
+
+    # Farm system recommendation
+    if window in ['dynasty', 'contender', 'win-now']:
+        if farm_grade in ['A+', 'A', 'B+']:
+            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>💡 Strong farm + contending = flexibility. Can trade prospects for final pieces.</span>"
+        else:
+            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>💡 Contending with thin farm — be careful not to trade away future completely.</span>"
+    elif window in ['rebuilding', 'teardown']:
+        if farm_grade in ['A+', 'A', 'B+']:
+            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>💡 Rebuilding with strong farm — stay the course, let talent develop.</span>"
+        else:
+            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>💡 Need to acquire more prospects — sell any remaining veteran value.</span>"
+
+    analysis_parts.append(farm_text.rstrip('<br>'))
+
+    # ============ CATEGORY OUTLOOK - FULL BREAKDOWN ============
+    cat_text = "<b>📊 CATEGORY OUTLOOK:</b><br>"
+
+    # Hitting categories with rankings
+    cat_text += "&nbsp;&nbsp;<b>Hitting:</b><br>"
+    hr_rank = my_ranks.get('HR', 12)
+    sb_rank = my_ranks.get('SB', 12)
+    rbi_rank = my_ranks.get('RBI', 12)
+    r_rank = my_ranks.get('R', 12)
+    so_rank = my_ranks.get('SO', 12)
+
+    def rank_color(rank):
+        if rank <= 4: return '#4ade80'  # Green - top third
+        elif rank <= 8: return '#fbbf24'  # Yellow - middle
+        else: return '#f87171'  # Red - bottom third
+
+    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• HR: {total_hr} <span style='color:{rank_color(hr_rank)}'>(#{hr_rank})</span> | "
+    cat_text += f"SB: {total_sb} <span style='color:{rank_color(sb_rank)}'>(#{sb_rank})</span> | "
+    cat_text += f"RBI: {total_rbi} <span style='color:{rank_color(rbi_rank)}'>(#{rbi_rank})</span> | "
+    cat_text += f"R: {total_r} <span style='color:{rank_color(r_rank)}'>(#{r_rank})</span><br>"
+    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• SO: {total_so} <span style='color:{rank_color(so_rank)}'>(#{so_rank})</span> <i>(lower is better)</i><br>"
+
+    # Pitching categories with rankings
+    cat_text += "&nbsp;&nbsp;<b>Pitching:</b><br>"
+    k_rank = my_ranks.get('K', 12)
+    qs_rank = my_ranks.get('QS', 12)
+    svh_rank = my_ranks.get('SV+HLD', 12)
+    era_rank = my_ranks.get('ERA', 12)
+    whip_rank = my_ranks.get('WHIP', 12)
+    l_rank = my_ranks.get('L', 12)
+    kbb_rank = my_ranks.get('K/BB', 12)
+
+    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• K: {total_k} <span style='color:{rank_color(k_rank)}'>(#{k_rank})</span> | "
+    cat_text += f"QS: {total_qs} <span style='color:{rank_color(qs_rank)}'>(#{qs_rank})</span> | "
+    cat_text += f"W: {total_w} | L: {total_l} <span style='color:{rank_color(l_rank)}'>(#{l_rank})</span><br>"
+    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• SV+HLD: {total_sv_hld} <span style='color:{rank_color(svh_rank)}'>(#{svh_rank})</span> | "
+    cat_text += f"K/BB: {k_bb_ratio:.2f} <span style='color:{rank_color(kbb_rank)}'>(#{kbb_rank})</span><br>"
+
+    # Summary of strengths and weaknesses
     if cat_strengths:
-        cat_text += f" <span style='color:#4ade80'>Strong in {', '.join(cat_strengths)}</span>."
+        strength_list = ", ".join([f"{cat} (#{rank})" for cat, rank in cat_strengths[:3]])
+        cat_text += f"&nbsp;&nbsp;<span style='color:#4ade80'><b>Strengths:</b> {strength_list}</span><br>"
     if cat_weaknesses:
-        cat_text += f" <span style='color:#f87171'>Needs help in {', '.join(cat_weaknesses)}</span>."
-    analysis_parts.append(cat_text)
+        weakness_list = ", ".join([f"{cat} (#{rank})" for cat, rank in cat_weaknesses[:3]])
+        cat_text += f"&nbsp;&nbsp;<span style='color:#f87171'><b>Weaknesses:</b> {weakness_list}</span>"
+
+    analysis_parts.append(cat_text.rstrip('<br>'))
 
     # Risk factors with specific players
     risk_factors = []
@@ -4178,7 +4428,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         pick_num = draft_order_config[team_name]
         draft_recs = get_draft_recommendations(team_name, pick_num, thin_positions, cat_weaknesses)
         if draft_recs:
-            draft_text = f"<b>🏈 2026 DRAFT (Pick #{pick_num}):</b><br>"
+            draft_text = f"<b>⚾ 2026 DRAFT (Pick #{pick_num}):</b><br>"
             draft_text += "<br>".join([f"• {rec}" for rec in draft_recs[:3]])
             analysis_parts.append(draft_text)
 
