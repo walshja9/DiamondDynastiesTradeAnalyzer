@@ -1703,46 +1703,29 @@ def load_prospect_rankings():
             print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
 
     # Now merge: average rankings when player is in both sources
-    # Only include players with final rank <= 200 (filter out non-prospects)
-    MAX_PROSPECT_RANK = 200
+    # Keep ALL players in PROSPECT_RANKINGS so value caps can be applied
+    # (The Top Prospects UI will filter to show only rank <= 200)
     merged_count = 0
     csv_only_count = 0
-    filtered_count = 0
 
     for name, csv_rank in csv_rankings.items():
         if name in json_rankings:
             # Player in both sources - take the average
             json_rank = json_rankings[name]
             averaged_rank = int(round((json_rank + csv_rank) / 2))
-            if averaged_rank <= MAX_PROSPECT_RANK:
-                PROSPECT_RANKINGS[name] = averaged_rank
-                merged_count += 1
-            else:
-                # Remove from rankings if averaged rank is too high
-                if name in PROSPECT_RANKINGS:
-                    del PROSPECT_RANKINGS[name]
-                filtered_count += 1
+            PROSPECT_RANKINGS[name] = averaged_rank
+            merged_count += 1
         else:
-            # Player only in CSV - use CSV rank if <= 200
-            if csv_rank <= MAX_PROSPECT_RANK:
-                PROSPECT_RANKINGS[name] = csv_rank
-                csv_only_count += 1
-            else:
-                filtered_count += 1
+            # Player only in CSV - add with CSV rank (even if > 200, for value capping)
+            PROSPECT_RANKINGS[name] = csv_rank
+            csv_only_count += 1
 
-    # Filter JSON-only players too (remove if rank > 200)
-    json_only_count = 0
-    for name in list(json_rankings.keys()):
-        if name not in csv_rankings:
-            if json_rankings[name] <= MAX_PROSPECT_RANK:
-                json_only_count += 1
-            else:
-                if name in PROSPECT_RANKINGS:
-                    del PROSPECT_RANKINGS[name]
-                filtered_count += 1
+    # Count JSON-only players (already in PROSPECT_RANKINGS from initial load)
+    json_only_count = len([n for n in json_rankings if n not in csv_rankings])
 
-    print(f"Prospect rankings: {merged_count} averaged (JSON+CSV), {json_only_count} JSON-only, {csv_only_count} CSV-only, {filtered_count} filtered (rank>200)")
-    print(f"Total prospects in rankings: {len(PROSPECT_RANKINGS)}")
+    top_200_count = len([r for r in PROSPECT_RANKINGS.values() if r <= 200])
+    print(f"Prospect rankings: {merged_count} averaged (JSON+CSV), {json_only_count} JSON-only, {csv_only_count} CSV-only")
+    print(f"Total in PROSPECT_RANKINGS: {len(PROSPECT_RANKINGS)} ({top_200_count} are top-200)")
 
     # Debug: Print top 5 prospects
     top_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r <= 10], key=lambda x: x[1])[:5]
@@ -1797,7 +1780,9 @@ def load_data_from_json():
 
                 # Get prospect rank from PROSPECT_RANKINGS (averaged from JSON + CSV)
                 prospect_rank = PROSPECT_RANKINGS.get(player_name)
-                is_prospect = prospect_rank is not None
+                # Only mark as prospect for display if rank <= 200
+                # (But they're still in PROSPECT_RANKINGS for value capping purposes)
+                is_prospect = prospect_rank is not None and prospect_rank <= 200
 
                 player = Player(
                     name=p['name'],
@@ -1944,7 +1929,8 @@ def load_data_from_api():
 
                 # Check if player is in prospect rankings
                 prospect_rank = PROSPECT_RANKINGS.get(player_name)
-                is_prospect = prospect_rank is not None
+                # Only mark as prospect for display if rank <= 200
+                is_prospect = prospect_rank is not None and prospect_rank <= 200
 
                 player = Player(
                     name=player_name,
