@@ -509,7 +509,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
         <div id="prospects-panel" class="panel">
             <h3 style="margin-bottom: 15px;">Top Prospects League-Wide</h3>
-            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Showing all ranked prospects (top 200) on team rosters and available as free agents. <span style="color: #00ff88;">FA</span> = Available to pick up!</p>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Showing all ranked prospects (top 300) on team rosters and available as free agents. <span style="color: #00ff88;">FA</span> = Available to pick up!</p>
             <div id="prospects-loading" class="loading">Loading prospects...</div>
             <div id="prospects-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;"></div>
         </div>
@@ -1856,7 +1856,7 @@ def load_free_agents():
 
                     # Check if FA is a ranked prospect (using normalized name matching)
                     prospect_rank, matched_name = get_prospect_rank_for_name(fa_name)
-                    fa['is_prospect'] = prospect_rank is not None and prospect_rank <= 200
+                    fa['is_prospect'] = prospect_rank is not None and prospect_rank <= 300
                     fa['prospect_rank'] = prospect_rank if fa['is_prospect'] else None
                     fa['prospect_name'] = matched_name if fa['is_prospect'] else None  # Store matched name for /prospects
 
@@ -2002,7 +2002,7 @@ def calculate_fa_dynasty_value(fa):
             cap = 38
             value = max(preliminary_value, floor)
             value = min(value, cap)
-        elif prospect_rank <= 200:
+        elif prospect_rank <= 300:
             # Rank 151-200: floor 15-20, cap 28
             floor = 20 - (prospect_rank - 150) * 0.1  # 20 down to 15
             cap = 28
@@ -2466,7 +2466,7 @@ def load_prospect_rankings():
 
     # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
     # Include up to 500 prospects so value caps apply to fringe prospects too
-    # (The UI only shows top 200, but the value calculator uses ranks 201-500 for caps)
+    # (The UI shows top 300 prospects, value calculator uses ranks 301-500 for caps)
     PROSPECT_RANKINGS.clear()
     PROSPECT_METADATA.clear()
     for new_rank, (name, _) in enumerate(filtered_prospects[:500], start=1):
@@ -2493,6 +2493,19 @@ def load_prospect_rankings():
     # Debug: Print prospects around rank 195-200 to verify we have full 200
     bottom_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r >= 195], key=lambda x: x[1])
     print(f"Bottom 6 prospects (195-200): {[(n, r) for n, r in bottom_prospects]}")
+
+    # Debug: Check specific rostered prospects
+    test_players = ["Marcelo Mayer", "Johnny King", "Quinn Mathews"]
+    print(f"\n=== DEBUG: Checking specific rostered prospects ===")
+    for name in test_players:
+        rank = PROSPECT_RANKINGS.get(name)
+        if rank:
+            print(f"  {name}: Rank {rank} - IN PROSPECT_RANKINGS")
+        else:
+            # Check if it's a close match
+            close_matches = [n for n in PROSPECT_RANKINGS.keys() if name.lower() in n.lower() or n.lower() in name.lower()]
+            print(f"  {name}: NOT FOUND. Close matches: {close_matches[:3]}")
+    print(f"=== END DEBUG ===\n")
 
 
 def load_data_from_json():
@@ -2544,7 +2557,7 @@ def load_data_from_json():
                 # Get prospect rank from PROSPECT_RANKINGS (using normalized matching)
                 prospect_rank, matched_prospect_name = get_prospect_rank_for_name(player_name)
                 # Only mark as prospect for display if rank <= 200
-                is_prospect = prospect_rank is not None and prospect_rank <= 200
+                is_prospect = prospect_rank is not None and prospect_rank <= 300
 
                 player = Player(
                     name=p['name'],
@@ -2695,7 +2708,7 @@ def load_data_from_api():
                 # Check if player is in prospect rankings (using normalized matching)
                 prospect_rank, matched_prospect_name = get_prospect_rank_for_name(player_name)
                 # Only mark as prospect for display if rank <= 200
-                is_prospect = prospect_rank is not None and prospect_rank <= 200
+                is_prospect = prospect_rank is not None and prospect_rank <= 300
 
                 player = Player(
                     name=player_name,
@@ -2787,7 +2800,7 @@ def get_prospects():
     # Get prospects from team rosters
     for team_name, team in teams.items():
         for player in team.players:
-            if player.is_prospect and player.prospect_rank and player.prospect_rank <= 200:
+            if player.is_prospect and player.prospect_rank and player.prospect_rank <= 300:
                 value = calculator.calculate_player_value(player)
                 # Use matched prospect name as key (for consistency with PROSPECT_RANKINGS)
                 prospect_key = getattr(player, 'prospect_name', None) or player.name
@@ -2823,17 +2836,20 @@ def get_prospects():
                     "not_in_league": False
                 }
 
-    # Add any prospects from PROSPECT_RANKINGS (1-200) that weren't found
+    # Add any prospects from PROSPECT_RANKINGS (1-300) that weren't found
     # These are prospects who aren't rostered and aren't in the FA list
     # Skip alias names (keys in PROSPECT_NAME_ALIASES) to avoid duplicates
     for name, rank in PROSPECT_RANKINGS.items():
         # Skip if this is an alias name (the player will be found under their canonical name)
         if name in PROSPECT_NAME_ALIASES:
             continue
+        # Only show top 300 prospects
+        if rank > 300:
+            continue
         if name not in found_prospects:
             metadata = PROSPECT_METADATA.get(name, {})
             # Calculate estimated value based on rank using graduated scale
-            # Scale: Rank 1 = ~100, Rank 50 = ~75, Rank 100 = ~55, Rank 150 = ~32, Rank 200 = ~15
+            # Scale: Rank 1 = ~100, Rank 50 = ~75, Rank 100 = ~55, Rank 150 = ~32, Rank 200 = ~15, Rank 300 = ~8
             if rank <= 10:
                 est_value = 100 - (rank - 1) * 0.5
             elif rank <= 25:
@@ -2844,8 +2860,12 @@ def get_prospects():
                 est_value = 67 - (rank - 50) * 0.4
             elif rank <= 150:
                 est_value = 46 - (rank - 100) * 0.4
+            elif rank <= 200:
+                est_value = 26 - (rank - 150) * 0.22  # ~15 at rank 200
+            elif rank <= 250:
+                est_value = 15 - (rank - 200) * 0.14  # ~8 at rank 250
             else:
-                est_value = 26 - (rank - 150) * 0.22
+                est_value = max(8 - (rank - 250) * 0.08, 5)  # Floor of 5 for ranks 251-300
 
             found_prospects[name] = {
                 "name": name,
@@ -4471,7 +4491,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     farm_text = "<b>🌟 FARM SYSTEM:</b><br>"
 
     top_100_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)
-    top_200_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 200], key=lambda x: x.prospect_rank)
+    top_300_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 300], key=lambda x: x.prospect_rank)
     all_ranked = sorted([p for p in prospects if p.prospect_rank], key=lambda x: x.prospect_rank)
 
     # Smarter farm grading using points system

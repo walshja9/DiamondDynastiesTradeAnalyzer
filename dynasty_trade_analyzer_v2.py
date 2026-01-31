@@ -744,15 +744,17 @@ class DynastyValueCalculator:
                     bonus_multiplier -= 0.08
                 elif player.age >= 30:
                     bonus_multiplier -= 0.03
-            else:  # Pitchers
-                if player.age <= 23:
-                    bonus_multiplier += 0.16  # Elite young arm
-                elif player.age <= 25:
-                    bonus_multiplier += 0.10  # Young pitcher premium
+            else:  # Pitchers - same bonuses as hitters for dynasty consistency
+                if player.age <= 22:
+                    bonus_multiplier += 0.20  # Elite youth - 10+ prime years ahead
+                elif player.age <= 24:
+                    bonus_multiplier += 0.14  # Young stars - 8+ prime years
+                elif player.age <= 26:
+                    bonus_multiplier += 0.08  # Entering prime
                 elif player.age <= 28:
-                    bonus_multiplier += 0.03
+                    bonus_multiplier += 0.02  # Prime age but shorter window
                 elif player.age >= 34:
-                    bonus_multiplier -= 0.15
+                    bonus_multiplier -= 0.15  # Aging decline
                 elif player.age >= 32:
                     bonus_multiplier -= 0.08
                 elif player.age >= 30:
