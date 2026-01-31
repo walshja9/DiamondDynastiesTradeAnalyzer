@@ -5606,9 +5606,12 @@ def generate_rivalry_analysis(team_name, rival_name):
 
 def generate_team_analysis(team_name, team, players_with_value=None, power_rank=None, total_teams=12):
     """
-    Generate comprehensive, personalized GM-level analysis for each team.
-    Acts as a dedicated Assistant GM providing strategic insights.
+    Generate consolidated, personalized GM-level analysis for each team.
+    Organized into 5 core sections: GM Overview, Roster Snapshot, Category Report, Trade Center, Outlook.
     """
+    import random
+
+    # ============ DATA SETUP ============
     if players_with_value is None:
         players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
         players_with_value.sort(key=lambda x: x[1], reverse=True)
@@ -5617,28 +5620,11 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         _, power_rankings, _ = get_team_rankings()
         power_rank = power_rankings.get(team_name, 0)
 
-    analysis_parts = []
+    gm = get_assistant_gm(team_name)
+    philosophy = gm.get('philosophy', 'balanced')
     total_value = sum(v for _, v in players_with_value)
 
-    # ============ ASSISTANT GM HEADER ============
-    import random
-    gm = get_assistant_gm(team_name)
-    catchphrase = random.choice(gm['catchphrases'])
-    gm_header = f"<div style='background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(255,215,0,0.08)); padding: 16px; border-radius: 10px; margin-bottom: 16px; border-left: 4px solid #00d4ff;'>"
-    gm_header += f"<div style='display: flex; align-items: center; gap: 12px;'>"
-    gm_header += f"<div style='width: 48px; height: 48px; background: linear-gradient(135deg, #00d4ff, #0099cc); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #1a1a2e;'>{gm['name'][0]}</div>"
-    gm_header += f"<div>"
-    gm_header += f"<div style='font-size: 18px; font-weight: bold; color: #00d4ff;'>{gm['name']}</div>"
-    gm_header += f"<div style='font-size: 12px; color: #888;'>{gm['title']} - {team_name}</div>"
-    owner_name = gm.get('owner', 'Unknown')
-    gm_header += f"<div style='font-size: 11px; color: #a0a0a0; margin-top: 2px;'>Owner: <span style='color: #c0c0c0;'>{owner_name}</span></div>"
-    gm_header += f"</div></div>"
-    gm_header += f"<div style='margin-top: 12px; font-style: italic; color: #ccc;'>\"{catchphrase}\"</div>"
-    gm_header += f"<div style='margin-top: 8px; font-size: 12px; color: #888;'>Philosophy: <span style='color: #ffd700;'>{GM_PHILOSOPHIES.get(gm['philosophy'], {}).get('name', 'Balanced')}</span> | Risk Tolerance: <span style='color: #ffd700;'>{int(gm['risk_tolerance'] * 100)}%</span></div>"
-    gm_header += f"</div>"
-    analysis_parts.append(gm_header)
-
-    # ============ DETAILED ROSTER DEMOGRAPHICS ============
+    # Demographics
     ages = [p.age for p in team.players if p.age > 0]
     avg_age = sum(ages) / len(ages) if ages else 0
     young_players = [(p, v) for p, v in players_with_value if p.age <= 25 and p.age > 0]
@@ -5646,911 +5632,264 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     veteran_players = [(p, v) for p, v in players_with_value if p.age > 30]
     prospects = [p for p in team.players if p.is_prospect]
 
-    # Hitters vs Pitchers breakdown
+    young_value = sum(v for _, v in young_players)
+    prime_value = sum(v for _, v in prime_players)
+    vet_value = sum(v for _, v in veteran_players)
+
+    # Categories
+    team_cats, rankings = calculate_league_category_rankings()
+    my_ranks = rankings.get(team_name, {})
+    cat_strengths = sorted([(cat, rank) for cat, rank in my_ranks.items() if rank <= 4], key=lambda x: x[1])
+    cat_weaknesses = sorted([(cat, rank) for cat, rank in my_ranks.items() if rank >= 9], key=lambda x: -x[1])
+
+    # Hitters vs Pitchers
     hitters = [(p, v) for p, v in players_with_value if p.name in HITTER_PROJECTIONS]
     starters = [(p, v) for p, v in players_with_value if p.name in PITCHER_PROJECTIONS]
     relievers = [(p, v) for p, v in players_with_value if p.name in RELIEVER_PROJECTIONS]
     hitter_value = sum(v for _, v in hitters)
     pitcher_value = sum(v for _, v in starters) + sum(v for _, v in relievers)
 
-    # Calculate comprehensive category totals
-    total_hr = sum(HITTER_PROJECTIONS.get(p.name, {}).get('HR', 0) for p, _ in players_with_value)
-    total_sb = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SB', 0) for p, _ in players_with_value)
-    total_rbi = sum(HITTER_PROJECTIONS.get(p.name, {}).get('RBI', 0) for p, _ in players_with_value)
-    total_r = sum(HITTER_PROJECTIONS.get(p.name, {}).get('R', 0) for p, _ in players_with_value)
-    total_so = sum(HITTER_PROJECTIONS.get(p.name, {}).get('SO', 0) for p, _ in players_with_value)
-    total_k = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('K', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('K', 0)) for p, _ in players_with_value)
-    total_qs = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('QS', 0) for p, _ in players_with_value)
-    total_w = sum(PITCHER_PROJECTIONS.get(p.name, {}).get('W', 0) for p, _ in players_with_value)
-    total_l = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('L', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('L', 0)) for p, _ in players_with_value)
-    total_sv_hld = sum((RELIEVER_PROJECTIONS.get(p.name, {}).get('SV', 0) + RELIEVER_PROJECTIONS.get(p.name, {}).get('HD', 0)) for p, _ in players_with_value)
-    total_bb = sum((PITCHER_PROJECTIONS.get(p.name, {}).get('BB', 0) or RELIEVER_PROJECTIONS.get(p.name, {}).get('BB', 0)) for p, _ in players_with_value)
-    k_bb_ratio = total_k / total_bb if total_bb > 0 else 0
+    # Position depth
+    pos_counts = {'C': 0, '1B': 0, '2B': 0, 'SS': 0, '3B': 0, 'OF': 0, 'SP': 0, 'RP': 0}
+    for p, _ in players_with_value:
+        pos_str = (p.position or '').upper()
+        for pos in pos_str.replace('/', ',').split(','):
+            pos = pos.strip()
+            if pos in ['LF', 'CF', 'RF']: pos = 'OF'
+            if pos in pos_counts: pos_counts[pos] += 1
+    thin_positions = [pos for pos, count in pos_counts.items() if count <= 2 and count > 0]
+    deep_positions = [pos for pos, count in pos_counts.items() if count >= 5]
 
-    # Get league-wide category rankings
-    team_cats, rankings = calculate_league_category_rankings()
-    my_ranks = rankings.get(team_name, {})
-
-    # Identify category strengths and weaknesses by rank
-    cat_strengths = [(cat, rank) for cat, rank in my_ranks.items() if rank <= 4]
-    cat_weaknesses = [(cat, rank) for cat, rank in my_ranks.items() if rank >= 9]
-    cat_strengths.sort(key=lambda x: x[1])
-    cat_weaknesses.sort(key=lambda x: -x[1])
-
-    # Determine competitive window with nuance
-    top_third = total_teams // 3
-    bottom_third = total_teams - top_third
-    young_value = sum(v for _, v in young_players)
-    prime_value = sum(v for _, v in prime_players)
-    vet_value = sum(v for _, v in veteran_players)
-    is_old_roster = avg_age >= 28 or vet_value > young_value + prime_value
-    is_young_roster = avg_age <= 26.5 or len(prospects) >= 6 or young_value > vet_value * 1.5
-
-    # Determine competitive window
-    if power_rank <= top_third:
-        if is_young_roster:
-            window = "dynasty"
-        elif is_old_roster:
-            window = "win-now"
-        else:
-            window = "contender"
-    elif power_rank >= bottom_third:
-        if is_old_roster:
-            window = "teardown"
-        elif is_young_roster:
-            window = "rebuilding"
-        else:
-            window = "retooling"
-    else:
-        if is_young_roster:
-            window = "rising"
-        elif is_old_roster:
-            window = "declining"
-        else:
-            window = "competitive"
-
-    # ============ TEAM IDENTITY - FROM GM PROFILE WITH DYNAMIC ANALYSIS ============
-    gm = get_assistant_gm(team_name)
-    team_identity = gm.get('team_identity', 'COMPETITOR')
-    philosophy = gm.get('philosophy', 'balanced')
-
-    # Identity color based on philosophy type
+    # Identity colors
     identity_colors = {
-        'dynasty_champion': '#ffd700',
-        'championship_closer': '#ff6b6b',
-        'smart_contender': '#4ade80',
-        'all_in_buyer': '#f59e0b',
-        'loaded_and_ready': '#00d4ff',
-        'bargain_hunter': '#a78bfa',
-        'rising_powerhouse': '#34d399',
-        'crossroads_decision': '#fbbf24',
-        'reluctant_dealer': '#fb923c',
-        'analytical_rebuilder': '#60a5fa',
-        'desperate_accumulator': '#f87171',
-        'prospect_rich_rebuilder': '#22d3ee'
+        'dynasty_champion': '#ffd700', 'championship_closer': '#ff6b6b', 'smart_contender': '#4ade80',
+        'all_in_buyer': '#f59e0b', 'loaded_and_ready': '#00d4ff', 'bargain_hunter': '#a78bfa',
+        'rising_powerhouse': '#34d399', 'crossroads_decision': '#fbbf24', 'reluctant_dealer': '#fb923c',
+        'analytical_rebuilder': '#60a5fa', 'desperate_accumulator': '#f87171', 'prospect_rich_rebuilder': '#22d3ee'
     }
     identity_color = identity_colors.get(philosophy, '#00d4ff')
 
-    # Generate DYNAMIC identity analysis based on current roster data
-    prospect_count = len(prospects)
-    tradeable_vets = [p for p, v in veteran_players if v >= 20]
+    analysis_parts = []
 
-    if philosophy == 'dynasty_champion':
-        if power_rank <= 2:
-            identity_analysis = f"Dominant position at #{power_rank}. With {total_value:.0f} total value, force others to overpay. Only move for clear upgrades."
-        else:
-            identity_analysis = f"Ranked #{power_rank} - defend your status. Your {prime_value:.0f} points of prime talent forms a strong core."
-    elif philosophy == 'championship_closer':
-        gaps = []
-        if pitcher_value < hitter_value * 0.8:
-            gaps.append("pitching")
-        if len([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100]) >= 2:
-            identity_analysis = f"You have {prospect_count} tradeable prospects. Target proven closers to fill gaps. Championship windows don't wait."
-        else:
-            identity_analysis = f"Ranked #{power_rank} with {vet_value:.0f} in veteran value. Identify the piece that puts you over the top."
-    elif philosophy == 'smart_contender':
-        identity_analysis = f"Balanced at #{power_rank} with {young_value:.0f} in young value and {vet_value:.0f} veteran. Make surgical moves - don't overpay for marginal gains."
-    elif philosophy == 'all_in_buyer':
-        if prospect_count <= 2:
-            identity_analysis = f"Farm is depleted ({prospect_count} prospects). Target affordable veterans and buy-low candidates. Be creative with limited capital."
-        else:
-            identity_analysis = f"With {prospect_count} prospects and {len(tradeable_vets)} tradeable vets, you can still make moves. Go get proven production."
-    elif philosophy == 'loaded_and_ready':
-        identity_analysis = f"Elite position: {prospect_count} prospects AND #{power_rank} ranking. You dictate terms - buy stars or stockpile more. Others wish they had your options."
-    elif philosophy == 'bargain_hunter':
-        identity_analysis = f"Limited ammo ({prospect_count} prospects) but ranked #{power_rank}. Hunt for undervalued assets. Target buy-low veterans and waiver gems."
-    elif philosophy == 'rising_powerhouse':
-        identity_analysis = f"Your {prospect_count} prospects are the foundation. Only trade young talent for elite proven stars at major discounts. Patience builds dynasties."
-    elif philosophy == 'crossroads_decision':
-        if prospect_count <= 3:
-            identity_analysis = f"Decision time: #{power_rank} with only {prospect_count} prospects. Either sell veterans to rebuild OR buy to push for playoffs. Status quo is death."
-        else:
-            identity_analysis = f"At #{power_rank} with {prospect_count} prospects - you have options. Pick a direction and commit. The middle is quicksand."
-    elif philosophy == 'reluctant_dealer':
-        if len(tradeable_vets) >= 3:
-            identity_analysis = f"You have {len(tradeable_vets)} veterans with trade value that's depreciating. Every week you wait, you lose leverage. Start selling NOW."
-        else:
-            identity_analysis = f"Ranked #{power_rank} and stuck. Your hesitation is costing value. Identify sellers and make offers before it's too late."
-    elif philosophy == 'analytical_rebuilder':
-        identity_analysis = f"Data says: sell {len(tradeable_vets)} tradeable veterans at peak value. Target high-upside prospects. Zero emotion, maximum return."
-    elif philosophy == 'desperate_accumulator':
-        identity_analysis = f"Farm at {prospect_count} prospects needs volume. Every veteran is trade bait. Cast wide nets - quantity now, sort for quality later."
-    elif philosophy == 'prospect_rich_rebuilder':
-        identity_analysis = f"Your {prospect_count} prospects ARE the championship plan. Protect them fiercely. Only trade for elite stars at massive discounts."
-    else:
-        identity_analysis = f"Ranked #{power_rank} with {total_value:.0f} total value. Evaluate your position and make strategic moves."
+    # ════════════════════════════════════════════════════════════════════
+    # SECTION 1: GM OVERVIEW (Header + Identity + Strategy + Bottom Line merged)
+    # ════════════════════════════════════════════════════════════════════
+    catchphrase = random.choice(gm['catchphrases'])
+    team_identity = gm.get('team_identity', 'COMPETITOR')
+    owner_name = gm.get('owner', 'Unknown')
 
-    # Build roster-specific context
-    roster_context = []
-    if prospect_count >= 5:
-        roster_context.append(f"deep prospect pool ({prospect_count} ranked)")
-    elif prospect_count <= 2:
-        roster_context.append(f"thin farm system ({prospect_count} ranked)")
+    overview = f"<div style='background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(255,215,0,0.08)); padding: 20px; border-radius: 12px; border-left: 4px solid {identity_color};'>"
+    overview += f"<div style='display: flex; align-items: center; gap: 12px; margin-bottom: 12px;'>"
+    overview += f"<div style='width: 48px; height: 48px; background: linear-gradient(135deg, {identity_color}, #1a1a2e); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #fff;'>{gm['name'][0]}</div>"
+    overview += f"<div>"
+    overview += f"<div style='font-size: 18px; font-weight: bold; color: {identity_color};'>{gm['name']}</div>"
+    overview += f"<div style='font-size: 12px; color: #888;'>{gm['title']} • Owner: {owner_name}</div>"
+    overview += f"</div></div>"
 
-    if is_young_roster:
-        roster_context.append(f"young core (avg {avg_age:.1f} years)")
-    elif is_old_roster:
-        roster_context.append(f"veteran-heavy (avg {avg_age:.1f} years)")
+    # Identity + Power rank
+    overview += f"<div style='font-size: 16px; margin-bottom: 8px;'><span style='color:{identity_color}'><b>{team_identity}</b></span> • "
+    overview += f"<span style='color:#ffd700'>#{power_rank}</span> of {total_teams} • {total_value:.0f} pts</div>"
 
-    if hitter_value > pitcher_value * 1.3:
-        roster_context.append("offense-heavy")
-    elif pitcher_value > hitter_value * 1.2:
-        roster_context.append("pitching-rich")
+    # Catchphrase
+    overview += f"<div style='font-style: italic; color: #ccc; margin-bottom: 12px;'>\"{catchphrase}\"</div>"
 
-    roster_note = " | ".join(roster_context) if roster_context else "balanced construction"
+    # Philosophy summary (condensed bottom line)
+    philosophy_summaries = {
+        'dynasty_champion': f"We're the team to beat. Force others to overpay for even a conversation.",
+        'championship_closer': f"The gap to a title? Close it. Every move is about winning NOW.",
+        'all_in_buyer': f"Window is NOW. Every prospect is currency. Make it happen.",
+        'smart_contender': f"Calculate every angle. Find market inefficiencies. Trust the process.",
+        'loaded_and_ready': f"Best of both worlds. We dictate terms in every negotiation.",
+        'bargain_hunter': f"Creativity over capital. Hunt value in the margins.",
+        'rising_powerhouse': f"The future is ours. Protect the foundation, patience builds dynasties.",
+        'crossroads_decision': f"Decision time. The middle is quicksand — pick a direction and commit.",
+        'reluctant_dealer': f"Time to act. Every week we wait costs us value.",
+        'analytical_rebuilder': f"Zero emotion, maximum return. Sell veterans at peak value.",
+        'desperate_accumulator': f"Cast wide nets. Quantity now, sort for quality later.",
+        'prospect_rich_rebuilder': f"These prospects ARE the plan. Guard the treasure fiercely.",
+    }
+    overview += f"<div style='color: #aaa;'>{philosophy_summaries.get(philosophy, 'Make strategic moves based on roster fit.')}</div>"
+    overview += "</div>"
+    analysis_parts.append(overview)
 
-    identity_text = f"<b>TEAM IDENTITY:</b> <span style='color:{identity_color}'><b>{team_identity}</b></span><br>"
-    identity_text += f"&nbsp;&nbsp;{identity_analysis}<br>"
-    identity_text += f"&nbsp;&nbsp;<b>Roster Profile:</b> {roster_note}<br>"
-    identity_text += f"&nbsp;&nbsp;<b>Power Ranking:</b> <span style='color:#ffd700'>#{power_rank}</span> of {total_teams} | <b>Total Value:</b> {total_value:.0f} points"
-    analysis_parts.append(identity_text)
+    # ════════════════════════════════════════════════════════════════════
+    # SECTION 2: ROSTER SNAPSHOT (Core assets + Demographics + Depth condensed)
+    # ════════════════════════════════════════════════════════════════════
+    roster = "<b style='font-size: 14px;'>📊 ROSTER SNAPSHOT</b><br>"
 
-    # ============ ROSTER PROFILE - DETAILED BREAKDOWN ============
-    roster_text = "<b>ROSTER PROFILE:</b><br>"
-
-    # Age distribution with value context
-    roster_text += f"&nbsp;&nbsp;<b>Demographics:</b> Average age {avg_age:.1f}<br>"
-    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Young (≤25): {len(young_players)} players, {young_value:.0f} value ({young_value/total_value*100:.0f}% of roster)<br>"
-    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Prime (26-30): {len(prime_players)} players, {prime_value:.0f} value ({prime_value/total_value*100:.0f}% of roster)<br>"
-    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Veteran (31+): {len(veteran_players)} players, {vet_value:.0f} value ({vet_value/total_value*100:.0f}% of roster)<br>"
-
-    # Hitter/Pitcher split
-    roster_text += f"&nbsp;&nbsp;<b>Roster Construction:</b><br>"
-    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Hitters: {len(hitters)} players, {hitter_value:.0f} value<br>"
-    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Starters: {len(starters)} players, {sum(v for _, v in starters):.0f} value<br>"
-    roster_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Relievers: {len(relievers)} players, {sum(v for _, v in relievers):.0f} value"
-
-    # Roster assessment
-    if hitter_value > pitcher_value * 1.4:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>Offense-heavy roster - consider adding pitching depth</span>"
-    elif pitcher_value > hitter_value * 1.2:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>Pitching-heavy roster - could use more offensive firepower</span>"
-    else:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#4ade80'>Well-balanced between hitting and pitching</span>"
-
-    analysis_parts.append(roster_text)
-
-    # ============ CORE ASSETS - IN-DEPTH ANALYSIS ============
-    core_text = "<b>CORE ASSETS:</b><br>"
-
-    # Franchise player analysis - PHILOSOPHY-AWARE
+    # Top 5 players with philosophy-aware outlook for MVP
     if players_with_value:
         mvp = players_with_value[0]
-        mvp_proj = HITTER_PROJECTIONS.get(mvp[0].name) or PITCHER_PROJECTIONS.get(mvp[0].name) or RELIEVER_PROJECTIONS.get(mvp[0].name) or {}
+        SELLING = ['analytical_rebuilder', 'desperate_accumulator', 'reluctant_dealer']
+        BUYING = ['championship_closer', 'all_in_buyer', 'dynasty_champion', 'loaded_and_ready']
 
-        # Philosophy-aware MVP outlook
-        SELLING_PHILOSOPHIES = ['analytical_rebuilder', 'desperate_accumulator', 'reluctant_dealer']
-        BUYING_PHILOSOPHIES = ['championship_closer', 'all_in_buyer', 'dynasty_champion', 'loaded_and_ready']
-        PATIENT_PHILOSOPHIES = ['rising_powerhouse', 'prospect_rich_rebuilder', 'smart_contender']
-
-        if philosophy in SELLING_PHILOSOPHIES:
-            # Rebuilding teams see stars as trade assets
-            if mvp[0].age <= 25:
-                mvp_outlook = "<span style='color:#ffd700'>CROWN JEWEL</span> — Too valuable to sell unless you get a king's ransom. Build around him."
-            elif mvp[0].age <= 28:
-                mvp_outlook = "<span style='color:#fbbf24'>PEAK VALUE WINDOW</span> — Prime asset. Sell now for maximum return or keep as cornerstone of next contender."
-            elif mvp[0].age <= 31:
-                mvp_outlook = "<span style='color:#fb923c'>SELL HIGH NOW</span> — Value will only decrease. Shop aggressively for young talent."
-            else:
-                mvp_outlook = "<span style='color:#f87171'>URGENT SALE</span> — Depreciating asset. Move immediately before value craters further."
-        elif philosophy in BUYING_PHILOSOPHIES:
-            # Contending teams see stars as win-now weapons
-            if mvp[0].age <= 25:
-                mvp_outlook = "<span style='color:#4ade80'>DYNASTY CORNERSTONE</span> — Untouchable. Build the championship around him."
-            elif mvp[0].age <= 28:
-                mvp_outlook = "<span style='color:#34d399'>CHAMPIONSHIP WEAPON</span> — Maximize NOW. Surround with talent to win it all."
-            elif mvp[0].age <= 31:
-                mvp_outlook = "<span style='color:#fbbf24'>WIN-NOW PRODUCER</span> — Still delivering. Keep pushing for the title while he's elite."
-            else:
-                mvp_outlook = "<span style='color:#fb923c'>VETERAN PRODUCER</span> — Ride the production wave. Upgrade around him, not instead of him."
-        elif philosophy in PATIENT_PHILOSOPHIES:
-            # Patient teams protect young talent
-            if mvp[0].age <= 25:
-                mvp_outlook = "<span style='color:#4ade80'>UNTOUCHABLE FOUNDATION</span> — The dynasty starts here. Only move for elite proven star at massive discount."
-            elif mvp[0].age <= 28:
-                mvp_outlook = "<span style='color:#34d399'>CORE PIECE</span> — Keep unless overwhelming return. Perfect age for sustainable contention."
-            elif mvp[0].age <= 31:
-                mvp_outlook = "<span style='color:#fbbf24'>EVALUATE CAREFULLY</span> — Still valuable but monitor decline risk. Consider sell-high if right offer comes."
-            else:
-                mvp_outlook = "<span style='color:#fb923c'>TRADE CANDIDATE</span> — Doesn't align with long-term vision. Seek young talent in return."
+        if philosophy in SELLING and mvp[0].age >= 28:
+            mvp_tag = "<span style='color:#fb923c'>SELL HIGH</span>"
+        elif philosophy in BUYING:
+            mvp_tag = "<span style='color:#4ade80'>CORNERSTONE</span>"
         else:
-            # Default balanced view
-            if mvp[0].age <= 25:
-                mvp_outlook = "<span style='color:#4ade80'>ELITE LONG-TERM</span> — Franchise cornerstone with 8+ years of prime production ahead"
-            elif mvp[0].age <= 28:
-                mvp_outlook = "<span style='color:#34d399'>PRIME YEARS</span> — Peak performance window, maximize value now"
-            elif mvp[0].age <= 31:
-                mvp_outlook = "<span style='color:#fbbf24'>LATE PRIME</span> — Still elite but approaching the back end of his window"
+            mvp_tag = "<span style='color:#ffd700'>FRANCHISE</span>"
+
+        roster += f"<b>Core 5:</b> "
+        core_names = []
+        for i, (p, v) in enumerate(players_with_value[:5]):
+            age_color = '#4ade80' if p.age <= 26 else '#fbbf24' if p.age <= 30 else '#fb923c'
+            if i == 0:
+                core_names.append(f"<b>{p.name}</b> ({v:.0f}, <span style='color:{age_color}'>{p.age}</span>) {mvp_tag}")
             else:
-                mvp_outlook = "<span style='color:#fb923c'>AGING STAR</span> — Producing now but decline is imminent, consider selling high"
+                core_names.append(f"{p.name} ({v:.0f}, <span style='color:{age_color}'>{p.age}</span>)")
+        roster += " • ".join(core_names) + "<br>"
 
-        core_text += f"&nbsp;&nbsp;<b>Franchise Player:</b> {mvp[0].name}<br>"
-        core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Value: {mvp[1]:.0f} | Age: {mvp[0].age} | Position: {mvp[0].position}<br>"
-        core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Outlook: {mvp_outlook}<br>"
+    # Condensed demographics
+    balance_note = "balanced" if abs(hitter_value - pitcher_value) < pitcher_value * 0.3 else ("bat-heavy" if hitter_value > pitcher_value else "arm-heavy")
+    roster += f"<b>Build:</b> Avg age {avg_age:.1f} | {len(young_players)} young ({young_value:.0f}), {len(prime_players)} prime ({prime_value:.0f}), {len(veteran_players)} vet ({vet_value:.0f}) | {balance_note}<br>"
 
-        # Key stats for franchise player
-        if mvp_proj:
-            if 'HR' in mvp_proj:
-                core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Projection: {mvp_proj.get('HR', 0)} HR, {mvp_proj.get('RBI', 0)} RBI, {mvp_proj.get('R', 0)} R, {mvp_proj.get('SB', 0)} SB<br>"
-            elif 'K' in mvp_proj:
-                core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Projection: {mvp_proj.get('K', 0)} K, {mvp_proj.get('ERA', 0):.2f} ERA, {mvp_proj.get('QS', 0)} QS<br>"
-
-        # Supporting cast
-        if len(players_with_value) >= 2:
-            core_text += f"&nbsp;&nbsp;<b>Supporting Core:</b><br>"
-            for p, v in players_with_value[1:5]:
-                age_tag = f"<span style='color:#4ade80'>({p.age})</span>" if p.age <= 26 else f"<span style='color:#fbbf24'>({p.age})</span>" if p.age <= 30 else f"<span style='color:#fb923c'>({p.age})</span>"
-                core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• {p.name}: {v:.0f} value, age {age_tag}<br>"
-
-        # Core quality analysis - count players by tier
-        # Elite = 90+ (MVP candidates: Ohtani, Soto)
-        # Star = 75+ (All-Stars, top-tier)
-        # Starter = 60+ (quality everyday players)
-        # Quality = 50+ (solid contributors)
-        # Depth = 35+ (bench pieces)
-        elite_count = len([v for _, v in players_with_value if v >= 90])
-        star_count = len([v for _, v in players_with_value if v >= 75])
-        starter_count = len([v for _, v in players_with_value if v >= 60])
-        quality_count = len([v for _, v in players_with_value if v >= 50])
-        depth_count = len([v for _, v in players_with_value if v >= 35])
-        top_player_value = players_with_value[0][1] if players_with_value else 0
-
-        # Use power_rank to validate roster assessment
-        # Having stars but ranked poorly = top-heavy, not contender
-        is_contender = power_rank <= 4
-        is_competitive = power_rank <= 7
-        is_bottom_half = power_rank >= 7
-
-        # Determine roster profile based on talent + actual team ranking
-        if elite_count >= 2 and is_contender:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>Stacked: {elite_count} elite superstars (90+) - championship favorite</span>"
-        elif elite_count >= 2 and is_competitive:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>Elite talent: {elite_count} superstars but ranked #{power_rank} - depth issues?</span>"
-        elif elite_count >= 2:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>Top-heavy: {elite_count} elite stars but ranked #{power_rank} - need supporting cast</span>"
-        elif elite_count == 1 and star_count >= 3 and is_contender:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>Superstar-led: 1 elite + {star_count - 1} stars - title contender</span>"
-        elif elite_count == 1 and star_count >= 3:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>Star power: 1 elite + {star_count - 1} stars but ranked #{power_rank}</span>"
-        elif star_count >= 4 and is_competitive:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>Star-powered: {star_count} stars (75+) - strong roster</span>"
-        elif star_count >= 4:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>Stars without depth: {star_count} stars but ranked #{power_rank} - fill the gaps</span>"
-        elif star_count >= 2 and starter_count >= 6:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>Balanced: {star_count} stars + {starter_count - star_count} starters</span>"
-        elif starter_count >= 8:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>Deep lineup: {starter_count} starters (60+) but no true stars</span>"
-        elif starter_count >= 5:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>Developing: {starter_count} starters, {quality_count - starter_count} quality - building</span>"
-        elif quality_count >= 8:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>Quantity over quality: {quality_count} serviceable (50+) but no stars</span>"
-        elif quality_count >= 4:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fb923c'>Thin roster: Only {quality_count} quality players (50+) - needs upgrades</span>"
-        else:
-            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>Full rebuild: {quality_count} quality, {depth_count} depth - start over</span>"
-
-    analysis_parts.append(core_text.rstrip('<br>'))
-
-    # ============ FARM SYSTEM - COMPREHENSIVE EVALUATION ============
-    farm_text = "<b>FARM SYSTEM:</b><br>"
-
-    top_100_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)
-    top_300_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 300], key=lambda x: x.prospect_rank)
-    all_ranked = sorted([p for p in prospects if p.prospect_rank], key=lambda x: x.prospect_rank)
-
-    # Smarter farm grading using points system
-    # Points weighted by prospect tier (higher tier = exponentially more valuable)
-    farm_points = 0
-    top_10_count = 0
-    top_25_count = 0
-    top_50_count = 0
-    top_100_count = len(top_100_prospects)
-
-    for p in prospects:
-        if p.prospect_rank:
-            if p.prospect_rank <= 10:
-                farm_points += 25  # Elite of elite
-                top_10_count += 1
-                top_25_count += 1
-                top_50_count += 1
-            elif p.prospect_rank <= 25:
-                farm_points += 15  # Blue chip
-                top_25_count += 1
-                top_50_count += 1
-            elif p.prospect_rank <= 50:
-                farm_points += 8   # High-end
-                top_50_count += 1
-            elif p.prospect_rank <= 100:
-                farm_points += 4   # Solid
-            elif p.prospect_rank <= 150:
-                farm_points += 2   # Depth
-            elif p.prospect_rank <= 250:
-                farm_points += 1   # Lottery ticket
-            else:
-                farm_points += 0.5  # Filler
-
-    # Calculate league-wide farm rankings for context
-    all_farm_points = []
-    for other_team_name, other_team in teams.items():
-        other_points = 0
-        for p in other_team.players:
-            if p.is_prospect and p.prospect_rank:
-                if p.prospect_rank <= 10:
-                    other_points += 25
-                elif p.prospect_rank <= 25:
-                    other_points += 15
-                elif p.prospect_rank <= 50:
-                    other_points += 8
-                elif p.prospect_rank <= 100:
-                    other_points += 4
-                elif p.prospect_rank <= 150:
-                    other_points += 2
-                elif p.prospect_rank <= 250:
-                    other_points += 1
-                else:
-                    other_points += 0.5
-        all_farm_points.append((other_team_name, other_points))
-
-    all_farm_points.sort(key=lambda x: -x[1])
-    farm_rank = next((i + 1 for i, (name, _) in enumerate(all_farm_points) if name == team_name), 12)
-    avg_farm_points = sum(pts for _, pts in all_farm_points) / len(all_farm_points) if all_farm_points else 0
-
-    # Grade based on league rank AND absolute quality
-    # Only 1 team can be A+, 2 can be A, etc.
-    if farm_rank == 1 and farm_points >= 40:
-        farm_grade = "A+"
-        farm_color = "#4ade80"
-        farm_desc = "Best farm in the league — elite prospect capital"
-    elif farm_rank <= 2 and farm_points >= 30:
-        farm_grade = "A"
-        farm_color = "#34d399"
-        farm_desc = "Top-tier farm system — strong future foundation"
-    elif farm_rank <= 4 and farm_points >= 20:
-        farm_grade = "B+"
-        farm_color = "#60a5fa"
-        farm_desc = "Above average farm — quality over quantity"
-    elif farm_rank <= 6 or farm_points >= 15:
-        farm_grade = "B"
-        farm_color = "#a78bfa"
-        farm_desc = "Average farm — some upside but no stars"
-    elif farm_rank <= 8 or farm_points >= 8:
-        farm_grade = "C+"
-        farm_color = "#fbbf24"
-        farm_desc = "Below average — lacks impact talent"
-    elif farm_rank <= 10 or farm_points >= 4:
-        farm_grade = "C"
-        farm_color = "#fb923c"
-        farm_desc = "Weak farm — limited future value"
+    # Position depth
+    depth_parts = []
+    if thin_positions:
+        depth_parts.append(f"<span style='color:#f87171'>Thin: {', '.join(thin_positions[:2])}</span>")
+    if deep_positions:
+        depth_parts.append(f"<span style='color:#4ade80'>Deep: {', '.join(deep_positions[:2])}</span>")
+    if depth_parts:
+        roster += f"<b>Depth:</b> {' | '.join(depth_parts)}"
     else:
-        farm_grade = "D"
-        farm_color = "#f87171"
-        farm_desc = "Depleted — needs major restocking"
+        roster += "<b>Depth:</b> Balanced across positions"
 
-    # Descriptive breakdown
-    farm_text += f"&nbsp;&nbsp;<b>Farm Grade:</b> <span style='color:{farm_color}'><b>{farm_grade}</b></span> — {farm_desc}<br>"
-    farm_text += f"&nbsp;&nbsp;<b>League Rank:</b> #{farm_rank} of {len(all_farm_points)} | <b>Farm Score:</b> {farm_points:.0f} pts (avg: {avg_farm_points:.0f})<br>"
-    farm_text += f"&nbsp;&nbsp;<b>Breakdown:</b> {top_10_count} elite (1-10) | {top_25_count} blue-chip (1-25) | {top_50_count} top 50 | {top_100_count} top 100<br>"
+    analysis_parts.append(roster)
 
-    # Top prospects detail with more context
-    if top_100_prospects:
-        farm_text += f"&nbsp;&nbsp;<b>Top Prospects:</b><br>"
-        for p in top_100_prospects[:4]:
-            prospect_value = calculator.calculate_player_value(p)
-            # More nuanced ETA based on rank and age
-            if p.age <= 20:
-                eta = "2028+" if p.prospect_rank > 50 else "2027"
-            elif p.age <= 22:
-                eta = "2027" if p.prospect_rank > 30 else "2026"
-            else:
-                eta = "2026" if prospect_value >= 35 else "2026-27"
-            farm_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• <b>#{p.prospect_rank}</b> {p.name} ({p.position}, {p.age}y) - Value: {prospect_value:.0f}, ETA: {eta}<br>"
-    elif all_ranked:
-        farm_text += f"&nbsp;&nbsp;<b>Best Prospects:</b><br>"
-        for p in all_ranked[:3]:
-            prospect_value = calculator.calculate_player_value(p)
-            farm_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• #{p.prospect_rank} {p.name} — Value: {prospect_value:.0f}<br>"
-    else:
-        farm_text += f"&nbsp;&nbsp;<span style='color:#f87171'>No ranked prospects on roster — farm is bare</span><br>"
+    # ════════════════════════════════════════════════════════════════════
+    # SECTION 3: CATEGORY REPORT (Strengths/weaknesses + Risk factors)
+    # ════════════════════════════════════════════════════════════════════
+    cats = "<b style='font-size: 14px;'>📈 CATEGORY REPORT</b><br>"
 
-    # Personalized farm recommendation based on team situation
-    if window in ['dynasty', 'contender', 'win-now']:
-        if farm_grade in ['A+', 'A']:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>Elite farm + contending = dynasty potential. You can trade prospects for missing pieces without mortgaging the future.</span>"
-        elif farm_grade in ['B+', 'B']:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>Contending with average farm - be selective about trading prospects. Each one matters more.</span>"
-        else:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>Contending with thin farm - be careful not to trade away future completely.</span>"
-    elif window in ['rebuilding', 'teardown']:
-        if farm_grade in ['A+', 'A', 'B+']:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>Rebuilding with strong farm - stay the course, let talent develop.</span>"
-        else:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>Need to acquire more prospects - sell any remaining veteran value.</span>"
-
-    analysis_parts.append(farm_text.rstrip('<br>'))
-
-    # ============ CATEGORY OUTLOOK - FULL BREAKDOWN ============
-    cat_text = "<b>CATEGORY OUTLOOK:</b><br>"
-
-    # Hitting categories with rankings
-    cat_text += "&nbsp;&nbsp;<b>Hitting:</b><br>"
-    hr_rank = my_ranks.get('HR', 12)
-    sb_rank = my_ranks.get('SB', 12)
-    rbi_rank = my_ranks.get('RBI', 12)
-    r_rank = my_ranks.get('R', 12)
-    so_rank = my_ranks.get('SO', 12)
-
-    def rank_color(rank):
-        if rank <= 4: return '#4ade80'  # Green - top third
-        elif rank <= 8: return '#fbbf24'  # Yellow - middle
-        else: return '#f87171'  # Red - bottom third
-
-    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• HR: {total_hr} <span style='color:{rank_color(hr_rank)}'>(#{hr_rank})</span> | "
-    cat_text += f"SB: {total_sb} <span style='color:{rank_color(sb_rank)}'>(#{sb_rank})</span> | "
-    cat_text += f"RBI: {total_rbi} <span style='color:{rank_color(rbi_rank)}'>(#{rbi_rank})</span> | "
-    cat_text += f"R: {total_r} <span style='color:{rank_color(r_rank)}'>(#{r_rank})</span><br>"
-    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• SO: {total_so} <span style='color:{rank_color(so_rank)}'>(#{so_rank})</span> <i>(lower is better)</i><br>"
-
-    # Pitching categories with rankings
-    cat_text += "&nbsp;&nbsp;<b>Pitching:</b><br>"
-    k_rank = my_ranks.get('K', 12)
-    qs_rank = my_ranks.get('QS', 12)
-    svh_rank = my_ranks.get('SV+HLD', 12)
-    era_rank = my_ranks.get('ERA', 12)
-    whip_rank = my_ranks.get('WHIP', 12)
-    l_rank = my_ranks.get('L', 12)
-    kbb_rank = my_ranks.get('K/BB', 12)
-
-    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• K: {total_k} <span style='color:{rank_color(k_rank)}'>(#{k_rank})</span> | "
-    cat_text += f"QS: {total_qs} <span style='color:{rank_color(qs_rank)}'>(#{qs_rank})</span> | "
-    cat_text += f"W: {total_w} | L: {total_l} <span style='color:{rank_color(l_rank)}'>(#{l_rank})</span><br>"
-    cat_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• SV+HLD: {total_sv_hld} <span style='color:{rank_color(svh_rank)}'>(#{svh_rank})</span> | "
-    cat_text += f"K/BB: {k_bb_ratio:.2f} <span style='color:{rank_color(kbb_rank)}'>(#{kbb_rank})</span><br>"
-
-    # Summary of strengths and weaknesses
     if cat_strengths:
-        strength_list = ", ".join([f"{cat} (#{rank})" for cat, rank in cat_strengths[:3]])
-        cat_text += f"&nbsp;&nbsp;<span style='color:#4ade80'><b>Strengths:</b> {strength_list}</span><br>"
+        strength_list = ", ".join([f"<span style='color:#4ade80'>{cat} (#{rank})</span>" for cat, rank in cat_strengths[:4]])
+        cats += f"<b>Strengths:</b> {strength_list}<br>"
     if cat_weaknesses:
-        weakness_list = ", ".join([f"{cat} (#{rank})" for cat, rank in cat_weaknesses[:3]])
-        cat_text += f"&nbsp;&nbsp;<span style='color:#f87171'><b>Weaknesses:</b> {weakness_list}</span><br>"
+        weakness_list = ", ".join([f"<span style='color:#f87171'>{cat} (#{rank})</span>" for cat, rank in cat_weaknesses[:4]])
+        cats += f"<b>Weaknesses:</b> {weakness_list}<br>"
 
-    # GM Priority Categories Analysis
+    # GM Priority categories
     preferred_cats = gm.get('preferred_categories', [])
     if preferred_cats:
-        # Check how priority categories align with actual performance
         priority_status = []
         for pcat in preferred_cats:
             prank = my_ranks.get(pcat, 12)
             if prank <= 4:
-                priority_status.append(f"<span style='color:#4ade80'>{pcat} (#{prank}) ✓</span>")
-            elif prank <= 8:
-                priority_status.append(f"<span style='color:#fbbf24'>{pcat} (#{prank}) ⚠</span>")
+                priority_status.append(f"<span style='color:#4ade80'>{pcat} ✓</span>")
+            elif prank >= 9:
+                priority_status.append(f"<span style='color:#f87171'>{pcat} ✗</span>")
             else:
-                priority_status.append(f"<span style='color:#f87171'>{pcat} (#{prank}) ✗</span>")
+                priority_status.append(f"<span style='color:#fbbf24'>{pcat} ⚠</span>")
+        cats += f"<b>Priority Cats:</b> {', '.join(priority_status)}<br>"
 
-        cat_text += f"&nbsp;&nbsp;<b>{gm['name']}'s Priority Cats:</b> {', '.join(priority_status)}<br>"
-
-        # Identify priority category gaps
-        priority_gaps = [pcat for pcat in preferred_cats if my_ranks.get(pcat, 12) >= 8]
-        if priority_gaps:
-            cat_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'><i>Priority gap: {', '.join(priority_gaps)} needs attention</i></span>"
-        else:
-            cat_text += f"&nbsp;&nbsp;<span style='color:#4ade80'><i>All priority categories performing well</i></span>"
-
-    analysis_parts.append(cat_text.rstrip('<br>'))
-
-    # Risk factors with specific players
-    risk_factors = []
-    sell_candidates = []
-    for p, v in players_with_value[:20]:
-        if p.age >= 33 and v >= 30:
-            sell_candidates.append(f"{p.name} (age {p.age}, value {v:.0f})")
-        elif p.age >= 35 and v >= 20:
-            sell_candidates.append(f"{p.name} (age {p.age})")
-
-    if sell_candidates and window in ['rebuilding', 'teardown', 'declining', 'retooling']:
-        risk_factors.append(f"<span style='color:#fbbf24'>Sell candidates:</span> {', '.join(sell_candidates[:3])}")
-    elif sell_candidates:
-        risk_factors.append(f"Aging assets to monitor: {', '.join(sell_candidates[:2])}")
-
-    if players_with_value:
-        top_2_value = sum(v for _, v in players_with_value[:2])
-        total_value = sum(v for _, v in players_with_value)
-        if total_value > 0 and top_2_value / total_value > 0.30:
-            risk_factors.append(f"Top-heavy ({top_2_value/total_value*100:.0f}% value in top 2)")
-
-    if risk_factors:
-        analysis_parts.append(f"<b>RISK FACTORS:</b> {' | '.join(risk_factors)}.")
+    # Risk factors
+    sell_candidates = [f"{p.name} ({p.age})" for p, v in players_with_value[:15] if p.age >= 33 and v >= 30]
+    if sell_candidates:
+        cats += f"<span style='color:#fbbf24'><b>Aging assets:</b> {', '.join(sell_candidates[:3])}</span>"
     else:
-        analysis_parts.append("<b>RISK FACTORS:</b> Well-balanced roster with no major red flags.")
+        cats += "<span style='color:#4ade80'>No major risk factors</span>"
 
-    # Personalized trade strategy based on GM philosophy and personality
-    strategy = f"<b>{gm['name'].upper()}'S TRADE STRATEGY:</b><br>"
+    analysis_parts.append(cats)
 
-    # Find specific trade targets based on team needs
-    biggest_weakness = cat_weaknesses[0] if cat_weaknesses else None
-    biggest_strength = cat_strengths[0] if cat_strengths else None
-    import random
-    gm_quote = random.choice(gm['catchphrases'])
+    # ════════════════════════════════════════════════════════════════════
+    # SECTION 4: TRADE CENTER (Scenarios + Partner Intel + Opportunities)
+    # ════════════════════════════════════════════════════════════════════
+    trade = f"<b style='font-size: 14px;'>🔄 TRADE CENTER</b><br>"
 
-    # Philosophy-based personalized strategy
-    if philosophy == 'dynasty_champion':
-        strategy += f"&nbsp;&nbsp;<span style='color:#ffd700;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#ffd700'>Defend the throne</span> — force others to overpay for your attention.<br>"
-        if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Surgical Strike:</b> Only address {biggest_weakness[0]} (#{biggest_weakness[1]}) if the price is right. We don't chase.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Non-Negotiable:</b> Core assets stay. Period. Let pretenders mortgage their futures.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'championship_closer':
-        strategy += f"&nbsp;&nbsp;<span style='color:#ff6b6b;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#ff6b6b'>Hunt relentlessly</span> — every gap is a target.<br>"
-        if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Priority Target:</b> {biggest_weakness[0]} (#{biggest_weakness[1]}) is the gap between us and a title. Find it NOW.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Currency:</b> Prospects exist to be traded for proven winners. Don't get attached.<br>"
-        if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Expendable:</b> {sell_candidates[0].split(' (')[0]} — if moving them gets us closer, pull the trigger.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'smart_contender':
-        strategy += f"&nbsp;&nbsp;<span style='color:#4ade80;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#4ade80'>Calculate every angle</span> — emotion is the enemy of optimization.<br>"
-        if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Efficiency Target:</b> {biggest_weakness[0]} (#{biggest_weakness[1]}) offers the best marginal improvement per asset spent.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Value Rule:</b> Never pay 100% for 80% production. Find market inefficiencies.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'all_in_buyer':
-        strategy += f"&nbsp;&nbsp;<span style='color:#f59e0b;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#f59e0b'>Empty the clip</span> — futures are for teams without a window.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Mantra:</b> ANY proven contributor who fills a need. Price is secondary to winning.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Available:</b> Every prospect, every pick, every expendable piece. Make offers.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'loaded_and_ready':
-        strategy += f"&nbsp;&nbsp;<span style='color:#00d4ff;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#00d4ff'>Play from ultimate strength</span> — we dictate every negotiation.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Leverage:</b> Elite roster + deep farm = we set prices. Others come to us.<br>"
-        if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Optional Upgrade:</b> {biggest_weakness[0]} could be addressed, but only at a discount.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'bargain_hunter':
-        strategy += f"&nbsp;&nbsp;<span style='color:#a78bfa;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#a78bfa'>Hunt in the margins</span> — creativity beats capital.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Targets:</b> Buy-low candidates, waiver gems, players others have given up on.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Edge:</b> We win trades on brains since the asset cupboard is bare. Find hidden value.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'rising_powerhouse':
-        strategy += f"&nbsp;&nbsp;<span style='color:#34d399;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#34d399'>Protect the foundation</span> — prospects are untouchable except for elite returns.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Rule:</b> Only move young talent for PROVEN stars at significant discounts.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Patience:</b> The dynasty is coming. Don't trade the future for mediocre present gains.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'crossroads_decision':
-        strategy += f"&nbsp;&nbsp;<span style='color:#fbbf24;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#fbbf24'>Decision time</span> — the middle is quicksand.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Option A:</b> Go ALL IN — trade youth for win-now pieces, push for playoffs.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Option B:</b> SELL — move veterans for prospects, commit to rebuild.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Warning:</b> Status quo is death. Pick a direction and commit HARD.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'reluctant_dealer':
-        strategy += f"&nbsp;&nbsp;<span style='color:#fb923c;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#fb923c'>Time to act</span> — hesitation is costing us value daily.<br>"
-        if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Sell NOW:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])} — their value depreciates weekly.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Reality:</b> Every week we wait, we lose leverage. Start the conversations.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'analytical_rebuilder':
-        strategy += f"&nbsp;&nbsp;<span style='color:#60a5fa;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#60a5fa'>Data-driven teardown</span> — zero emotion, maximum return.<br>"
-        if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Optimal Sales:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])} — peak value extraction window.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Targets:</b> High-upside prospects, analytical darlings, undervalued youth.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'desperate_accumulator':
-        strategy += f"&nbsp;&nbsp;<span style='color:#f87171;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#f87171'>Cast wide nets</span> — quantity now, sort for quality later.<br>"
-        if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Fire Sale:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])} — any prospect return is a win.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Strategy:</b> Volume of young assets > individual quality. We need bodies.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    elif philosophy == 'prospect_rich_rebuilder':
-        strategy += f"&nbsp;&nbsp;<span style='color:#22d3ee;font-style:italic'>\"{gm_quote}\"</span><br>"
-        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#22d3ee'>Guard the treasure</span> — these prospects ARE the championship plan.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Untouchable:</b> Top prospects only move for elite proven stars at massive discounts.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Patience:</b> Let the talent develop. In 2-3 years, everyone will wish they'd traded with us.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
-    else:
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> Evaluate opportunities based on roster fit and value.<br>"
-        if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Target:</b> Address {biggest_weakness[0]} weakness.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm.get('trade_style', 'Value-focused evaluation.')}"
-
-    analysis_parts.append(strategy.rstrip('<br>'))
-
-    # Position depth analysis - normalize positions and count properly
-    pos_counts = {'C': 0, '1B': 0, '2B': 0, 'SS': 0, '3B': 0, 'OF': 0, 'SP': 0, 'RP': 0}
-    exclude_positions = ['DH', 'UTIL', 'UT', 'P', '']
-
-    for p, _ in players_with_value:
-        pos_str = (p.position or '').upper()
-        # Count each position the player can play
-        positions_found = set()
-        for pos in pos_str.replace('/', ',').split(','):
-            pos = pos.strip()
-            # Normalize outfield positions
-            if pos in ['LF', 'CF', 'RF', 'OF']:
-                positions_found.add('OF')
-            elif pos in pos_counts and pos not in exclude_positions:
-                positions_found.add(pos)
-        # Add to counts (each player counts once per position type)
-        for pos in positions_found:
-            pos_counts[pos] += 1
-
-    # Determine thin (<=2) and deep (>=5) positions, excluding overlap
-    thin_positions = [pos for pos, count in pos_counts.items() if count <= 2 and count > 0]
-    deep_positions = [pos for pos, count in pos_counts.items() if count >= 5]
-
-    # A position can't be both thin and deep - remove any overlap
-    thin_positions = [p for p in thin_positions if p not in deep_positions]
-
-    depth_text = "<b>POSITIONAL DEPTH:</b> "
-    if thin_positions:
-        depth_text += f"<span style='color:#f87171'>Thin at {', '.join(thin_positions[:3])}</span>. "
-    if deep_positions:
-        depth_text += f"<span style='color:#4ade80'>Deep at {', '.join(deep_positions[:3])}</span>. "
-    if not thin_positions and not deep_positions:
-        depth_text += "Balanced depth across positions. "
-
-    # Identify specific position needs or trade chips
-    if thin_positions:
-        depth_text += f"Prioritize adding {thin_positions[0]} in trades/FA."
-    elif deep_positions:
-        depth_text += f"Consider trading from {deep_positions[0]} surplus for needs."
-    analysis_parts.append(depth_text)
-
-    # Personalized bottom line from GM's perspective
-    bottom_line = f"<b>{gm['name'].upper()}'S BOTTOM LINE:</b> "
-    total_value = sum(v for _, v in players_with_value)
-
-    if philosophy == 'dynasty_champion':
-        bottom_line += f"<span style='color:#ffd700'>We're the team to beat.</span> {total_value:.0f} points of pure dominance. "
-        bottom_line += "Everyone wants what we have. Make them overpay for even a conversation."
-    elif philosophy == 'championship_closer':
-        if cat_weaknesses:
-            bottom_line += f"<span style='color:#ff6b6b'>{cat_weaknesses[0][0]} is the gap.</span> Close it. "
-        bottom_line += f"We're {total_value:.0f} points of potential championship — but potential doesn't hang banners. Hunt relentlessly."
-    elif philosophy == 'smart_contender':
-        bottom_line += f"<span style='color:#4ade80'>{total_value:.0f} points of optimized value.</span> "
-        bottom_line += "Continue exploiting market inefficiencies. The spreadsheet says we're positioned — trust the process."
-    elif philosophy == 'all_in_buyer':
-        bottom_line += f"<span style='color:#f59e0b'>Window is NOW.</span> {total_value:.0f} roster points, but points don't matter if we don't win. "
-        bottom_line += "Every prospect should be on the trading block. Make it happen."
-    elif philosophy == 'loaded_and_ready':
-        bottom_line += f"<span style='color:#00d4ff'>Best of both worlds:</span> {total_value:.0f} points AND prospect depth. "
-        bottom_line += "We dictate terms in every negotiation. Stay patient, stay dominant."
-    elif philosophy == 'bargain_hunter':
-        bottom_line += f"<span style='color:#a78bfa'>Creativity over capital.</span> {total_value:.0f} points built from hustle, not spending. "
-        bottom_line += "Keep hunting the margins. One man's trash is our treasure."
-    elif philosophy == 'rising_powerhouse':
-        bottom_line += f"<span style='color:#34d399'>The future is ours.</span> {len(prospects)} prospects forming the next dynasty. "
-        bottom_line += f"{total_value:.0f} points today, championship core tomorrow. Patience builds empires."
-    elif philosophy == 'crossroads_decision':
-        bottom_line += f"<span style='color:#fbbf24'>Decision time.</span> {total_value:.0f} points stuck in purgatory. "
-        bottom_line += "The middle is quicksand. Pick a direction TODAY and commit with everything."
-    elif philosophy == 'reluctant_dealer':
-        if sell_candidates:
-            bottom_line += f"<span style='color:#fb923c'>{sell_candidates[0].split(' (')[0]} and others are depreciating assets.</span> "
-        bottom_line += f"{total_value:.0f} points that shrink daily while we hesitate. Time to act is NOW."
-    elif philosophy == 'analytical_rebuilder':
-        bottom_line += f"<span style='color:#60a5fa'>Rebuild metrics: {total_value:.0f} pts, {len(prospects)} prospects.</span> "
-        bottom_line += "The algorithm says sell every veteran. Zero emotion, maximum return extraction."
-    elif philosophy == 'desperate_accumulator':
-        bottom_line += f"<span style='color:#f87171'>Farm needs volume.</span> {len(prospects)} prospects isn't enough. "
-        bottom_line += f"Liquidate everything. {total_value:.0f} points of veteran value should become 20+ young assets."
-    elif philosophy == 'prospect_rich_rebuilder':
-        bottom_line += f"<span style='color:#22d3ee'>{len(prospects)} prospects ARE the plan.</span> "
-        bottom_line += f"{total_value:.0f} total points, but the real treasure is the farm. Protect it fiercely. The dynasty is 2 years away."
-    else:
-        bottom_line += f"Total value: {total_value:.0f} points. Evaluate the roster and make strategic moves."
-
-    analysis_parts.append(bottom_line)
-
-    # === ENHANCED AI ANALYSIS SECTIONS ===
-
-    # Trade Targets by Category
-    if cat_weaknesses:
-        trade_targets = get_category_trade_targets(team_name, cat_weaknesses, num_targets=3)
-        if trade_targets:
-            targets_text = "<b>TRADE TARGETS BY NEED:</b><br>"
-            for cat, players in trade_targets.items():
-                if players:
-                    player_list = ", ".join([f"{p['name']} ({p['team']}, {p['cat_value']} {cat})" for p in players[:2]])
-                    targets_text += f"<span style='color:#00d4ff'>For {cat}:</span> {player_list}<br>"
-            analysis_parts.append(targets_text.rstrip('<br>'))
-
-    # Buy-Low / Sell-High Alerts - Enhanced GM-style
-    alerts = get_buy_low_sell_high_alerts(team_name, team)
-    if alerts['sell_high'] or alerts['buy_low']:
-        alerts_text = "<b>MARKET OPPORTUNITIES:</b><br>"
-
-        # Sell-high with reasoning
-        if alerts['sell_high']:
-            alerts_text += "<b>Sell Window Open:</b><br>"
-            for a in alerts['sell_high'][:3]:
-                urgency_color = '#f87171' if a['urgency'] == 'critical' else '#fbbf24' if a['urgency'] == 'high' else '#facc15'
-                alerts_text += f"&nbsp;&nbsp;• <span style='color:{urgency_color}'>{a['name']}</span>: {a['reason']}<br>"
-
-        # Buy-low with more detail
-        if alerts['buy_low']:
-            alerts_text += "<b>Acquisition Targets (other teams):</b><br>"
-            for a in alerts['buy_low'][:6]:
-                alerts_text += f"&nbsp;&nbsp;• <span style='color:#4ade80'>{a['name']}</span> ({a['team']}): {a['reason']}<br>"
-
-        analysis_parts.append(alerts_text.rstrip('<br>'))
-
-    # === GM TRADE SCENARIOS ===
+    # Trade scenarios
     gm_scenarios = generate_gm_trade_scenarios(team_name, team)
     if gm_scenarios:
-        scenario_text = f"<b>{gm['name'].upper()}'S TRADE SCENARIOS:</b><br>"
-
-        # Philosophy-specific intro phrases
-        import random
         SCENARIO_INTROS = {
-            'dynasty_champion': [
-                "From the throne, here's what catches my attention...",
-                "Few offers deserve our time. These might:",
-                "We don't chase deals. But IF we were to move...",
-            ],
-            'championship_closer': [
-                "Sleep is for rebuilding teams. Here's my hit list:",
-                "The championship gap analysis shows these moves:",
-                "I've been working the phones. Here's where we strike:",
-            ],
-            'all_in_buyer': [
-                "No holding back. These are the plays:",
-                "Futures are for rebuilders. Here's how we win NOW:",
-                "Time to empty the clip. Let's go get 'em:",
-            ],
-            'smart_contender': [
-                "The spreadsheet identified these opportunities:",
-                "After modeling 47 scenarios, here's optimal value:",
-                "The data points to these surgical moves:",
-            ],
-            'loaded_and_ready': [
-                "From a position of strength, here's what I'd entertain:",
-                "We dictate terms. But these deals make sense:",
-                "Options are a luxury. Here's how I'd use ours:",
-            ],
-            'bargain_hunter': [
-                "Empty pockets, full creativity. Here's what I found:",
-                "Hunting value in the margins. These look promising:",
-                "No assets? No problem. Watch this:",
-            ],
-            'rising_powerhouse': [
-                "Protecting the foundation, but I'd consider these:",
-                "The future is bright. Only these deals accelerate it:",
-                "Patience builds dynasties. But for the right price...",
-            ],
-            'crossroads_decision': [
-                "Decision time. Here are the paths forward:",
-                "The fork in the road. Each option leads somewhere:",
-                "Status quo is death. Here's how we escape:",
-            ],
-            'reluctant_dealer': [
-                "I know, I know... we need to move. Here's what makes sense:",
-                "Fine. FINE. Let's look at the options:",
-                "Every week I wait costs us. Here's the reality:",
-            ],
-            'analytical_rebuilder': [
-                "The algorithm identified these optimal transactions:",
-                "Zero emotion. Maximum return. Executing:",
-                "The model says sell. Here's the efficient frontier:",
-            ],
-            'desperate_accumulator': [
-                "EVERYTHING is available. Here's where I'm casting nets:",
-                "Quantity mode engaged. These get us bodies:",
-                "Volume, volume, volume. Here's the shopping list:",
-            ],
-            'prospect_rich_rebuilder': [
-                "Guarding the treasure, but these trades might unlock more:",
-                "The prospects ARE the plan. Only these deals fit:",
-                "Good things come to those who develop. But consider:",
-            ],
+            'dynasty_champion': "Few offers deserve our time. But consider:",
+            'championship_closer': "Here's my hit list:",
+            'all_in_buyer': "Time to empty the clip:",
+            'smart_contender': "The data points to:",
+            'loaded_and_ready': "From a position of strength:",
+            'bargain_hunter': "Hunting value in the margins:",
+            'rising_powerhouse': "Protecting the foundation, but consider:",
+            'crossroads_decision': "Decision time. Paths forward:",
+            'reluctant_dealer': "Fine. Here's what makes sense:",
+            'analytical_rebuilder': "The algorithm says:",
+            'desperate_accumulator': "Everything's available:",
+            'prospect_rich_rebuilder': "Only these deals fit the plan:",
         }
+        trade += f"<i>{SCENARIO_INTROS.get(philosophy, 'Consider these moves:')}</i><br>"
 
-        intro_options = SCENARIO_INTROS.get(philosophy, [
-            "Here's what I'm exploring:",
-            "Based on our roster, consider these moves:",
-            "The trade board shows these opportunities:",
-        ])
-        scenario_text += f"<i>{random.choice(intro_options)}</i><br><br>"
+        for s in gm_scenarios[:2]:  # Limit to top 2 scenarios
+            trade += f"<b>{s['title']}</b>: {s['target']} (~{s['target_value']:.0f}) ← {s['offer']} (~{s['offer_value']:.0f})<br>"
 
-        for i, s in enumerate(gm_scenarios, 1):
-            scenario_text += f"<b>{s['title']}</b><br>"
-            scenario_text += f"&nbsp;&nbsp;Target: {s['target']} (~{s['target_value']:.0f} value)<br>"
-            scenario_text += f"&nbsp;&nbsp;Offer: {s['offer']} (~{s['offer_value']:.0f} value)<br>"
-            scenario_text += f"&nbsp;&nbsp;Why: {s['reasoning']}<br>"
-            if i < len(gm_scenarios):
-                scenario_text += "<br>"
-        analysis_parts.append(scenario_text)
-
-    # === GM TRADE PARTNER INTELLIGENCE ===
+    # Trade partner intel (condensed)
     partner_intel = get_gm_trade_partner_intelligence(team_name)
     if partner_intel and partner_intel['ideal_partners']:
-        intel_text = f"<b>{gm['name'].upper()}'S TRADE PARTNER INTEL:</b><br>"
-        intel_text += f"<i style='color:#888'>{partner_intel['approach_summary']}</i><br><br>"
+        trade += "<b>Best Trade Partners:</b> "
+        partner_names = []
+        for p in partner_intel['ideal_partners'][:3]:
+            ptype = "SELLER" if p['philosophy'] in ['desperate_accumulator', 'analytical_rebuilder', 'reluctant_dealer'] else "BUYER" if p['philosophy'] in ['championship_closer', 'all_in_buyer'] else ""
+            partner_names.append(f"{p['team']} ({ptype})" if ptype else p['team'])
+        trade += ", ".join(partner_names) + "<br>"
 
-        for partner in partner_intel['ideal_partners'][:3]:
-            # Color code by partner philosophy type
-            if partner['philosophy'] in ['desperate_accumulator', 'analytical_rebuilder', 'reluctant_dealer']:
-                partner_color = '#fbbf24'  # Sellers - yellow
-                partner_type = 'SELLER'
-            elif partner['philosophy'] in ['championship_closer', 'all_in_buyer', 'dynasty_champion']:
-                partner_color = '#4ade80'  # Buyers - green
-                partner_type = 'BUYER'
-            else:
-                partner_color = '#60a5fa'  # Flexible - blue
-                partner_type = 'FLEXIBLE'
+    # Market opportunities (condensed)
+    alerts = get_buy_low_sell_high_alerts(team_name, team)
+    if alerts['sell_high']:
+        sell_names = [a['name'] for a in alerts['sell_high'][:3]]
+        trade += f"<span style='color:#fbbf24'><b>Sell Window:</b> {', '.join(sell_names)}</span><br>"
+    if alerts['buy_low']:
+        buy_names = [f"{a['name']} ({a['team']})" for a in alerts['buy_low'][:3]]
+        trade += f"<span style='color:#4ade80'><b>Buy Targets:</b> {', '.join(buy_names)}</span>"
 
-            intel_text += f"<b><span style='color:{partner_color}'>{partner['team']}</span></b> "
-            intel_text += f"<span style='color:#666'>({partner['gm_name']} - {partner_type})</span><br>"
-            intel_text += f"&nbsp;&nbsp;<i>Philosophy:</i> {partner['philosophy_name']}<br>"
-            intel_text += f"&nbsp;&nbsp;<i>Approach:</i> {partner['approach']}<br>"
-            if partner['top_assets']:
-                assets = ", ".join([f"{n} ({v:.0f})" for n, v, a in partner['top_assets'][:2]])
-                intel_text += f"&nbsp;&nbsp;<i>Key assets:</i> {assets}<br>"
-            intel_text += "<br>"
+    analysis_parts.append(trade)
 
-        analysis_parts.append(intel_text.rstrip('<br>'))
+    # ════════════════════════════════════════════════════════════════════
+    # SECTION 5: OUTLOOK (Farm + Draft + Rivalry)
+    # ════════════════════════════════════════════════════════════════════
+    outlook = f"<b style='font-size: 14px;'>🔮 OUTLOOK</b><br>"
 
-    # === LEAGUE TRADE MARKET SCAN ===
-    league_scan = scan_league_for_opportunities(team_name)
-    if league_scan:
-        scan_text = "<b>LEAGUE TRADE MARKET:</b><br>"
-        scan_text += f"<i>{league_scan['trade_market_summary']}</i><br><br>"
+    # Farm system (condensed)
+    top_100_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)
+    all_ranked = sorted([p for p in prospects if p.prospect_rank], key=lambda x: x.prospect_rank)
 
-        # Show rebuilding teams with sellable assets
-        if league_scan['rebuilding_teams']:
-            scan_text += "<b>Teams Selling:</b><br>"
-            for t in league_scan['rebuilding_teams'][:3]:
-                assets = ", ".join([f"{n} ({v:.0f}, age {a})" for n, v, a in t['sellable_assets'][:2]])
-                scan_text += f"&nbsp;&nbsp;• <span style='color:#fbbf24'>{t['team']}</span> (#{t['rank']}): {assets}<br>"
+    # Calculate farm grade
+    farm_points = sum(
+        25 if p.prospect_rank <= 10 else 15 if p.prospect_rank <= 25 else 8 if p.prospect_rank <= 50 else 4 if p.prospect_rank <= 100 else 2 if p.prospect_rank <= 150 else 1
+        for p in prospects if p.prospect_rank
+    )
 
-        # Show veteran teams that might overpay
-        if league_scan['veteran_heavy_teams']:
-            scan_text += "<b>Win-Now Teams (potential buyers):</b><br>"
-            for t in league_scan['veteran_heavy_teams'][:2]:
-                scan_text += f"&nbsp;&nbsp;• <span style='color:#4ade80'>{t['team']}</span>: {t['veteran_count']} vets, avg age {t['avg_age']:.1f}<br>"
+    # Calculate farm rank
+    all_farm_points = []
+    for other_team_name, other_team in teams.items():
+        other_points = sum(
+            25 if p.prospect_rank <= 10 else 15 if p.prospect_rank <= 25 else 8 if p.prospect_rank <= 50 else 4 if p.prospect_rank <= 100 else 2 if p.prospect_rank <= 150 else 1
+            for p in other_team.players if p.is_prospect and p.prospect_rank
+        )
+        all_farm_points.append((other_team_name, other_points))
+    all_farm_points.sort(key=lambda x: -x[1])
+    farm_rank = next((i + 1 for i, (name, _) in enumerate(all_farm_points) if name == team_name), 12)
 
-        analysis_parts.append(scan_text.rstrip('<br>'))
+    farm_grades = {1: 'A+', 2: 'A', 3: 'B+', 4: 'B+', 5: 'B', 6: 'B', 7: 'C+', 8: 'C+', 9: 'C', 10: 'C', 11: 'D', 12: 'D'}
+    farm_grade = farm_grades.get(farm_rank, 'C')
+    farm_color = '#4ade80' if farm_rank <= 3 else '#fbbf24' if farm_rank <= 8 else '#f87171'
 
-    # Draft Pick Recommendations
+    outlook += f"<b>Farm:</b> <span style='color:{farm_color}'>{farm_grade}</span> (#{farm_rank} of 12)"
+    if top_100_prospects:
+        top_names = [f"#{p.prospect_rank} {p.name}" for p in top_100_prospects[:2]]
+        outlook += f" — {', '.join(top_names)}"
+    elif all_ranked:
+        outlook += f" — Best: #{all_ranked[0].prospect_rank} {all_ranked[0].name}"
+    outlook += "<br>"
+
+    # Draft (condensed)
     if draft_order_config and team_name in draft_order_config:
         pick_num = draft_order_config[team_name]
-        draft_recs = get_draft_recommendations(team_name, pick_num, thin_positions, cat_weaknesses)
-        if draft_recs:
-            draft_text = f"<b>2026 DRAFT (Pick #{pick_num}):</b><br>"
-            draft_text += "<br>".join([f"• {rec}" for rec in draft_recs[:3]])
-            analysis_parts.append(draft_text)
+        draft_focus = []
+        if thin_positions:
+            draft_focus.append(f"need {thin_positions[0]}")
+        if cat_weaknesses:
+            draft_focus.append(f"target {cat_weaknesses[0][0]}")
+        focus_text = " | ".join(draft_focus) if draft_focus else "best available"
+        outlook += f"<b>2026 Draft:</b> Pick #{pick_num} — {focus_text}<br>"
 
-    # Rivalry Analysis
+    # Rivalry (condensed)
     rival_name = TEAM_RIVALRIES.get(team_name)
     if rival_name:
         rivalry = generate_rivalry_analysis(team_name, rival_name)
@@ -6558,35 +5897,21 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             diff = rivalry['value_diff']
             status = "leading" if diff > 0 else "trailing"
             diff_color = "#4ade80" if diff > 0 else "#f87171"
+            outlook += f"<b>Rivalry vs {rival_name}:</b> <span style='color:{diff_color}'>{status} by {abs(diff):.0f} pts</span>"
 
-            rivalry_text = f"<b>RIVALRY vs {rival_name}:</b><br>"
+    analysis_parts.append(outlook)
 
-            # Historical H2H record
-            h2h = rivalry.get('my_h2h_record', 'N/A')
-            if h2h != 'N/A':
-                h2h_wins = int(h2h.split('-')[0]) if '-' in h2h else 0
-                h2h_losses = int(h2h.split('-')[1].split('-')[0]) if '-' in h2h else 0
-                h2h_color = "#4ade80" if h2h_wins > h2h_losses else "#f87171" if h2h_losses > h2h_wins else "#fbbf24"
-                rivalry_text += f"<span style='color:{h2h_color}'>2025 H2H: {h2h}</span> (Your record: {rivalry.get('my_2025_record', 'N/A')} | Their record: {rivalry.get('rival_2025_record', 'N/A')})<br>"
-
-            rivalry_text += f"Dynasty value: You're <span style='color:{diff_color}'>{status} by {abs(diff):.0f} points</span> ({rivalry['my_value']:.0f} vs {rivalry['rival_value']:.0f}). "
-
-            if rivalry['advantages']:
-                rivalry_text += f"<br><span style='color:#4ade80'>Category advantages: {', '.join(rivalry['advantages'][:4])}</span>. "
-            if rivalry['disadvantages']:
-                rivalry_text += f"<span style='color:#f87171'>Disadvantages: {', '.join(rivalry['disadvantages'][:4])}</span>. "
-
-            rivalry_text += f"<br>Their stars: {', '.join([f'{n} ({v})' for n, v in rivalry['rival_top_players'][:2]])}."
-            analysis_parts.append(rivalry_text)
-
-    # ============ ASSISTANT GM SIGNATURE ============
-    gm_signature = f"<div style='margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,215,0,0.3);'>"
-    gm_signature += f"<div style='text-align: right; font-style: italic; color: #888;'>- {gm['name']}, {gm['title']}</div>"
-    gm_signature += f"<div style='text-align: right; font-size: 12px; color: #666; margin-top: 4px;'>{gm['trade_style']}</div>"
-    gm_signature += f"</div>"
-    analysis_parts.append(gm_signature)
+    # ════════════════════════════════════════════════════════════════════
+    # GM SIGNATURE
+    # ════════════════════════════════════════════════════════════════════
+    signature = f"<div style='margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,215,0,0.2); text-align: right; font-style: italic; color: #666;'>— {gm['name']}, {gm['title']}</div>"
+    analysis_parts.append(signature)
 
     return "<br><br>".join(analysis_parts)
+
+
+# ============ END OF REFACTORED generate_team_analysis ============
+# Old code removed during consolidation into 5 core sections
 
 
 @app.route('/search')
