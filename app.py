@@ -120,6 +120,233 @@ GM_PHILOSOPHIES = {
     }
 }
 
+# ASSISTANT GM PERSONALITIES - Unique AI advisor for each team
+# ============================================================================
+ASSISTANT_GMS = {
+    "Akron Rubber Ducks": {
+        "name": "Stretch McGee",
+        "title": "Assistant GM",
+        "philosophy": "value_seeker",
+        "personality": "Resilient and opportunistic. Bounces back from setbacks and always finds value where others don't see it.",
+        "catchphrases": [
+            "Flexibility wins championships.",
+            "Every setback is a setup for a comeback.",
+            "The market always overcorrects - be ready.",
+            "Patience is just aggression waiting for the right moment."
+        ],
+        "trade_style": "Buy low, sell high. Loves targeting slumping players and selling hot streaks.",
+        "priorities": ["value_arbitrage", "buy_low_candidates", "sell_high_windows"],
+        "risk_tolerance": 0.65,
+        "preferred_categories": ["R", "RBI", "QS"]
+    },
+    "Alaskan Bullworms": {
+        "name": "Frosty Carlson",
+        "title": "Assistant GM",
+        "philosophy": "dynasty_builder",
+        "personality": "Cold, calculating, and endlessly patient. Plays the long game while others chase quick wins.",
+        "catchphrases": [
+            "Winter is coming for everyone else's roster.",
+            "Prospects are like permafrost - valuable when preserved.",
+            "Let them overpay now. We'll own the future.",
+            "The coldest take is usually the right one."
+        ],
+        "trade_style": "Accumulate young assets. Never panic. Let desperation come to you.",
+        "priorities": ["prospect_acquisition", "young_talent", "draft_picks"],
+        "risk_tolerance": 0.35,
+        "preferred_categories": ["SB", "K", "K/BB"]
+    },
+    "Boston Beaneaters": {
+        "name": "Old School O'Brien",
+        "title": "Assistant GM",
+        "philosophy": "win_now",
+        "personality": "Traditional baseball man who values proven track records over projections. Championship or bust.",
+        "catchphrases": [
+            "Prospects are just lottery tickets with good PR.",
+            "Give me the guy who's done it, not the guy who might.",
+            "You can't win with potential.",
+            "Championships aren't won in the future."
+        ],
+        "trade_style": "Aggressive acquirer of established talent. Will pay premium for proven winners.",
+        "priorities": ["proven_production", "veteran_leadership", "playoff_experience"],
+        "risk_tolerance": 0.75,
+        "preferred_categories": ["HR", "RBI", "QS"]
+    },
+    "Colt 45s": {
+        "name": "Trigger Thompson",
+        "title": "Assistant GM",
+        "philosophy": "win_now",
+        "personality": "Shoot first, ask questions later. Bold, aggressive, and unafraid to make the big move.",
+        "catchphrases": [
+            "Fortune favors the bold.",
+            "You miss 100% of the trades you don't make.",
+            "While they're thinking, we're winning.",
+            "The best defense is a overwhelming offense."
+        ],
+        "trade_style": "Fast, decisive moves. First to market on emerging opportunities.",
+        "priorities": ["impact_bats", "elite_arms", "championship_windows"],
+        "risk_tolerance": 0.85,
+        "preferred_categories": ["HR", "SB", "SV+HLD"]
+    },
+    "Danville Dairy Daddies": {
+        "name": "The Milkman Morrison",
+        "title": "Assistant GM",
+        "philosophy": "balanced",
+        "personality": "Reliable, consistent, delivers value day in and day out. No flashy moves, just steady excellence.",
+        "catchphrases": [
+            "Consistency is the secret ingredient.",
+            "We deliver value, rain or shine.",
+            "No need to be fancy when fundamentals work.",
+            "Trust the process, enjoy the cream rising to the top."
+        ],
+        "trade_style": "Methodical evaluation. Fair deals that make sense for both sides.",
+        "priorities": ["roster_balance", "category_coverage", "sustainable_value"],
+        "risk_tolerance": 0.50,
+        "preferred_categories": ["R", "RBI", "ERA"]
+    },
+    "Hartford Yard GOATS": {
+        "name": "Billy Gruff",
+        "title": "Assistant GM",
+        "philosophy": "prospect_hoarder",
+        "personality": "Stubborn protector of the farm system. Won't be pushed around in negotiations.",
+        "catchphrases": [
+            "Nobody crosses this bridge without paying toll.",
+            "My prospects aren't for sale... unless you're overpaying.",
+            "I've seen your offer. Now triple it.",
+            "You want my young talent? What's your firstborn worth?"
+        ],
+        "trade_style": "Hard bargainer. Extracts maximum value. Rarely parts with prospects.",
+        "priorities": ["farm_system_protection", "prospect_development", "fair_value_plus"],
+        "risk_tolerance": 0.30,
+        "preferred_categories": ["K", "WHIP", "SB"]
+    },
+    "Hershey Bears": {
+        "name": "Sweet Deal Henderson",
+        "title": "Assistant GM",
+        "philosophy": "value_seeker",
+        "personality": "Makes every trade a little sweeter for both sides. Master of win-win negotiations.",
+        "catchphrases": [
+            "Let me sweeten the pot for you.",
+            "Good trades should taste like victory for everyone.",
+            "The best deals leave both sides smiling.",
+            "A little extra never hurt anybody."
+        ],
+        "trade_style": "Creative dealmaker. Finds hidden value and sweeteners to close deals.",
+        "priorities": ["creative_packages", "mutual_value", "relationship_building"],
+        "risk_tolerance": 0.55,
+        "preferred_categories": ["RBI", "R", "K"]
+    },
+    "Kalamazoo Celery Pickers": {
+        "name": "Fresh Fitzgerald",
+        "title": "Assistant GM",
+        "philosophy": "dynasty_builder",
+        "personality": "Loves crunchy young prospects. Believes in organic roster growth over quick fixes.",
+        "catchphrases": [
+            "Fresh talent beats stale veterans every time.",
+            "We're growing something special here.",
+            "Age is more than a number - it's a trajectory.",
+            "Plant seeds now, harvest championships later."
+        ],
+        "trade_style": "Youth-focused acquisitions. Sell veterans for maximum prospect return.",
+        "priorities": ["young_players", "upside_potential", "age_curves"],
+        "risk_tolerance": 0.40,
+        "preferred_categories": ["SB", "R", "K"]
+    },
+    "Modesto Nuts": {
+        "name": "Nutty Nichols",
+        "title": "Assistant GM",
+        "philosophy": "value_seeker",
+        "personality": "Unpredictable and unconventional. Makes bold moves that seem crazy until they work.",
+        "catchphrases": [
+            "Sanity is overrated in this business.",
+            "The craziest trade is the one you didn't make.",
+            "They called me nuts. Then they called me champion.",
+            "Normal gets you normal results."
+        ],
+        "trade_style": "Outside-the-box thinking. Contrarian moves. High volatility, high reward.",
+        "priorities": ["contrarian_plays", "overlooked_value", "bold_moves"],
+        "risk_tolerance": 0.80,
+        "preferred_categories": ["HR", "SV+HLD", "SO"]
+    },
+    "Pawtucket Red Sox": {
+        "name": "Paw Patterson",
+        "title": "Assistant GM",
+        "philosophy": "dynasty_builder",
+        "personality": "Patient farm system developer. Believes in growing talent from within.",
+        "catchphrases": [
+            "The farm feeds the future.",
+            "Development beats desperation.",
+            "Every prospect tells a story - ours have happy endings.",
+            "Rush the process, ruin the product."
+        ],
+        "trade_style": "Acquire raw talent and develop it. Rarely trades homegrown players.",
+        "priorities": ["player_development", "raw_tools", "system_depth"],
+        "risk_tolerance": 0.35,
+        "preferred_categories": ["K", "SB", "WHIP"]
+    },
+    "Rocket City Trash Pandas": {
+        "name": "Rocket Rodriguez",
+        "title": "Assistant GM",
+        "philosophy": "win_now",
+        "personality": "Explosive and ambitious. Launches bold attacks on championship windows.",
+        "catchphrases": [
+            "We're going to the moon - championships or bust.",
+            "Light the fuse and watch us fly.",
+            "No mission is impossible with the right roster.",
+            "Count down to glory starts now."
+        ],
+        "trade_style": "All-in mentality when window opens. Aggressive consolidation of talent.",
+        "priorities": ["championship_runs", "star_acquisition", "roster_optimization"],
+        "risk_tolerance": 0.85,
+        "preferred_categories": ["HR", "RBI", "QS"]
+    },
+    "Sugar Land Space Cowboys": {
+        "name": "Starman Stevens",
+        "title": "Assistant GM",
+        "philosophy": "balanced",
+        "personality": "Calculated and analytical. Uses data to navigate the vast trade universe.",
+        "catchphrases": [
+            "The numbers don't lie - they just whisper.",
+            "In space, nobody hears you overpay.",
+            "Chart your course with data, not emotion.",
+            "The trade frontier rewards the prepared mind."
+        ],
+        "trade_style": "Data-driven decisions. Analytical approach to value assessment.",
+        "priorities": ["analytical_edge", "market_inefficiency", "projection_accuracy"],
+        "risk_tolerance": 0.50,
+        "preferred_categories": ["K/BB", "ERA", "R"]
+    }
+}
+
+def get_assistant_gm(team_name):
+    """Get the Assistant GM personality for a team"""
+    return ASSISTANT_GMS.get(team_name, {
+        "name": "Assistant GM",
+        "title": "Assistant GM",
+        "philosophy": "balanced",
+        "personality": "Analytical and balanced approach to roster construction.",
+        "catchphrases": ["Build smart, compete hard."],
+        "trade_style": "Value-focused evaluation.",
+        "priorities": ["value", "balance"],
+        "risk_tolerance": 0.5,
+        "preferred_categories": []
+    })
+
+def get_gm_advice(team_name, context_type, context_data=None):
+    """Generate personalized advice from the team's Assistant GM"""
+    import random
+    gm = get_assistant_gm(team_name)
+    catchphrase = random.choice(gm['catchphrases'])
+
+    advice = {
+        "gm_name": gm['name'],
+        "gm_title": gm['title'],
+        "catchphrase": catchphrase,
+        "philosophy": gm['philosophy'],
+        "risk_tolerance": gm['risk_tolerance']
+    }
+
+    return advice
+
 DEFAULT_TEAM_PROFILE = {
     "gm_name": "",
     "philosophy": "balanced",
@@ -3408,9 +3635,34 @@ def get_team(team_name):
 def get_team_profile_route(team_name):
     profile = get_team_profile(team_name)
     philosophy = GM_PHILOSOPHIES.get(profile.get('philosophy', 'balanced'), GM_PHILOSOPHIES['balanced'])
+    assistant_gm = get_assistant_gm(team_name)
     return jsonify({
         "profile": profile,
-        "philosophy_details": philosophy
+        "philosophy_details": philosophy,
+        "assistant_gm": assistant_gm
+    })
+
+
+@app.route('/assistant-gm/<team_name>')
+def get_assistant_gm_route(team_name):
+    """Get the AI Assistant GM personality for a team"""
+    import random
+    gm = get_assistant_gm(team_name)
+    philosophy = GM_PHILOSOPHIES.get(gm.get('philosophy', 'balanced'), GM_PHILOSOPHIES['balanced'])
+
+    return jsonify({
+        "name": gm['name'],
+        "title": gm['title'],
+        "team": team_name,
+        "philosophy": gm['philosophy'],
+        "philosophy_details": philosophy,
+        "personality": gm['personality'],
+        "catchphrase": random.choice(gm['catchphrases']),
+        "all_catchphrases": gm['catchphrases'],
+        "trade_style": gm['trade_style'],
+        "priorities": gm['priorities'],
+        "risk_tolerance": gm['risk_tolerance'],
+        "preferred_categories": gm.get('preferred_categories', [])
     })
 
 
@@ -4678,6 +4930,22 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     analysis_parts = []
     total_value = sum(v for _, v in players_with_value)
 
+    # ============ ASSISTANT GM HEADER ============
+    import random
+    gm = get_assistant_gm(team_name)
+    catchphrase = random.choice(gm['catchphrases'])
+    gm_header = f"<div style='background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(255,215,0,0.08)); padding: 16px; border-radius: 10px; margin-bottom: 16px; border-left: 4px solid #00d4ff;'>"
+    gm_header += f"<div style='display: flex; align-items: center; gap: 12px;'>"
+    gm_header += f"<div style='width: 48px; height: 48px; background: linear-gradient(135deg, #00d4ff, #0099cc); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #1a1a2e;'>{gm['name'][0]}</div>"
+    gm_header += f"<div>"
+    gm_header += f"<div style='font-size: 18px; font-weight: bold; color: #00d4ff;'>{gm['name']}</div>"
+    gm_header += f"<div style='font-size: 12px; color: #888;'>{gm['title']} - {team_name}</div>"
+    gm_header += f"</div></div>"
+    gm_header += f"<div style='margin-top: 12px; font-style: italic; color: #ccc;'>\"{catchphrase}\"</div>"
+    gm_header += f"<div style='margin-top: 8px; font-size: 12px; color: #888;'>Philosophy: <span style='color: #ffd700;'>{GM_PHILOSOPHIES.get(gm['philosophy'], {}).get('name', 'Balanced')}</span> | Risk Tolerance: <span style='color: #ffd700;'>{int(gm['risk_tolerance'] * 100)}%</span></div>"
+    gm_header += f"</div>"
+    analysis_parts.append(gm_header)
+
     # ============ DETAILED ROSTER DEMOGRAPHICS ============
     ages = [p.age for p in team.players if p.age > 0]
     avg_age = sum(ages) / len(ages) if ages else 0
@@ -5253,8 +5521,8 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # === GM TRADE SCENARIOS ===
     gm_scenarios = generate_gm_trade_scenarios(team_name, team)
     if gm_scenarios:
-        scenario_text = "<b>GM TRADE SCENARIOS:</b><br>"
-        scenario_text += "<i>If I were running this team, here's what I'd explore:</i><br><br>"
+        scenario_text = f"<b>{gm['name'].upper()}'S TRADE SCENARIOS:</b><br>"
+        scenario_text += f"<i>Here's what I'd explore given our {GM_PHILOSOPHIES.get(gm['philosophy'], {}).get('name', 'balanced')} approach:</i><br><br>"
         for i, s in enumerate(gm_scenarios, 1):
             scenario_text += f"<b>{s['title']}</b><br>"
             scenario_text += f"&nbsp;&nbsp;Target: {s['target']} (~{s['target_value']:.0f} value)<br>"
@@ -5322,6 +5590,13 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
 
             rivalry_text += f"<br>Their stars: {', '.join([f'{n} ({v})' for n, v in rivalry['rival_top_players'][:2]])}."
             analysis_parts.append(rivalry_text)
+
+    # ============ ASSISTANT GM SIGNATURE ============
+    gm_signature = f"<div style='margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,215,0,0.3);'>"
+    gm_signature += f"<div style='text-align: right; font-style: italic; color: #888;'>- {gm['name']}, {gm['title']}</div>"
+    gm_signature += f"<div style='text-align: right; font-size: 12px; color: #666; margin-top: 4px;'>{gm['trade_style']}</div>"
+    gm_signature += f"</div>"
+    analysis_parts.append(gm_signature)
 
     return "<br><br>".join(analysis_parts)
 
