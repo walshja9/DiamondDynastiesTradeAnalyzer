@@ -1660,6 +1660,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
             try {
                 const res = await fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`);
                 const data = await res.json();
+
+                // Check for server error
+                if (data.error) {
+                    content.innerHTML = '<div style="color: #ff4d6d; padding: 20px;"><h3>Server Error</h3><p>' + data.error + '</p><pre style="font-size: 10px; overflow: auto; max-height: 300px; background: #0a0a10; padding: 10px; border-radius: 5px;">' + (data.traceback || '') + '</pre></div>';
+                    return;
+                }
+
                 const numTeams = data.num_teams || 12;
                 const cats = data.category_details || {};
                 const comp = data.roster_composition || {};
