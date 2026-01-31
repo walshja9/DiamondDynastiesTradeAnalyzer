@@ -4125,46 +4125,113 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     top_200_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 200], key=lambda x: x.prospect_rank)
     all_ranked = sorted([p for p in prospects if p.prospect_rank], key=lambda x: x.prospect_rank)
 
-    # Farm system grade
-    elite_count = len([p for p in prospects if p.prospect_rank and p.prospect_rank <= 25])
-    top_50_count = len([p for p in prospects if p.prospect_rank and p.prospect_rank <= 50])
+    # Smarter farm grading using points system
+    # Points weighted by prospect tier (higher tier = exponentially more valuable)
+    farm_points = 0
+    top_10_count = 0
+    top_25_count = 0
+    top_50_count = 0
     top_100_count = len(top_100_prospects)
 
-    if elite_count >= 2 or (elite_count >= 1 and top_50_count >= 3):
+    for p in prospects:
+        if p.prospect_rank:
+            if p.prospect_rank <= 10:
+                farm_points += 25  # Elite of elite
+                top_10_count += 1
+                top_25_count += 1
+                top_50_count += 1
+            elif p.prospect_rank <= 25:
+                farm_points += 15  # Blue chip
+                top_25_count += 1
+                top_50_count += 1
+            elif p.prospect_rank <= 50:
+                farm_points += 8   # High-end
+                top_50_count += 1
+            elif p.prospect_rank <= 100:
+                farm_points += 4   # Solid
+            elif p.prospect_rank <= 150:
+                farm_points += 2   # Depth
+            elif p.prospect_rank <= 250:
+                farm_points += 1   # Lottery ticket
+            else:
+                farm_points += 0.5  # Filler
+
+    # Calculate league-wide farm rankings for context
+    all_farm_points = []
+    for other_team_name, other_team in teams.items():
+        other_points = 0
+        for p in other_team.players:
+            if p.is_prospect and p.prospect_rank:
+                if p.prospect_rank <= 10:
+                    other_points += 25
+                elif p.prospect_rank <= 25:
+                    other_points += 15
+                elif p.prospect_rank <= 50:
+                    other_points += 8
+                elif p.prospect_rank <= 100:
+                    other_points += 4
+                elif p.prospect_rank <= 150:
+                    other_points += 2
+                elif p.prospect_rank <= 250:
+                    other_points += 1
+                else:
+                    other_points += 0.5
+        all_farm_points.append((other_team_name, other_points))
+
+    all_farm_points.sort(key=lambda x: -x[1])
+    farm_rank = next((i + 1 for i, (name, _) in enumerate(all_farm_points) if name == team_name), 12)
+    avg_farm_points = sum(pts for _, pts in all_farm_points) / len(all_farm_points) if all_farm_points else 0
+
+    # Grade based on league rank AND absolute quality
+    # Only 1 team can be A+, 2 can be A, etc.
+    if farm_rank == 1 and farm_points >= 40:
         farm_grade = "A+"
         farm_color = "#4ade80"
-        farm_desc = "Elite farm system — multiple blue-chip prospects"
-    elif elite_count >= 1 or top_50_count >= 2:
+        farm_desc = "Best farm in the league — elite prospect capital"
+    elif farm_rank <= 2 and farm_points >= 30:
         farm_grade = "A"
         farm_color = "#34d399"
-        farm_desc = "Excellent farm — high-end talent in the pipeline"
-    elif top_50_count >= 1 or top_100_count >= 3:
+        farm_desc = "Top-tier farm system — strong future foundation"
+    elif farm_rank <= 4 and farm_points >= 20:
         farm_grade = "B+"
         farm_color = "#60a5fa"
-        farm_desc = "Above average farm — solid prospect depth"
-    elif top_100_count >= 2:
+        farm_desc = "Above average farm — quality over quantity"
+    elif farm_rank <= 6 or farm_points >= 15:
         farm_grade = "B"
         farm_color = "#a78bfa"
-        farm_desc = "Average farm — some pieces but lacks star power"
-    elif top_100_count >= 1 or len(top_200_prospects) >= 3:
-        farm_grade = "C"
+        farm_desc = "Average farm — some upside but no stars"
+    elif farm_rank <= 8 or farm_points >= 8:
+        farm_grade = "C+"
         farm_color = "#fbbf24"
-        farm_desc = "Below average — limited high-end talent"
+        farm_desc = "Below average — lacks impact talent"
+    elif farm_rank <= 10 or farm_points >= 4:
+        farm_grade = "C"
+        farm_color = "#fb923c"
+        farm_desc = "Weak farm — limited future value"
     else:
         farm_grade = "D"
         farm_color = "#f87171"
-        farm_desc = "Depleted farm — rebuild needed"
+        farm_desc = "Depleted — needs major restocking"
 
+    # Descriptive breakdown
     farm_text += f"&nbsp;&nbsp;<b>Farm Grade:</b> <span style='color:{farm_color}'><b>{farm_grade}</b></span> — {farm_desc}<br>"
-    farm_text += f"&nbsp;&nbsp;<b>Prospect Count:</b> {elite_count} elite (1-25) | {top_50_count} top 50 | {top_100_count} top 100 | {len(all_ranked)} total ranked<br>"
+    farm_text += f"&nbsp;&nbsp;<b>League Rank:</b> #{farm_rank} of {len(all_farm_points)} | <b>Farm Score:</b> {farm_points:.0f} pts (avg: {avg_farm_points:.0f})<br>"
+    farm_text += f"&nbsp;&nbsp;<b>Breakdown:</b> {top_10_count} elite (1-10) | {top_25_count} blue-chip (1-25) | {top_50_count} top 50 | {top_100_count} top 100<br>"
 
-    # Top prospects detail
+    # Top prospects detail with more context
     if top_100_prospects:
         farm_text += f"&nbsp;&nbsp;<b>Top Prospects:</b><br>"
         for p in top_100_prospects[:4]:
             prospect_value = calculator.calculate_player_value(p)
-            eta = "MLB Ready" if prospect_value >= 40 else "2026" if p.prospect_rank <= 30 else "2027+"
-            farm_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• <b>#{p.prospect_rank}</b> {p.name} ({p.position}) — Value: {prospect_value:.0f}, ETA: {eta}<br>"
+            # More nuanced ETA based on rank and age
+            if p.age <= 20:
+                eta = "2028+" if p.prospect_rank > 50 else "2027"
+            elif p.age <= 22:
+                eta = "2027" if p.prospect_rank > 30 else "2026"
+            else:
+                eta = "2026" if prospect_value >= 35 else "2026-27"
+            tier = "⭐" if p.prospect_rank <= 10 else "🔥" if p.prospect_rank <= 25 else "📈" if p.prospect_rank <= 50 else ""
+            farm_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• {tier} <b>#{p.prospect_rank}</b> {p.name} ({p.position}, {p.age}y) — Value: {prospect_value:.0f}, ETA: {eta}<br>"
     elif all_ranked:
         farm_text += f"&nbsp;&nbsp;<b>Best Prospects:</b><br>"
         for p in all_ranked[:3]:
@@ -4173,10 +4240,12 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     else:
         farm_text += f"&nbsp;&nbsp;<span style='color:#f87171'>No ranked prospects on roster — farm is bare</span><br>"
 
-    # Farm system recommendation
+    # Personalized farm recommendation based on team situation
     if window in ['dynasty', 'contender', 'win-now']:
-        if farm_grade in ['A+', 'A', 'B+']:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>💡 Strong farm + contending = flexibility. Can trade prospects for final pieces.</span>"
+        if farm_grade in ['A+', 'A']:
+            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>💡 Elite farm + contending = dynasty potential. You can trade prospects for missing pieces without mortgaging the future.</span>"
+        elif farm_grade in ['B+', 'B']:
+            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>💡 Contending with average farm — be selective about trading prospects. Each one matters more.</span>"
         else:
             farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>💡 Contending with thin farm — be careful not to trade away future completely.</span>"
     elif window in ['rebuilding', 'teardown']:
@@ -4260,38 +4329,68 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     else:
         analysis_parts.append("<b>⚠️ RISK FACTORS:</b> Well-balanced roster with no major red flags.")
 
-    # Personalized trade strategy
-    strategy = "<b>💼 TRADE STRATEGY:</b> "
-    if window == "dynasty":
-        if cat_weaknesses:
-            strategy += f"From a position of strength, target {cat_weaknesses[0]} help without sacrificing your young core. "
-        strategy += "You can be patient - don't overpay to fill small gaps."
-    elif window == "contender":
-        if cat_weaknesses:
-            strategy += f"Time for surgical strikes - overpay if needed to fix your {cat_weaknesses[0]} weakness. "
-        strategy += "A key addition could be the difference between good and great."
-    elif window == "win-now":
-        strategy += "Go all-in NOW. Trade prospects and future picks for proven talent. "
-        if sell_candidates:
-            strategy += f"Your window is closing - maximize value from {sell_candidates[0].split(' (')[0]} while you can."
-    elif window == "rising":
-        strategy += "Protect your prospect capital but look for undervalued veterans to complement your young core. Be opportunistic but don't mortgage the future."
-    elif window == "competitive":
-        strategy += "At a crossroads - either make a splash to push into contention, or start selling veterans to reload. The worst move is standing pat."
-    elif window == "declining":
-        if sell_candidates:
-            strategy += f"Time to sell. {sell_candidates[0].split(' (')[0]} and other vets still have value - move them for youth and picks. "
-        strategy += "Every month you wait, asset values decline."
-    elif window == "retooling":
-        strategy += "Pick a lane. You're not good enough to compete and not bad enough to get top picks. Commit to rebuild or buy aggressively - the middle is death."
-    elif window == "rebuilding":
-        strategy += "Stay the course. Accumulate prospects, draft picks, and young upside. Any veteran over 28 with value should be on the block. Patience pays."
-    elif window == "teardown":
-        strategy += "Full liquidation mode. Every player over 28 must go. "
-        if sell_candidates:
-            strategy += f"Start with {sell_candidates[0].split(' (')[0]} - maximize return on your best tradeable assets."
+    # Personalized trade strategy with specific recommendations
+    strategy = "<b>💼 TRADE STRATEGY:</b><br>"
 
-    analysis_parts.append(strategy)
+    # Find specific trade targets based on team needs
+    biggest_weakness = cat_weaknesses[0] if cat_weaknesses else None
+    biggest_strength = cat_strengths[0] if cat_strengths else None
+
+    if window == "dynasty":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#4ade80'>Play from strength</span> — you have the luxury of patience.<br>"
+        if biggest_weakness:
+            strategy += f"&nbsp;&nbsp;<b>Target:</b> Address {biggest_weakness[0]} (#{biggest_weakness[1]}) weakness, but don't overpay.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Avoid:</b> Trading core young assets for marginal upgrades. Let others come to you.<br>"
+        if biggest_strength and farm_grade in ['A+', 'A', 'B+']:
+            strategy += f"&nbsp;&nbsp;<b>Leverage:</b> Your {biggest_strength[0]} surplus and prospect depth are trade chips if needed."
+    elif window == "contender":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#34d399'>Surgical upgrades</span> — find the missing piece.<br>"
+        if biggest_weakness:
+            strategy += f"&nbsp;&nbsp;<b>Target:</b> Prioritize {biggest_weakness[0]} (#{biggest_weakness[1]}) — this is your biggest hole.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Willing to Pay:</b> Mid-tier prospects for proven contributors. Championships > potential.<br>"
+        if sell_candidates:
+            strategy += f"&nbsp;&nbsp;<b>Consider Moving:</b> {sell_candidates[0].split(' (')[0]} if you can upgrade at a position of need."
+    elif window == "win-now":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#f59e0b'>ALL IN</span> — your window is closing, act with urgency.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Target:</b> Any proven contributor who fills a need. Overpay if necessary.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Away:</b> ALL prospects, future picks, anything not nailed down.<br>"
+        if sell_candidates:
+            strategy += f"&nbsp;&nbsp;<b>Clock is Ticking:</b> {sell_candidates[0].split(' (')[0]} won't be this valuable next year."
+    elif window == "rising":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#60a5fa'>Opportunistic buying</span> — accelerate carefully.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Target:</b> Undervalued vets from rebuilding teams who fit your timeline.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Protect:</b> Your top prospects — they're the foundation of future contention.<br>"
+        if biggest_weakness:
+            strategy += f"&nbsp;&nbsp;<b>Focus:</b> Address {biggest_weakness[0]} weakness without overpaying."
+    elif window == "competitive":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#a78bfa'>Decision time</span> — commit to a direction.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Option A:</b> Buy aggressively — trade prospects for win-now pieces and push for playoffs.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Option B:</b> Start selling — move veterans for youth and rebuild properly.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Avoid:</b> Standing pat. The middle ground leads to mediocrity."
+    elif window == "declining":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#fb923c'>Controlled sell-off</span> — maximize returns before values drop.<br>"
+        if sell_candidates:
+            strategy += f"&nbsp;&nbsp;<b>Sell Now:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])}.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Target:</b> Young players, prospects, draft picks — anything with upside.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Urgency:</b> Every week you wait, your veteran assets lose value."
+    elif window == "retooling":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#fbbf24'>Pick a lane</span> — indecision is the enemy.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Reality Check:</b> You're #{power_rank} — not good enough to win, not bad enough for top picks.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Recommendation:</b> Commit to rebuild. Sell veterans, accumulate youth. Half-measures won't work."
+    elif window == "rebuilding":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#60a5fa'>Patient accumulation</span> — trust the process.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Target:</b> Prospects, young players, draft picks. Accept quantity over quality for now.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Sell:</b> Any player over 28 with trade value — you don't need veterans.<br>"
+        if farm_grade in ['C+', 'C', 'D']:
+            strategy += f"&nbsp;&nbsp;<b>Priority:</b> Your farm (grade {farm_grade}) needs restocking. Be aggressive acquiring prospects."
+    elif window == "teardown":
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#f87171'>Full liquidation</span> — sell everything that moves.<br>"
+        if sell_candidates:
+            strategy += f"&nbsp;&nbsp;<b>Immediate Sales:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])}.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Target:</b> Volume of prospects > quality. Cast a wide net.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Mindset:</b> You're building for 2-3 years from now. Accept short-term pain."
+
+    analysis_parts.append(strategy.rstrip('<br>'))
 
     # Position depth analysis - normalize positions and count properly
     pos_counts = {'C': 0, '1B': 0, '2B': 0, 'SS': 0, '3B': 0, 'OF': 0, 'SP': 0, 'RP': 0}
