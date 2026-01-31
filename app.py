@@ -4051,6 +4051,73 @@ def generate_gm_trade_scenarios(team_name, team):
                     'urgency': 'medium'
                 })
 
+    # ============ FALLBACK SCENARIOS - Ensure every team gets at least one ============
+    if len(scenarios) == 0:
+        # Fallback 1: General category improvement
+        if weak_cats:
+            target_cat, target_rank = weak_cats[0]
+            targets = find_trade_targets(target_cat, (25, 60))
+            if targets and tradeable:
+                best = targets[0]
+                trade_piece = tradeable[0]
+                scenarios.append({
+                    'title': f"📈 Improve {target_cat}: Target Weakness",
+                    'target': f"{best['player'].name} ({best['team']})",
+                    'target_value': best['value'],
+                    'target_stats': f"{best['cat_value']:.0f} {target_cat} projected",
+                    'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f})",
+                    'offer_value': trade_piece[1],
+                    'reasoning': f"You rank #{target_rank} in {target_cat}. {best['player'].name} would directly address this gap.",
+                    'trade_type': 'improve',
+                    'urgency': 'medium'
+                })
+
+        # Fallback 2: Buy low on underperformer
+        if len(scenarios) < 2:
+            for other_team_name, other_team in teams.items():
+                if other_team_name == team_name:
+                    continue
+                other_rank = power_rankings.get(other_team_name, 6)
+                if other_rank >= 8:  # Struggling team
+                    their_players = [(p, calculator.calculate_player_value(p)) for p in other_team.players]
+                    their_players.sort(key=lambda x: x[1], reverse=True)
+                    # Find a quality player they might sell
+                    for p, v in their_players[:10]:
+                        if 35 <= v <= 55 and p.age <= 28:
+                            scenarios.append({
+                                'title': "🎯 Buy Low Opportunity",
+                                'target': f"{p.name} ({other_team_name})",
+                                'target_value': v,
+                                'target_stats': f"Age {p.age}, {v:.0f} value",
+                                'offer': "Prospect + pick package",
+                                'offer_value': v * 0.85,
+                                'reasoning': f"{other_team_name} is ranked #{other_rank} and may be selling. {p.name} could be available at a discount.",
+                                'trade_type': 'buy',
+                                'urgency': 'low'
+                            })
+                            break
+                    if len(scenarios) >= 1:
+                        break
+
+        # Fallback 3: Depth consolidation
+        if len(scenarios) < 2 and len(players_with_value) >= 10:
+            # Find two mid-tier players to package
+            mid_tier = [(p, v) for p, v in players_with_value[5:15] if 20 <= v <= 40]
+            if len(mid_tier) >= 2:
+                p1, v1 = mid_tier[0]
+                p2, v2 = mid_tier[1]
+                combined = v1 + v2
+                scenarios.append({
+                    'title': "🔄 Consolidate Depth: 2-for-1",
+                    'target': f"Player valued ~{combined * 0.85:.0f}-{combined:.0f}",
+                    'target_value': combined * 0.9,
+                    'offer': f"{p1.name} ({v1:.0f}) + {p2.name} ({v2:.0f})",
+                    'offer_value': combined,
+                    'reasoning': f"Package two depth pieces ({combined:.0f} combined value) for one better player. Consolidating roster spots improves lineup flexibility.",
+                    'trade_type': 'consolidate',
+                    'urgency': 'low'
+                })
+
     return scenarios[:4]  # Max 4 scenarios
 
 
