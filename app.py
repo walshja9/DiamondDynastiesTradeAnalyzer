@@ -5894,10 +5894,16 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     if rival_name:
         rivalry = generate_rivalry_analysis(team_name, rival_name)
         if rivalry:
-            diff = rivalry['value_diff']
-            status = "leading" if diff > 0 else "trailing"
-            diff_color = "#4ade80" if diff > 0 else "#f87171"
-            outlook += f"<b>Rivalry vs {rival_name}:</b> <span style='color:{diff_color}'>{status} by {abs(diff):.0f} pts</span>"
+            h2h = rivalry.get('my_h2h_record', 'N/A')
+            # Color based on H2H record
+            if h2h and h2h != 'N/A' and '-' in h2h:
+                h2h_parts = h2h.split('-')
+                wins = int(h2h_parts[0]) if h2h_parts[0].isdigit() else 0
+                losses = int(h2h_parts[1].split('-')[0]) if len(h2h_parts) > 1 and h2h_parts[1].split('-')[0].isdigit() else 0
+                h2h_color = "#4ade80" if wins > losses else "#f87171" if losses > wins else "#fbbf24"
+            else:
+                h2h_color = "#888"
+            outlook += f"<b>Rivalry vs {rival_name}:</b> <span style='color:{h2h_color}'>H2H: {h2h}</span>"
 
     analysis_parts.append(outlook)
 
