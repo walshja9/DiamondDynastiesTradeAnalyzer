@@ -981,28 +981,28 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Select a player to find trade packages involving them.</p>
                 <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
                     <div class="form-group" style="flex: 1; min-width: 180px;">
-                        <label>Team</label>
-                        <select id="tradeFinderTeamSelect" onchange="loadTradeFinderPlayers()">
+                        <label>My Team</label>
+                        <select id="tradeFinderTeamSelect" onchange="updateTradeFinderPlayerDropdown()">
                             <option value="">Select Team</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex: 1; min-width: 200px;">
-                        <label>Player</label>
-                        <select id="tradeFinderPlayerSelect" disabled>
-                            <option value="">Select team first</option>
                         </select>
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 150px;">
                         <label>Direction</label>
-                        <select id="tradeFinderDirection">
+                        <select id="tradeFinderDirection" onchange="updateTradeFinderPlayerDropdown()">
                             <option value="send">Trade Away</option>
                             <option value="receive">Acquire</option>
                         </select>
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 180px;">
-                        <label>Target Team (optional)</label>
-                        <select id="tradeFinderTargetTeam">
+                        <label id="tradeFinderTargetLabel">Target Team (optional)</label>
+                        <select id="tradeFinderTargetTeam" onchange="updateTradeFinderPlayerDropdown()">
                             <option value="">All Teams</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label id="tradeFinderPlayerLabel">Player</label>
+                        <select id="tradeFinderPlayerSelect" disabled>
+                            <option value="">Select team first</option>
                         </select>
                     </div>
                 </div>
@@ -2320,26 +2320,58 @@ HTML_CONTENT = '''<!DOCTYPE html>
         }
 
         // Trade Finder Functions
-        async function loadTradeFinderPlayers() {
-            const teamSelect = document.getElementById('tradeFinderTeamSelect');
+        async function updateTradeFinderPlayerDropdown() {
+            const myTeam = document.getElementById('tradeFinderTeamSelect').value;
+            const direction = document.getElementById('tradeFinderDirection').value;
+            const targetTeam = document.getElementById('tradeFinderTargetTeam').value;
             const playerSelect = document.getElementById('tradeFinderPlayerSelect');
-            const teamName = teamSelect.value;
+            const playerLabel = document.getElementById('tradeFinderPlayerLabel');
+            const targetLabel = document.getElementById('tradeFinderTargetLabel');
 
-            if (!teamName) {
-                playerSelect.innerHTML = '<option value="">Select team first</option>';
-                playerSelect.disabled = true;
-                return;
+            // Update labels based on direction
+            if (direction === 'send') {
+                playerLabel.textContent = 'Player to Trade Away';
+                targetLabel.textContent = 'Target Team (optional)';
+            } else {
+                playerLabel.textContent = 'Player to Acquire';
+                targetLabel.textContent = 'From Team (required)';
+            }
+
+            // Determine which team's players to load
+            let teamToLoad = '';
+            if (direction === 'send') {
+                // Trade Away: load MY team's players
+                if (!myTeam) {
+                    playerSelect.innerHTML = '<option value="">Select your team first</option>';
+                    playerSelect.disabled = true;
+                    return;
+                }
+                teamToLoad = myTeam;
+            } else {
+                // Acquire: load TARGET team's players
+                if (!targetTeam) {
+                    playerSelect.innerHTML = '<option value="">Select target team first</option>';
+                    playerSelect.disabled = true;
+                    return;
+                }
+                if (!myTeam) {
+                    playerSelect.innerHTML = '<option value="">Select your team first</option>';
+                    playerSelect.disabled = true;
+                    return;
+                }
+                teamToLoad = targetTeam;
             }
 
             playerSelect.innerHTML = '<option value="">Loading...</option>';
             playerSelect.disabled = true;
 
             try {
-                const res = await fetch(API_BASE + '/team/' + encodeURIComponent(teamName));
+                const res = await fetch(API_BASE + '/team/' + encodeURIComponent(teamToLoad));
                 const data = await res.json();
                 const players = (data.players || []).sort((a, b) => b.value - a.value);
 
-                playerSelect.innerHTML = '<option value="">Select player...</option>';
+                const actionText = direction === 'send' ? 'trade away' : 'acquire';
+                playerSelect.innerHTML = '<option value="">Select player to ' + actionText + '...</option>';
                 players.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.name;
@@ -2353,14 +2385,19 @@ HTML_CONTENT = '''<!DOCTYPE html>
         }
 
         async function findTradesForPlayer() {
-            const teamName = document.getElementById('tradeFinderTeamSelect').value;
+            const myTeam = document.getElementById('tradeFinderTeamSelect').value;
             const playerName = document.getElementById('tradeFinderPlayerSelect').value;
             const direction = document.getElementById('tradeFinderDirection').value;
             const targetTeam = document.getElementById('tradeFinderTargetTeam').value;
             const results = document.getElementById('trade-finder-results');
 
-            if (!teamName || !playerName) {
-                results.innerHTML = '<p style="color: #f87171;">Please select a team and player.</p>';
+            if (!myTeam || !playerName) {
+                results.innerHTML = '<p style="color: #f87171;">Please select your team and a player.</p>';
+                return;
+            }
+
+            if (direction === 'receive' && !targetTeam) {
+                results.innerHTML = '<p style="color: #f87171;">Please select the team you want to acquire from.</p>';
                 return;
             }
 
@@ -2368,7 +2405,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             try {
                 let url = API_BASE + '/find-trades-for-player?player_name=' + encodeURIComponent(playerName);
-                url += '&team_name=' + encodeURIComponent(teamName);
+                url += '&my_team=' + encodeURIComponent(myTeam);
                 url += '&direction=' + direction + '&limit=20';
                 if (targetTeam) url += '&target_team=' + encodeURIComponent(targetTeam);
 
@@ -3812,42 +3849,41 @@ def update_team_profile_route(team_name):
 @app.route('/find-trades-for-player')
 def find_trades_for_player():
     player_name = request.args.get('player_name', '')
-    team_name = request.args.get('team_name', '')
+    my_team_name = request.args.get('my_team', '')
     direction = request.args.get('direction', 'send')
-    target_team = request.args.get('target_team', '')
+    target_team_name = request.args.get('target_team', '')
     limit = int(request.args.get('limit', 20))
 
-    if not player_name or not team_name:
-        return jsonify({"error": "Missing player_name or team_name"}), 400
+    if not player_name or not my_team_name:
+        return jsonify({"error": "Missing player_name or my_team"}), 400
 
-    if team_name not in teams:
-        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+    if my_team_name not in teams:
+        return jsonify({"error": f"Team '{my_team_name}' not found"}), 404
 
-    # Find the player
-    team = teams[team_name]
-    player = None
-    for p in team.players:
-        if p.name == player_name:
-            player = p
-            break
-
-    if not player:
-        return jsonify({"error": f"Player '{player_name}' not found on team"}), 404
-
-    player_value = calculator.calculate_player_value(player)
-
-    # Find trade packages
+    my_team = teams[my_team_name]
     packages = []
 
-    other_teams = [t for t in teams.keys() if t != team_name]
-    if target_team and target_team in other_teams:
-        other_teams = [target_team]
+    if direction == 'send':
+        # TRADE AWAY: I'm trading away one of MY players
+        # Find the player on MY team
+        player = None
+        for p in my_team.players:
+            if p.name == player_name:
+                player = p
+                break
 
-    for other_team_name in other_teams:
-        other_team = teams[other_team_name]
+        if not player:
+            return jsonify({"error": f"Player '{player_name}' not found on your team"}), 404
 
-        if direction == 'send':
-            # Find players from other team to receive
+        player_value = calculator.calculate_player_value(player)
+
+        # Find what other teams can offer in return
+        other_teams = [t for t in teams.keys() if t != my_team_name]
+        if target_team_name and target_team_name in other_teams:
+            other_teams = [target_team_name]
+
+        for other_team_name in other_teams:
+            other_team = teams[other_team_name]
             other_players = [(p, calculator.calculate_player_value(p)) for p in other_team.players]
             other_players.sort(key=lambda x: x[1], reverse=True)
 
@@ -3866,24 +3902,46 @@ def find_trades_for_player():
                         'fit_score': 100 - abs(value_diff) * 2
                     })
 
-        else:
-            # direction == 'receive' - find packages to acquire the player
-            my_players = [(p, calculator.calculate_player_value(p)) for p in team.players if p.name != player_name]
-            my_players.sort(key=lambda x: x[1], reverse=True)
+    else:
+        # ACQUIRE: I want to acquire a player from ANOTHER team
+        if not target_team_name:
+            return jsonify({"error": "Target team is required for acquire direction"}), 400
 
-            for mp, mv in my_players[:15]:
-                value_diff = player_value - mv
-                if -20 <= value_diff <= 20:
-                    packages.append({
-                        'other_team': other_team_name,
-                        'trade_type': '1-for-1',
-                        'send': [{'name': mp.name, 'position': mp.position, 'value': round(mv, 1)}],
-                        'receive': [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}],
-                        'send_total': round(mv, 1),
-                        'receive_total': round(player_value, 1),
-                        'value_diff': round(value_diff, 1),
-                        'fit_score': 100 - abs(value_diff) * 2
-                    })
+        if target_team_name not in teams:
+            return jsonify({"error": f"Target team '{target_team_name}' not found"}), 404
+
+        target_team = teams[target_team_name]
+
+        # Find the player on the TARGET team
+        player = None
+        for p in target_team.players:
+            if p.name == player_name:
+                player = p
+                break
+
+        if not player:
+            return jsonify({"error": f"Player '{player_name}' not found on {target_team_name}"}), 404
+
+        player_value = calculator.calculate_player_value(player)
+
+        # Find what MY team can offer
+        my_players = [(p, calculator.calculate_player_value(p)) for p in my_team.players]
+        my_players.sort(key=lambda x: x[1], reverse=True)
+
+        # 1-for-1 trades
+        for mp, mv in my_players[:15]:
+            value_diff = player_value - mv
+            if -20 <= value_diff <= 20:
+                packages.append({
+                    'other_team': target_team_name,
+                    'trade_type': '1-for-1',
+                    'send': [{'name': mp.name, 'position': mp.position, 'value': round(mv, 1)}],
+                    'receive': [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}],
+                    'send_total': round(mv, 1),
+                    'receive_total': round(player_value, 1),
+                    'value_diff': round(value_diff, 1),
+                    'fit_score': 100 - abs(value_diff) * 2
+                })
 
     # Sort by fit score
     packages.sort(key=lambda x: x['fit_score'], reverse=True)
