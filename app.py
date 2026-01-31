@@ -566,7 +566,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div id="teamAPlayers" class="player-list"></div>
                 </div>
 
-                <div class="arrow">⇄</div>
+                <div class="arrow">&lt;-&gt;</div>
 
                 <div class="trade-side">
                     <h3>Team B Sends</h3>
@@ -617,6 +617,48 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
 
         <div id="suggest-panel" class="panel">
+            <!-- Trade Finder Section -->
+            <div style="background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(255,215,0,0.05)); border: 1px solid rgba(0,212,255,0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <h3 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 1.1rem;">Trade Finder</h3>
+                <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Select a player to find trade packages involving them.</p>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+                    <div class="form-group" style="flex: 1; min-width: 180px;">
+                        <label>Team</label>
+                        <select id="tradeFinderTeamSelect" onchange="loadTradeFinderPlayers()">
+                            <option value="">Select Team</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label>Player</label>
+                        <select id="tradeFinderPlayerSelect" disabled>
+                            <option value="">Select team first</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                        <label>Direction</label>
+                        <select id="tradeFinderDirection">
+                            <option value="send">Trade Away</option>
+                            <option value="receive">Acquire</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 180px;">
+                        <label>Target Team (optional)</label>
+                        <select id="tradeFinderTargetTeam">
+                            <option value="">All Teams</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="findTradesForPlayer()" style="background: linear-gradient(135deg, #00d4ff, #0099cc); color: #000; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                    Find Trade Packages
+                </button>
+                <div id="trade-finder-results" style="margin-top: 20px;"></div>
+            </div>
+
+            <!-- Divider -->
+            <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent); margin: 25px 0;"></div>
+
+            <!-- AI Trade Suggestions Section -->
+            <h3 style="color: #ffd700; margin: 0 0 15px 0; font-size: 1.1rem;">AI Trade Suggestions</h3>
             <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                 <div class="form-group" style="flex: 1; min-width: 180px;">
                     <label>Your Team</label>
@@ -791,12 +833,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
         }
 
         function populateTeamSelects() {
-            const selects = ['teamASelect', 'teamBSelect', 'suggestTeamSelect', 'suggestTargetSelect', 'faTeamSelect'];
+            const selects = ['teamASelect', 'teamBSelect', 'suggestTeamSelect', 'suggestTargetSelect', 'faTeamSelect', 'tradeFinderTeamSelect', 'tradeFinderTargetTeam'];
             selects.forEach(id => {
                 const select = document.getElementById(id);
                 if (!select) return;
                 const currentValue = select.value;
-                const isTarget = id === 'suggestTargetSelect';
+                const isTarget = id === 'suggestTargetSelect' || id === 'tradeFinderTargetTeam';
                 select.innerHTML = isTarget ? '<option value="">All Teams</option>' : '<option value="">Select team...</option>';
                 teamsData.forEach(team => {
                     const opt = document.createElement('option');
@@ -1136,7 +1178,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             </div>
                         ` : ''}
                         ${statTableHtml}
-                        <div style="padding: 14px 24px; background: ${data.recommendation?.includes('✓') ? 'linear-gradient(135deg, #0a2a15, #153d20)' : data.recommendation?.includes('⚠') ? 'linear-gradient(135deg, #2a2510, #3d3515)' : 'linear-gradient(135deg, #2a1015, #3d1520)'}; border-radius: 12px; font-weight: 600; text-align: center; font-size: 1.05rem; border: 1px solid ${data.recommendation?.includes('✓') ? 'rgba(0, 255, 136, 0.3)' : data.recommendation?.includes('⚠') ? 'rgba(255, 190, 11, 0.3)' : 'rgba(255, 77, 109, 0.3)'};">
+                        <div style="padding: 14px 24px; background: ${data.recommendation?.includes('[OK]') ? 'linear-gradient(135deg, #0a2a15, #153d20)' : data.recommendation?.includes('[!]') ? 'linear-gradient(135deg, #2a2510, #3d3515)' : 'linear-gradient(135deg, #2a1015, #3d1520)'}; border-radius: 12px; font-weight: 600; text-align: center; font-size: 1.05rem; border: 1px solid ${data.recommendation?.includes('[OK]') ? 'rgba(0, 255, 136, 0.3)' : data.recommendation?.includes('[!]') ? 'rgba(255, 190, 11, 0.3)' : 'rgba(255, 77, 109, 0.3)'};">
                             ${data.recommendation || ''}
                         </div>
                     </div>
@@ -1251,11 +1293,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <!-- Strengths & Weaknesses Summary -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
                         <div style="background: rgba(74, 222, 128, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(74, 222, 128, 0.3);">
-                            <div style="color: #4ade80; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">💪 STRENGTHS</div>
+                            <div style="color: #4ade80; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">STRENGTHS</div>
                             <div style="color: #e4e4e4;">${[...(data.hitting_strengths || []), ...(data.pitching_strengths || [])].join(', ') || 'None'}</div>
                         </div>
                         <div style="background: rgba(248, 113, 113, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(248, 113, 113, 0.3);">
-                            <div style="color: #f87171; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">📉 WEAKNESSES</div>
+                            <div style="color: #f87171; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">WEAKNESSES</div>
                             <div style="color: #e4e4e4;">${[...(data.hitting_weaknesses || []), ...(data.pitching_weaknesses || [])].join(', ') || 'None'}</div>
                         </div>
                     </div>
@@ -1917,6 +1959,107 @@ HTML_CONTENT = '''<!DOCTYPE html>
             });
 
             datalist.innerHTML = options.map(opt => `<option value="${opt}">`).join('');
+        }
+
+        // Trade Finder Functions
+        async function loadTradeFinderPlayers() {
+            const teamSelect = document.getElementById('tradeFinderTeamSelect');
+            const playerSelect = document.getElementById('tradeFinderPlayerSelect');
+            const teamName = teamSelect.value;
+
+            if (!teamName) {
+                playerSelect.innerHTML = '<option value="">Select team first</option>';
+                playerSelect.disabled = true;
+                return;
+            }
+
+            playerSelect.innerHTML = '<option value="">Loading...</option>';
+            playerSelect.disabled = true;
+
+            try {
+                const res = await fetch(API_BASE + '/team/' + encodeURIComponent(teamName));
+                const data = await res.json();
+                const players = (data.players || []).sort((a, b) => b.value - a.value);
+
+                playerSelect.innerHTML = '<option value="">Select player...</option>';
+                players.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.name;
+                    opt.textContent = p.name + ' (' + p.position + ') - ' + p.value + ' pts';
+                    playerSelect.appendChild(opt);
+                });
+                playerSelect.disabled = false;
+            } catch (e) {
+                playerSelect.innerHTML = '<option value="">Error loading</option>';
+            }
+        }
+
+        async function findTradesForPlayer() {
+            const teamName = document.getElementById('tradeFinderTeamSelect').value;
+            const playerName = document.getElementById('tradeFinderPlayerSelect').value;
+            const direction = document.getElementById('tradeFinderDirection').value;
+            const targetTeam = document.getElementById('tradeFinderTargetTeam').value;
+            const results = document.getElementById('trade-finder-results');
+
+            if (!teamName || !playerName) {
+                results.innerHTML = '<p style="color: #f87171;">Please select a team and player.</p>';
+                return;
+            }
+
+            results.innerHTML = '<div class="loading">Finding trade packages...</div>';
+
+            try {
+                let url = API_BASE + '/find-trades-for-player?player_name=' + encodeURIComponent(playerName);
+                url += '&team_name=' + encodeURIComponent(teamName);
+                url += '&direction=' + direction + '&limit=20';
+                if (targetTeam) url += '&target_team=' + encodeURIComponent(targetTeam);
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.error) {
+                    results.innerHTML = '<p style="color: #f87171;">' + data.error + '</p>';
+                    return;
+                }
+
+                if (!data.packages || data.packages.length === 0) {
+                    results.innerHTML = '<p style="color: #888;">No trade packages found.</p>';
+                    return;
+                }
+
+                let html = '<div style="margin-bottom: 15px; color: #ffd700;">';
+                html += data.packages.length + ' packages found for ' + playerName + ' (' + data.player_value + ' pts)</div>';
+                html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
+
+                data.packages.forEach(pkg => {
+                    const diffColor = Math.abs(pkg.value_diff) <= 5 ? '#4ade80' : (Math.abs(pkg.value_diff) <= 15 ? '#ffd700' : '#f87171');
+                    const diffText = pkg.value_diff >= 0 ? '+' + pkg.value_diff : pkg.value_diff;
+
+                    html += '<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 10px; padding: 15px; border: 1px solid #3a3a5a;">';
+                    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 10px;">';
+                    html += '<span style="color: #00d4ff;">' + pkg.other_team + '</span>';
+                    html += '<span style="color: ' + diffColor + ';">' + diffText + ' pts</span>';
+                    html += '</div>';
+                    html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">';
+                    html += '<div style="background: rgba(248,113,113,0.1); padding: 10px; border-radius: 6px;">';
+                    html += '<div style="color: #f87171; font-size: 0.8rem; margin-bottom: 5px;">Send (' + pkg.send_total + ')</div>';
+                    pkg.send.forEach(p => {
+                        html += '<div style="color: #e0e0e0; font-size: 0.85rem;">' + p.name + ' - ' + p.value + '</div>';
+                    });
+                    html += '</div>';
+                    html += '<div style="background: rgba(74,222,128,0.1); padding: 10px; border-radius: 6px;">';
+                    html += '<div style="color: #4ade80; font-size: 0.8rem; margin-bottom: 5px;">Receive (' + pkg.receive_total + ')</div>';
+                    pkg.receive.forEach(p => {
+                        html += '<div style="color: #e0e0e0; font-size: 0.85rem;">' + p.name + ' - ' + p.value + '</div>';
+                    });
+                    html += '</div></div></div>';
+                });
+
+                html += '</div>';
+                results.innerHTML = html;
+            } catch (e) {
+                results.innerHTML = '<p style="color: #f87171;">Error: ' + e.message + '</p>';
+            }
         }
 
         // Initialize
@@ -4069,9 +4212,9 @@ def generate_gm_trade_scenarios(team_name, team):
                     seller_note = " ⚡ MOTIVATED SELLER" if best['is_seller'] else ""
                     negotiation_tip = ""
                     if package_value < target_value * 0.9:
-                        negotiation_tip = f"\n💡 Counter-offer tip: May need to add a 2nd Rd pick or low prospect to close."
+                        negotiation_tip = f"\nTIP: Counter-offer tip: May need to add a 2nd Rd pick or low prospect to close."
                     elif package_value > target_value * 1.1:
-                        negotiation_tip = f"\n💡 Counter-offer tip: You're overpaying - try removing one piece or ask for a pick back."
+                        negotiation_tip = f"\nTIP: Counter-offer tip: You're overpaying - try removing one piece or ask for a pick back."
 
                     scenarios.append({
                         'title': f"🏆 Championship Push: Fix {target_cat}",
@@ -4150,7 +4293,7 @@ def generate_gm_trade_scenarios(team_name, team):
                             'target_value': ask_value,
                             'offer': f"{best_vet[0].name} ({best_vet[1]:.0f} value, age {best_vet[0].age})",
                             'offer_value': best_vet[1],
-                            'reasoning': f"{other_team_name} is #{other_rank} and pushing for a title. {best_vet[0].name}'s value peaks NOW - sell before decline.\n💡 Negotiation: Ask for their best prospect + a young player. They're desperate.",
+                            'reasoning': f"{other_team_name} is #{other_rank} and pushing for a title. {best_vet[0].name}'s value peaks NOW - sell before decline.\nTIP: Negotiation: Ask for their best prospect + a young player. They're desperate.",
                             'trade_type': 'sell',
                             'urgency': 'high'
                         })
@@ -4173,9 +4316,9 @@ def generate_gm_trade_scenarios(team_name, team):
                     # Value gap analysis
                     gap_note = ""
                     if offer_value < target_value * 0.85:
-                        gap_note = f"\n💡 May need to add: 2nd Rd pick or another piece to close {target_value - offer_value:.0f} pt gap"
+                        gap_note = f"\nTIP: May need to add: 2nd Rd pick or another piece to close {target_value - offer_value:.0f} pt gap"
                     elif offer_value > target_value * 1.1:
-                        gap_note = f"\n💡 Ask for a pick back - you're overpaying"
+                        gap_note = f"\nTIP: Ask for a pick back - you're overpaying"
 
                     scenarios.append({
                         'title': "⬆️ Prospect Upgrade: Quality > Quantity",
@@ -4234,12 +4377,12 @@ def generate_gm_trade_scenarios(team_name, team):
 
             if buyer_team:
                 scenarios.append({
-                    'title': "🔄 Crossroads: Commit to Rebuild",
+                    'title': "[~] Crossroads: Commit to Rebuild",
                     'target': f"Prospects + picks from {buyer_team}",
                     'target_value': best_vet[1] * 0.9,
                     'offer': f"{best_vet[0].name} ({best_vet[1]:.0f} value, age {best_vet[0].age})",
                     'offer_value': best_vet[1],
-                    'reasoning': f"Ranked #{my_power_rank} with avg age {avg_age:.1f}. Not good enough to win, too old to wait. Sell {best_vet[0].name} to {buyer_team} and restart.\n💡 Decision time: Commit to rebuild NOW or risk being stuck in the middle forever.",
+                    'reasoning': f"Ranked #{my_power_rank} with avg age {avg_age:.1f}. Not good enough to win, too old to wait. Sell {best_vet[0].name} to {buyer_team} and restart.\nTIP: Decision time: Commit to rebuild NOW or risk being stuck in the middle forever.",
                     'trade_type': 'sell',
                     'urgency': 'high'
                 })
@@ -4259,7 +4402,7 @@ def generate_gm_trade_scenarios(team_name, team):
                         'target_stats': f"Addresses your {target_cat} weakness",
                         'offer': "Prospects or depth pieces",
                         'offer_value': best['value'] * 0.9,
-                        'reasoning': f"Ranked #{my_power_rank} with {star[0].name} as cornerstone (age {star[0].age}). Add {best['player'].name} to accelerate your window.\n💡 Your star's prime is coming - don't waste it.",
+                        'reasoning': f"Ranked #{my_power_rank} with {star[0].name} as cornerstone (age {star[0].age}). Add {best['player'].name} to accelerate your window.\nTIP: Your star's prime is coming - don't waste it.",
                         'trade_type': 'buy',
                         'urgency': 'medium'
                     })
@@ -4279,7 +4422,7 @@ def generate_gm_trade_scenarios(team_name, team):
             if targets:
                 best = targets[0]
                 scenarios.append({
-                    'title': f"📊 Rebalance: {surplus_pos} Depth → {target_cat}",
+                    'title': f"[#] Rebalance: {surplus_pos} Depth → {target_cat}",
                     'target': f"{best['player'].name} ({best['team']})",
                     'target_value': best['value'],
                     'target_stats': f"{best['cat_value']:.0f} {target_cat}",
@@ -4342,7 +4485,7 @@ def generate_gm_trade_scenarios(team_name, team):
                 best = targets[0]
                 trade_piece = tradeable[0]
                 scenarios.append({
-                    'title': f"📈 Improve {target_cat}: Target Weakness",
+                    'title': f"Improve {target_cat}: Target Weakness",
                     'target': f"{best['player'].name} ({best['team']})",
                     'target_value': best['value'],
                     'target_stats': f"{best['cat_value']:.0f} {target_cat} projected",
@@ -4389,7 +4532,7 @@ def generate_gm_trade_scenarios(team_name, team):
                 p2, v2 = mid_tier[1]
                 combined = v1 + v2
                 scenarios.append({
-                    'title': "🔄 Consolidate Depth: 2-for-1",
+                    'title': "[~] Consolidate Depth: 2-for-1",
                     'target': f"Player valued ~{combined * 0.85:.0f}-{combined:.0f}",
                     'target_value': combined * 0.9,
                     'offer': f"{p1.name} ({v1:.0f}) + {p2.name} ({v2:.0f})",
@@ -4416,7 +4559,7 @@ def generate_gm_trade_scenarios(team_name, team):
                 for op, ov in their_players:
                     if abs(ov - v) <= 10 and op.name != p.name:
                         scenarios.append({
-                            'title': "🔄 Explore Value Swap",
+                            'title': "[~] Explore Value Swap",
                             'target': f"{op.name} ({other_team_name})",
                             'target_value': ov,
                             'target_stats': f"Age {op.age}, {op.position}",
@@ -4587,7 +4730,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     if power_rank <= top_third:
         if is_young_roster:
             window = "dynasty"
-            window_emoji = "👑"
+            window_emoji = "[*]"
             window_desc = f"<span style='color:#ffd700'><b>DYNASTY POWERHOUSE</b></span> — {team_name} has it all: elite talent AND youth"
             window_detail = f"This is the rarest combination in dynasty fantasy. You have {len(young_players)} players 25 or younger contributing {young_value:.0f} points of value. Your window isn't just open — it's bolted open for years. Play from a position of strength: don't overpay to fill gaps, let others come to you."
         elif is_old_roster:
@@ -4613,24 +4756,24 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             window_detail = f"The rebuild is progressing. With {len(prospects)} prospects and {len(young_players)} young players, you're accumulating the talent to compete in 2-3 years. Stay patient, resist the urge to buy win-now pieces. If a contender offers to overpay for a veteran, take the deal. Accumulate draft picks."
         else:
             window = "retooling"
-            window_emoji = "⚠️"
-            window_desc = f"<span style='color:#fbbf24'><b>STUCK IN THE MIDDLE</b></span> — {team_name} needs to pick a direction"
+            window_emoji = "[!]"
+            window_desc = f"<span style='color:#fbbf24'><b>STUCK IN THE MIDDLE</b></span> - {team_name} needs to pick a direction"
             window_detail = f"This is the danger zone. Not good enough to compete (#{power_rank}), not young enough to rebuild naturally. You have two options: 1) Go all-in by trading prospects for proven talent, or 2) Commit to rebuild by selling veterans. The worst choice is standing pat. Make a decision and commit."
     else:
         if is_young_roster:
             window = "rising"
-            window_emoji = "📈"
+            window_emoji = "[+]"
             window_desc = f"<span style='color:#34d399'><b>RISING CONTENDER</b></span> — {team_name} is building toward a breakthrough"
             window_detail = f"Your young core is developing nicely. With {young_value:.0f} points of value from players 25 and under, you're positioned to rise. Look for undervalued veterans on rebuilding teams who can accelerate your timeline. In 1-2 years, you could be a true contender."
         elif is_old_roster:
             window = "declining"
-            window_emoji = "📉"
-            window_desc = f"<span style='color:#fb923c'><b>DECLINING ASSET BASE</b></span> — {team_name} is trending the wrong direction"
+            window_emoji = "[-]"
+            window_desc = f"<span style='color:#fb923c'><b>DECLINING ASSET BASE</b></span> - {team_name} is trending the wrong direction"
             window_detail = f"The warning signs are clear: ranked #{power_rank} with an average age of {avg_age:.1f}. Your veteran assets ({vet_value:.0f} points) are depreciating. You're not close enough to contend and your roster is aging out. Start selling veterans now while they still have value."
         else:
             window = "competitive"
-            window_emoji = "🔄"
-            window_desc = f"<span style='color:#a78bfa'><b>COMPETITIVE BUT NOT ELITE</b></span> — {team_name} is in the pack but not leading it"
+            window_emoji = "[~]"
+            window_desc = f"<span style='color:#a78bfa'><b>COMPETITIVE BUT NOT ELITE</b></span> - {team_name} is in the pack but not leading it"
             window_detail = f"You're competitive but need a spark. Ranked #{power_rank} with a balanced roster, you're one or two moves away from breaking into the top tier. Identify your biggest category weakness and target an upgrade. A single elite addition could vault you into contention."
 
     identity_text = f"<b>{window_emoji} TEAM IDENTITY:</b> {window_desc}<br>"
@@ -4639,7 +4782,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     analysis_parts.append(identity_text)
 
     # ============ ROSTER PROFILE - DETAILED BREAKDOWN ============
-    roster_text = "<b>👥 ROSTER PROFILE:</b><br>"
+    roster_text = "<b>ROSTER PROFILE:</b><br>"
 
     # Age distribution with value context
     roster_text += f"&nbsp;&nbsp;<b>Demographics:</b> Average age {avg_age:.1f}<br>"
@@ -4655,16 +4798,16 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
 
     # Roster assessment
     if hitter_value > pitcher_value * 1.4:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Offense-heavy roster — consider adding pitching depth</span>"
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>[!] Offense-heavy roster - consider adding pitching depth</span>"
     elif pitcher_value > hitter_value * 1.2:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Pitching-heavy roster — could use more offensive firepower</span>"
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>[!] Pitching-heavy roster - could use more offensive firepower</span>"
     else:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#4ade80'>✓ Well-balanced between hitting and pitching</span>"
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#4ade80'>[OK] Well-balanced between hitting and pitching</span>"
 
     analysis_parts.append(roster_text)
 
     # ============ CORE ASSETS - IN-DEPTH ANALYSIS ============
-    core_text = "<b>⭐ CORE ASSETS:</b><br>"
+    core_text = "<b>CORE ASSETS:</b><br>"
 
     # Franchise player analysis
     if players_with_value:
@@ -4720,36 +4863,36 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
 
         # Determine roster profile based on talent + actual team ranking
         if elite_count >= 2 and is_contender:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>👑 Stacked: {elite_count} elite superstars (90+) - championship favorite</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>[++] Stacked: {elite_count} elite superstars (90+) - championship favorite</span>"
         elif elite_count >= 2 and is_competitive:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>👑 Elite talent: {elite_count} superstars but ranked #{power_rank} - depth issues?</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>[++] Elite talent: {elite_count} superstars but ranked #{power_rank} - depth issues?</span>"
         elif elite_count >= 2:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Top-heavy: {elite_count} elite stars but ranked #{power_rank} - need supporting cast</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>[!] Top-heavy: {elite_count} elite stars but ranked #{power_rank} - need supporting cast</span>"
         elif elite_count == 1 and star_count >= 3 and is_contender:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Superstar-led: 1 elite + {star_count - 1} stars - title contender</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>[+] Superstar-led: 1 elite + {star_count - 1} stars - title contender</span>"
         elif elite_count == 1 and star_count >= 3:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>⭐ Star power: 1 elite + {star_count - 1} stars but ranked #{power_rank}</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>[+] Star power: 1 elite + {star_count - 1} stars but ranked #{power_rank}</span>"
         elif star_count >= 4 and is_competitive:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Star-powered: {star_count} stars (75+) - strong roster</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>[+] Star-powered: {star_count} stars (75+) - strong roster</span>"
         elif star_count >= 4:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>⭐ Stars without depth: {star_count} stars but ranked #{power_rank} - fill the gaps</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>[+] Stars without depth: {star_count} stars but ranked #{power_rank} - fill the gaps</span>"
         elif star_count >= 2 and starter_count >= 6:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Balanced: {star_count} stars + {starter_count - star_count} starters</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>[OK] Balanced: {star_count} stars + {starter_count - star_count} starters</span>"
         elif starter_count >= 8:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Deep lineup: {starter_count} starters (60+) but no true stars</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>[OK] Deep lineup: {starter_count} starters (60+) but no true stars</span>"
         elif starter_count >= 5:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Developing: {starter_count} starters, {quality_count - starter_count} quality - building</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>[~] Developing: {starter_count} starters, {quality_count - starter_count} quality - building</span>"
         elif quality_count >= 8:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Quantity over quality: {quality_count} serviceable (50+) but no stars</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>[~] Quantity over quality: {quality_count} serviceable (50+) but no stars</span>"
         elif quality_count >= 4:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fb923c'>⚠️ Thin roster: Only {quality_count} quality players (50+) - needs upgrades</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fb923c'>[!] Thin roster: Only {quality_count} quality players (50+) - needs upgrades</span>"
         else:
-            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>🔄 Full rebuild: {quality_count} quality, {depth_count} depth - start over</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>[--] Full rebuild: {quality_count} quality, {depth_count} depth - start over</span>"
 
     analysis_parts.append(core_text.rstrip('<br>'))
 
     # ============ FARM SYSTEM - COMPREHENSIVE EVALUATION ============
-    farm_text = "<b>🌟 FARM SYSTEM:</b><br>"
+    farm_text = "<b>FARM SYSTEM:</b><br>"
 
     top_100_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100], key=lambda x: x.prospect_rank)
     top_300_prospects = sorted([p for p in prospects if p.prospect_rank and p.prospect_rank <= 300], key=lambda x: x.prospect_rank)
@@ -4860,7 +5003,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
                 eta = "2027" if p.prospect_rank > 30 else "2026"
             else:
                 eta = "2026" if prospect_value >= 35 else "2026-27"
-            tier = "⭐" if p.prospect_rank <= 10 else "🔥" if p.prospect_rank <= 25 else "📈" if p.prospect_rank <= 50 else ""
+            tier = "[*]" if p.prospect_rank <= 10 else "[!]" if p.prospect_rank <= 25 else "[+]" if p.prospect_rank <= 50 else ""
             farm_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• {tier} <b>#{p.prospect_rank}</b> {p.name} ({p.position}, {p.age}y) — Value: {prospect_value:.0f}, ETA: {eta}<br>"
     elif all_ranked:
         farm_text += f"&nbsp;&nbsp;<b>Best Prospects:</b><br>"
@@ -4873,21 +5016,21 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # Personalized farm recommendation based on team situation
     if window in ['dynasty', 'contender', 'win-now']:
         if farm_grade in ['A+', 'A']:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>💡 Elite farm + contending = dynasty potential. You can trade prospects for missing pieces without mortgaging the future.</span>"
+            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>TIP: Elite farm + contending = dynasty potential. You can trade prospects for missing pieces without mortgaging the future.</span>"
         elif farm_grade in ['B+', 'B']:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>💡 Contending with average farm — be selective about trading prospects. Each one matters more.</span>"
+            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>TIP: Contending with average farm - be selective about trading prospects. Each one matters more.</span>"
         else:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>💡 Contending with thin farm — be careful not to trade away future completely.</span>"
+            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>TIP: Contending with thin farm - be careful not to trade away future completely.</span>"
     elif window in ['rebuilding', 'teardown']:
         if farm_grade in ['A+', 'A', 'B+']:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>💡 Rebuilding with strong farm — stay the course, let talent develop.</span>"
+            farm_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>TIP: Rebuilding with strong farm - stay the course, let talent develop.</span>"
         else:
-            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>💡 Need to acquire more prospects — sell any remaining veteran value.</span>"
+            farm_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>TIP: Need to acquire more prospects - sell any remaining veteran value.</span>"
 
     analysis_parts.append(farm_text.rstrip('<br>'))
 
     # ============ CATEGORY OUTLOOK - FULL BREAKDOWN ============
-    cat_text = "<b>📊 CATEGORY OUTLOOK:</b><br>"
+    cat_text = "<b>CATEGORY OUTLOOK:</b><br>"
 
     # Hitting categories with rankings
     cat_text += "&nbsp;&nbsp;<b>Hitting:</b><br>"
@@ -4955,12 +5098,12 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             risk_factors.append(f"Top-heavy ({top_2_value/total_value*100:.0f}% value in top 2)")
 
     if risk_factors:
-        analysis_parts.append(f"<b>⚠️ RISK FACTORS:</b> {' | '.join(risk_factors)}.")
+        analysis_parts.append(f"<b>[!] RISK FACTORS:</b> {' | '.join(risk_factors)}.")
     else:
-        analysis_parts.append("<b>⚠️ RISK FACTORS:</b> Well-balanced roster with no major red flags.")
+        analysis_parts.append("<b>[!] RISK FACTORS:</b> Well-balanced roster with no major red flags.")
 
     # Personalized trade strategy with specific recommendations
-    strategy = "<b>💼 TRADE STRATEGY:</b><br>"
+    strategy = "<b>TRADE STRATEGY:</b><br>"
 
     # Find specific trade targets based on team needs
     biggest_weakness = cat_weaknesses[0] if cat_weaknesses else None
@@ -5048,7 +5191,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # A position can't be both thin and deep - remove any overlap
     thin_positions = [p for p in thin_positions if p not in deep_positions]
 
-    depth_text = "<b>🔍 POSITIONAL DEPTH:</b> "
+    depth_text = "<b>POSITIONAL DEPTH:</b> "
     if thin_positions:
         depth_text += f"<span style='color:#f87171'>Thin at {', '.join(thin_positions[:3])}</span>. "
     if deep_positions:
@@ -5100,7 +5243,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # Buy-Low / Sell-High Alerts - Enhanced GM-style
     alerts = get_buy_low_sell_high_alerts(team_name, team)
     if alerts['sell_high'] or alerts['buy_low']:
-        alerts_text = "<b>📈 MARKET OPPORTUNITIES:</b><br>"
+        alerts_text = "<b>MARKET OPPORTUNITIES:</b><br>"
 
         # Sell-high with reasoning
         if alerts['sell_high']:
@@ -5120,7 +5263,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # === GM TRADE SCENARIOS ===
     gm_scenarios = generate_gm_trade_scenarios(team_name, team)
     if gm_scenarios:
-        scenario_text = "<b>💼 GM TRADE SCENARIOS:</b><br>"
+        scenario_text = "<b>GM: GM TRADE SCENARIOS:</b><br>"
         scenario_text += "<i>If I were running this team, here's what I'd explore:</i><br><br>"
         for i, s in enumerate(gm_scenarios, 1):
             scenario_text += f"<b>{s['title']}</b><br>"
@@ -5273,7 +5416,7 @@ def get_player(player_name):
 
         # Build trade advice
         if is_fa_prospect and fa_prospect_rank:
-            trade_advice = f"🌟 TOP {fa_prospect_rank} PROSPECT available as free agent! High priority pickup for dynasty leagues."
+            trade_advice = f"[*] TOP {fa_prospect_rank} PROSPECT available as free agent! High priority pickup for dynasty leagues."
         else:
             trade_advice = f"Free agent with {fa_data['roster_pct']:.0f}% roster rate. Fantrax rank #{fa_data['rank']}. Consider adding if he fills a need."
 
@@ -5658,11 +5801,11 @@ def analyze_trade():
     # Trade recommendation
     recommendation = ""
     if value_diff < 5:
-        recommendation = "✓ Recommended for both teams"
+        recommendation = "[OK] Recommended for both teams"
     elif value_diff < 10:
-        recommendation = f"✓ Acceptable for {winner}, decent for {loser}"
+        recommendation = f"[OK] Acceptable for {winner}, decent for {loser}"
     elif value_diff < 20:
-        recommendation = f"⚠ Good for {winner}, {loser} should seek more"
+        recommendation = f"[!] Good for {winner}, {loser} should seek more"
     else:
         recommendation = f"✗ {loser} should decline unless addressing urgent need"
 
@@ -5739,14 +5882,14 @@ def analyze_trade():
     window_advice = []
     if rank_a <= 4 and rank_b >= 9:
         if prospects_a:
-            window_advice.append(f"💡 {team_a} is contending - trading prospects for proven talent makes sense for your window")
+            window_advice.append(f"TIP: {team_a} is contending - trading prospects for proven talent makes sense for your window")
         if proven_b:
-            window_advice.append(f"💡 {team_b} is rebuilding - acquiring young assets/prospects for veterans aligns with your rebuild")
+            window_advice.append(f"TIP: {team_b} is rebuilding - acquiring young assets/prospects for veterans aligns with your rebuild")
     elif rank_b <= 4 and rank_a >= 9:
         if prospects_b:
-            window_advice.append(f"💡 {team_b} is contending - trading prospects for proven talent makes sense for your window")
+            window_advice.append(f"TIP: {team_b} is contending - trading prospects for proven talent makes sense for your window")
         if proven_a:
-            window_advice.append(f"💡 {team_a} is rebuilding - acquiring young assets/prospects for veterans aligns with your rebuild")
+            window_advice.append(f"TIP: {team_a} is rebuilding - acquiring young assets/prospects for veterans aligns with your rebuild")
 
     # Category fit analysis for each team
     team_a_cats, team_a_pos, team_a_window = calculate_team_needs(team_a)
@@ -6340,7 +6483,7 @@ def get_free_agent_suggestions():
             if 'RP' in fa['position'].upper() and fa_proj:
                 sv = fa_proj.get('SV', 0)
                 if sv >= 10:
-                    special_tags.append("🔥 Closer Potential")
+                    special_tags.append("[!] Closer Potential")
 
             # Dynasty sleeper: young with upside
             if age <= 24 and dynasty_value >= 30 and roster_pct < 30:
@@ -6638,7 +6781,7 @@ def get_free_agent_suggestions():
                 for aging_pos in aging_positions:
                     if aging_pos in fa_pos and fa['age'] <= 27:
                         score += 12
-                        reasons.append(f"🔄 Replaces aging {aging_pos}")
+                        reasons.append(f"[~] Replaces aging {aging_pos}")
                         break
 
             # Window alignment with specific recommendations
@@ -6666,7 +6809,7 @@ def get_free_agent_suggestions():
             elif team_window == 'dynasty':
                 if age <= 26:
                     score += 12
-                    reasons.append("👑 Dynasty building block")
+                    reasons.append("[*] Dynasty building block")
                 elif age <= 28 and base_score >= 50:
                     score += 6
                     reasons.append("Core piece")
@@ -6675,7 +6818,7 @@ def get_free_agent_suggestions():
             if fa['roster_pct'] >= 70:
                 score += 8
                 if len(reasons) < 4:
-                    reasons.append(f"📈 High demand ({fa['roster_pct']:.0f}%)")
+                    reasons.append(f"High demand ({fa['roster_pct']:.0f}%)")
             elif fa['roster_pct'] >= 50:
                 score += 4
 
