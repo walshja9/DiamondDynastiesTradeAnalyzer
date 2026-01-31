@@ -4308,25 +4308,39 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         depth_count = len([v for _, v in players_with_value if v >= 35])
         top_player_value = players_with_value[0][1] if players_with_value else 0
 
-        # Determine roster profile based on talent distribution
-        if elite_count >= 2:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>👑 Stacked: {elite_count} elite superstars (90+) - championship favorites</span>"
+        # Use power_rank to validate roster assessment
+        # Having stars but ranked poorly = top-heavy, not contender
+        is_contender = power_rank <= 4
+        is_competitive = power_rank <= 7
+        is_bottom_half = power_rank >= 7
+
+        # Determine roster profile based on talent + actual team ranking
+        if elite_count >= 2 and is_contender:
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>👑 Stacked: {elite_count} elite superstars (90+) - championship favorite</span>"
+        elif elite_count >= 2 and is_competitive:
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>👑 Elite talent: {elite_count} superstars but ranked #{power_rank} - depth issues?</span>"
+        elif elite_count >= 2:
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Top-heavy: {elite_count} elite stars but ranked #{power_rank} - need supporting cast</span>"
+        elif elite_count == 1 and star_count >= 3 and is_contender:
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Superstar-led: 1 elite + {star_count - 1} stars - title contender</span>"
         elif elite_count == 1 and star_count >= 3:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Superstar-led: 1 elite + {star_count - 1} stars (75+) - title contender</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>⭐ Star power: 1 elite + {star_count - 1} stars but ranked #{power_rank}</span>"
+        elif star_count >= 4 and is_competitive:
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Star-powered: {star_count} stars (75+) - strong roster</span>"
         elif star_count >= 4:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Star-powered: {star_count} stars (75+) - strong contender</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>⭐ Stars without depth: {star_count} stars but ranked #{power_rank} - fill the gaps</span>"
         elif star_count >= 2 and starter_count >= 6:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Balanced: {star_count} stars + {starter_count - star_count} starters - competitive</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Balanced: {star_count} stars + {starter_count - star_count} starters</span>"
         elif starter_count >= 8:
             core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Deep lineup: {starter_count} starters (60+) but no true stars</span>"
         elif starter_count >= 5:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Developing: {starter_count} starters, {quality_count - starter_count} quality pieces - building</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Developing: {starter_count} starters, {quality_count - starter_count} quality - building</span>"
         elif quality_count >= 8:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Quantity over quality: {quality_count} serviceable (50+) but lacking top talent</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Quantity over quality: {quality_count} serviceable (50+) but no stars</span>"
         elif quality_count >= 4:
             core_text += f"&nbsp;&nbsp;<span style='color:#fb923c'>⚠️ Thin roster: Only {quality_count} quality players (50+) - needs upgrades</span>"
         else:
-            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>🔄 Full rebuild: {quality_count} quality, {depth_count} depth pieces - start over</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>🔄 Full rebuild: {quality_count} quality, {depth_count} depth - start over</span>"
 
     analysis_parts.append(core_text.rstrip('<br>'))
 
