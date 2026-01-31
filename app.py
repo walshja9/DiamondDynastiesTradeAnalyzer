@@ -1612,19 +1612,53 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     `;
                 }
 
+                // Calculate net results for each team
+                const netA = data.value_a_receives - data.value_a_sends;
+                const netB = data.value_b_receives - data.value_b_sends;
+                const netAColor = netA >= 0 ? '#4ade80' : '#f87171';
+                const netBColor = netB >= 0 ? '#4ade80' : '#f87171';
+                const netASign = netA >= 0 ? '+' : '';
+                const netBSign = netB >= 0 ? '+' : '';
+
                 results.innerHTML = `
                     <div class="result-card">
                         <div class="verdict ${verdictClass}">${data.verdict}</div>
                         <div class="value-comparison">
                             <div class="value-box">
-                                <h4>${teamA} Receives</h4>
-                                <div class="value">${data.value_a_receives.toFixed(1)}</div>
-                                ${data.age_analysis?.team_b_sends_avg_age ? `<div style="color:#a0a0c0;font-size:0.85rem;margin-top:8px;">Avg Age: ${data.age_analysis.team_b_sends_avg_age}</div>` : ''}
+                                <h4>${teamA}</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+                                    <div style="text-align: center;">
+                                        <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Sends</div>
+                                        <div style="color: #f87171; font-size: 1.2rem; font-weight: bold;">${data.value_a_sends.toFixed(1)}</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Receives</div>
+                                        <div style="color: #4ade80; font-size: 1.2rem; font-weight: bold;">${data.value_a_receives.toFixed(1)}</div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(0, 212, 255, 0.1); text-align: center;">
+                                    <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Net Result</div>
+                                    <div style="color: ${netAColor}; font-size: 1.6rem; font-weight: bold;">${netASign}${netA.toFixed(1)}</div>
+                                </div>
+                                ${data.age_analysis?.team_b_sends_avg_age ? `<div style="color:#a0a0c0;font-size:0.8rem;margin-top:10px;text-align:center;">Incoming Avg Age: ${data.age_analysis.team_b_sends_avg_age}</div>` : ''}
                             </div>
                             <div class="value-box">
-                                <h4>${teamB} Receives</h4>
-                                <div class="value">${data.value_b_receives.toFixed(1)}</div>
-                                ${data.age_analysis?.team_a_sends_avg_age ? `<div style="color:#a0a0c0;font-size:0.85rem;margin-top:8px;">Avg Age: ${data.age_analysis.team_a_sends_avg_age}</div>` : ''}
+                                <h4>${teamB}</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+                                    <div style="text-align: center;">
+                                        <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Sends</div>
+                                        <div style="color: #f87171; font-size: 1.2rem; font-weight: bold;">${data.value_b_sends.toFixed(1)}</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Receives</div>
+                                        <div style="color: #4ade80; font-size: 1.2rem; font-weight: bold;">${data.value_b_receives.toFixed(1)}</div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(0, 212, 255, 0.1); text-align: center;">
+                                    <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Net Result</div>
+                                    <div style="color: ${netBColor}; font-size: 1.6rem; font-weight: bold;">${netBSign}${netB.toFixed(1)}</div>
+                                </div>
+                                ${data.age_analysis?.team_a_sends_avg_age ? `<div style="color:#a0a0c0;font-size:0.8rem;margin-top:10px;text-align:center;">Incoming Avg Age: ${data.age_analysis.team_a_sends_avg_age}</div>` : ''}
                             </div>
                         </div>
                         <div style="padding: 18px; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 12px; margin: 18px 0; border-left: 4px solid #7b2cbf;">
@@ -6620,6 +6654,8 @@ def analyze_trade():
 
     return jsonify({
         "verdict": verdict,
+        "value_a_sends": round(value_a_sends, 1),
+        "value_b_sends": round(value_b_sends, 1),
         "value_a_receives": round(value_b_sends, 1),
         "value_b_receives": round(value_a_sends, 1),
         "value_diff": round(value_diff, 1),
