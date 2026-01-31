@@ -1502,6 +1502,41 @@ HTML_CONTENT = '''<!DOCTYPE html>
             `;
         }
 
+        function buildGMProfileSection(teamName, profile, philosophy) {
+            const safeName = teamName.replace(/'/g, "\\'");
+            const safeGmName = (profile.gm_name || '').replace(/'/g, "\\'");
+            const philKey = profile.philosophy || 'balanced';
+            const aggr = profile.trade_aggressiveness || 0.5;
+            const posPri = (profile.position_priorities || []).join(',');
+            const catPri = (profile.category_priorities || []).join(',');
+            const aggrPct = Math.round(aggr * 100);
+            const priorities = [...(profile.position_priorities || []), ...(profile.category_priorities || [])].join(', ') || 'None set';
+
+            let html = '<div id="gm-profile-section" style="background: linear-gradient(135deg, rgba(123,44,191,0.15), rgba(0,212,255,0.05)); padding: 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(123,44,191,0.3);">';
+            html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">';
+            html += '<h4 style="color: #7b2cbf; margin: 0; font-size: 0.95rem;">GM PROFILE</h4>';
+            html += '<button onclick="openGMProfileEditor(\'' + safeName + '\', \'' + safeGmName + '\', \'' + philKey + '\', ' + aggr + ', \'' + posPri + '\', \'' + catPri + '\')" style="background: rgba(123,44,191,0.3); color: #7b2cbf; border: 1px solid rgba(123,44,191,0.5); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s;">Edit Profile</button>';
+            html += '</div>';
+            html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">GM Name</div>';
+            html += '<div style="color: #e4e4e4; font-weight: 600;">' + (profile.gm_name || 'Not Set') + '</div></div>';
+            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Philosophy</div>';
+            html += '<div style="color: #00d4ff; font-weight: 600;">' + philosophy.name + '</div></div>';
+            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Trade Aggressiveness</div>';
+            html += '<div style="display: flex; align-items: center; gap: 8px;">';
+            html += '<div style="flex: 1; height: 6px; background: #2a2a4a; border-radius: 3px; overflow: hidden;">';
+            html += '<div style="width: ' + aggrPct + '%; height: 100%; background: linear-gradient(90deg, #00d4ff, #7b2cbf);"></div></div>';
+            html += '<span style="color: #e4e4e4; font-size: 0.85rem;">' + aggrPct + '%</span></div></div>';
+            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Priorities</div>';
+            html += '<div style="color: #e4e4e4; font-size: 0.85rem;">' + priorities + '</div></div>';
+            html += '</div>';
+            if (philosophy.description) {
+                html += '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(123,44,191,0.2); color: #888; font-size: 0.85rem; font-style: italic;">' + philosophy.description + '</div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
         async function showTeamDetails(teamName) {
             const modal = document.getElementById('team-modal');
             const content = document.getElementById('team-modal-content');
@@ -1520,50 +1555,21 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 // Fetch team profile
                 let profileData = { profile: {}, philosophy_details: { name: 'Balanced Approach', description: '' } };
                 try {
-                    const profileRes = await fetch(\`\${API_BASE}/team-profile/\${encodeURIComponent(teamName)}\`);
+                    const profileRes = await fetch(API_BASE + '/team-profile/' + encodeURIComponent(teamName));
                     profileData = await profileRes.json();
                 } catch (e) { console.warn('Could not load profile:', e); }
 
                 const profile = profileData.profile || {};
                 const philosophy = profileData.philosophy_details || { name: 'Balanced Approach', description: '' };
 
-                content.innerHTML = \`
-                    <h2 style="color: #ffd700; margin-bottom: 5px;">#\${data.power_rank} \${data.name}</h2>
-                    <div style="font-size: 0.9rem; color: #888; margin-bottom: 15px;">2026 Draft Pick: #\${data.draft_pick}</div>
+                // Build GM profile HTML separately to avoid escaping issues
+                const gmProfileHtml = buildGMProfileSection(data.name, profile, philosophy);
 
-                    <!-- GM Profile Section -->
-                    <div id="gm-profile-section" style="background: linear-gradient(135deg, rgba(123,44,191,0.15), rgba(0,212,255,0.05)); padding: 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(123,44,191,0.3);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h4 style="color: #7b2cbf; margin: 0; font-size: 0.95rem;">GM PROFILE</h4>
-                            <button onclick="openGMProfileEditor('\${data.name.replace(/'/g, "\\\\'")}', '\${(profile.gm_name || '').replace(/'/g, "\\\\'")}', '\${profile.philosophy || 'balanced'}', \${profile.trade_aggressiveness || 0.5}, '\${(profile.position_priorities || []).join(',')}', '\${(profile.category_priorities || []).join(',')}')" style="background: rgba(123,44,191,0.3); color: #7b2cbf; border: 1px solid rgba(123,44,191,0.5); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s;">
-                                Edit Profile
-                            </button>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                            <div>
-                                <div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">GM Name</div>
-                                <div style="color: #e4e4e4; font-weight: 600;">\${profile.gm_name || 'Not Set'}</div>
-                            </div>
-                            <div>
-                                <div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Philosophy</div>
-                                <div style="color: #00d4ff; font-weight: 600;">\${philosophy.name}</div>
-                            </div>
-                            <div>
-                                <div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Trade Aggressiveness</div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="flex: 1; height: 6px; background: #2a2a4a; border-radius: 3px; overflow: hidden;">
-                                        <div style="width: \${(profile.trade_aggressiveness || 0.5) * 100}%; height: 100%; background: linear-gradient(90deg, #00d4ff, #7b2cbf);"></div>
-                                    </div>
-                                    <span style="color: #e4e4e4; font-size: 0.85rem;">\${Math.round((profile.trade_aggressiveness || 0.5) * 100)}%</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Priorities</div>
-                                <div style="color: #e4e4e4; font-size: 0.85rem;">\${[...(profile.position_priorities || []), ...(profile.category_priorities || [])].join(', ') || 'None set'}</div>
-                            </div>
-                        </div>
-                        \${philosophy.description ? \`<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(123,44,191,0.2); color: #888; font-size: 0.85rem; font-style: italic;">\${philosophy.description}</div>\` : ''}
-                    </div>
+                content.innerHTML = `
+                    <h2 style="color: #ffd700; margin-bottom: 5px;">#${data.power_rank} ${data.name}</h2>
+                    <div style="font-size: 0.9rem; color: #888; margin-bottom: 15px;">2026 Draft Pick: #${data.draft_pick}</div>
+
+                    ${gmProfileHtml}
 
                     <!-- Quick Stats -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 25px;">
