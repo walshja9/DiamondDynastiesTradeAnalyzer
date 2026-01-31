@@ -4344,7 +4344,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             bottom_line += f"An elite roster built to win. Protect your core and target marginal upgrades. "
         bottom_line += f"Total roster value: <span style='color:#ffd700'>{total_value:.0f} points</span>."
     elif window in ['rebuilding', 'rising']:
-        bottom_line += f"The future is bright with {len(prospects)} prospects and {young_players} young players. "
+        bottom_line += f"The future is bright with {len(prospects)} prospects and {len(young_players)} young players. "
         bottom_line += f"Be patient, accumulate assets, and let the talent develop. Value: {total_value:.0f} pts."
     elif window in ['teardown', 'declining']:
         if sell_candidates:
