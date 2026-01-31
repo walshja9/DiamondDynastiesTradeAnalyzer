@@ -1186,19 +1186,35 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         </div>
                     </div>
 
-                    <h4 style="color: #ffd700; margin-bottom: 15px;">Top Players</h4>
-                    ${(data.top_players || data.players.slice(0, 20)).map(p => `
-                        <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
-                            <div>
-                                <div class="name player-link">${p.name}</div>
-                                <div style="color: #888; font-size: 0.85rem;">${p.position} | Age ${p.age}${p.proj ? ` | ${p.proj}` : ''}</div>
-                            </div>
-                            <div class="value">${p.value.toFixed(1)}</div>
-                        </div>
-                    `).join('')}
+                    <!-- Full Roster by Position -->
+                    <h4 style="color: #ffd700; margin-bottom: 15px;">Full Roster (${data.players.length} players)</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 25px;">
+                        ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
+                            const players = posDepth[pos] || [];
+                            const posColor = ['SP', 'RP'].includes(pos) ? '#00d4ff' : '#ffd700';
+                            return `
+                                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #3a3a5a; padding-bottom: 8px;">
+                                        <span style="color: ${posColor}; font-weight: bold; font-size: 1.1rem;">${pos}</span>
+                                        <span style="color: ${players.length >= 3 ? '#4ade80' : players.length >= 2 ? '#ffd700' : '#f87171'}; font-size: 0.85rem;">${players.length} player${players.length !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    ${players.length > 0 ? players.map((p, i) => `
+                                        <div onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 4px 0; background: ${i === 0 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.02)'}; border-radius: 6px; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.background='rgba(0,212,255,0.15)'" onmouseout="this.style.background='${i === 0 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.02)}'">
+                                            <div>
+                                                <span style="color: ${i === 0 ? '#ffd700' : '#e4e4e4'}; font-weight: ${i === 0 ? 'bold' : 'normal'};">${p.name}</span>
+                                                <span style="color: #888; font-size: 0.8rem; margin-left: 8px;">Age ${p.age || '?'}</span>
+                                            </div>
+                                            <span style="color: #00d4ff; font-weight: bold;">${p.value}</span>
+                                        </div>
+                                    `).join('') : '<div style="color: #666; font-size: 0.85rem; padding: 8px;">No players</div>'}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
 
                     ${(data.prospects && data.prospects.length > 0) ? `
-                        <h4 style="color: #ffd700; margin: 25px 0 15px;">Prospects (${data.prospects.length})</h4>
+                        <h4 style="color: #ffd700; margin: 25px 0 15px;">Ranked Prospects (${data.prospects.length})</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
                         ${data.prospects.map(p => `
                             <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
                                 <div>
@@ -1208,6 +1224,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 <div class="value" style="color: #4ade80;">#${p.rank}</div>
                             </div>
                         `).join('')}
+                        </div>
                     ` : ''}
                 `;
             } catch (e) {
@@ -3061,9 +3078,9 @@ def get_team(team_name):
         if 'RP' in pos or 'CL' in pos:
             pos_depth['RP'].append(player_info)
 
-    # Sort each position by value and keep top 5
+    # Sort each position by value (keep all players for full depth chart)
     for pos in pos_depth:
-        pos_depth[pos] = sorted(pos_depth[pos], key=lambda x: x['value'], reverse=True)[:5]
+        pos_depth[pos] = sorted(pos_depth[pos], key=lambda x: x['value'], reverse=True)
 
     # Calculate roster composition
     hitters = len([p for p in team.players if p.name in HITTER_PROJECTIONS])
