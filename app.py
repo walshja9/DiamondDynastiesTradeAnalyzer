@@ -5890,66 +5890,103 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     else:
         analysis_parts.append("<b>RISK FACTORS:</b> Well-balanced roster with no major red flags.")
 
-    # Personalized trade strategy with specific recommendations
-    strategy = "<b>TRADE STRATEGY:</b><br>"
+    # Personalized trade strategy based on GM philosophy and personality
+    strategy = f"<b>{gm['name'].upper()}'S TRADE STRATEGY:</b><br>"
 
     # Find specific trade targets based on team needs
     biggest_weakness = cat_weaknesses[0] if cat_weaknesses else None
     biggest_strength = cat_strengths[0] if cat_strengths else None
+    import random
+    gm_quote = random.choice(gm['catchphrases'])
 
-    if window == "dynasty":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#4ade80'>Play from strength</span> — you have the luxury of patience.<br>"
+    # Philosophy-based personalized strategy
+    if philosophy == 'dynasty_champion':
+        strategy += f"&nbsp;&nbsp;<span style='color:#ffd700;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#ffd700'>Defend the throne</span> — force others to overpay for your attention.<br>"
         if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Target:</b> Address {biggest_weakness[0]} (#{biggest_weakness[1]}) weakness, but don't overpay.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Avoid:</b> Trading core young assets for marginal upgrades. Let others come to you.<br>"
-        if biggest_strength and farm_grade in ['A+', 'A', 'B+']:
-            strategy += f"&nbsp;&nbsp;<b>Leverage:</b> Your {biggest_strength[0]} surplus and prospect depth are trade chips if needed."
-    elif window == "contender":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#34d399'>Surgical upgrades</span> — find the missing piece.<br>"
+            strategy += f"&nbsp;&nbsp;<b>Surgical Strike:</b> Only address {biggest_weakness[0]} (#{biggest_weakness[1]}) if the price is right. We don't chase.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Non-Negotiable:</b> Core assets stay. Period. Let pretenders mortgage their futures.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'championship_closer':
+        strategy += f"&nbsp;&nbsp;<span style='color:#ff6b6b;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#ff6b6b'>Hunt relentlessly</span> — every gap is a target.<br>"
         if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Target:</b> Prioritize {biggest_weakness[0]} (#{biggest_weakness[1]}) — this is your biggest hole.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Willing to Pay:</b> Mid-tier prospects for proven contributors. Championships > potential.<br>"
+            strategy += f"&nbsp;&nbsp;<b>Priority Target:</b> {biggest_weakness[0]} (#{biggest_weakness[1]}) is the gap between us and a title. Find it NOW.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Currency:</b> Prospects exist to be traded for proven winners. Don't get attached.<br>"
         if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Consider Moving:</b> {sell_candidates[0].split(' (')[0]} if you can upgrade at a position of need."
-    elif window == "win-now":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#f59e0b'>ALL IN</span> — your window is closing, act with urgency.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Target:</b> Any proven contributor who fills a need. Overpay if necessary.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Trade Away:</b> ALL prospects, future picks, anything not nailed down.<br>"
-        if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Clock is Ticking:</b> {sell_candidates[0].split(' (')[0]} won't be this valuable next year."
-    elif window == "rising":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#60a5fa'>Opportunistic buying</span> — accelerate carefully.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Target:</b> Undervalued vets from rebuilding teams who fit your timeline.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Protect:</b> Your top prospects — they're the foundation of future contention.<br>"
+            strategy += f"&nbsp;&nbsp;<b>Expendable:</b> {sell_candidates[0].split(' (')[0]} — if moving them gets us closer, pull the trigger.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'smart_contender':
+        strategy += f"&nbsp;&nbsp;<span style='color:#4ade80;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#4ade80'>Calculate every angle</span> — emotion is the enemy of optimization.<br>"
         if biggest_weakness:
-            strategy += f"&nbsp;&nbsp;<b>Focus:</b> Address {biggest_weakness[0]} weakness without overpaying."
-    elif window == "competitive":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#a78bfa'>Decision time</span> — commit to a direction.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Option A:</b> Buy aggressively — trade prospects for win-now pieces and push for playoffs.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Option B:</b> Start selling — move veterans for youth and rebuild properly.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Avoid:</b> Standing pat. The middle ground leads to mediocrity."
-    elif window == "declining":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#fb923c'>Controlled sell-off</span> — maximize returns before values drop.<br>"
+            strategy += f"&nbsp;&nbsp;<b>Efficiency Target:</b> {biggest_weakness[0]} (#{biggest_weakness[1]}) offers the best marginal improvement per asset spent.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Value Rule:</b> Never pay 100% for 80% production. Find market inefficiencies.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'all_in_buyer':
+        strategy += f"&nbsp;&nbsp;<span style='color:#f59e0b;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#f59e0b'>Empty the clip</span> — futures are for teams without a window.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Mantra:</b> ANY proven contributor who fills a need. Price is secondary to winning.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Available:</b> Every prospect, every pick, every expendable piece. Make offers.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'loaded_and_ready':
+        strategy += f"&nbsp;&nbsp;<span style='color:#00d4ff;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#00d4ff'>Play from ultimate strength</span> — we dictate every negotiation.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Leverage:</b> Elite roster + deep farm = we set prices. Others come to us.<br>"
+        if biggest_weakness:
+            strategy += f"&nbsp;&nbsp;<b>Optional Upgrade:</b> {biggest_weakness[0]} could be addressed, but only at a discount.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'bargain_hunter':
+        strategy += f"&nbsp;&nbsp;<span style='color:#a78bfa;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#a78bfa'>Hunt in the margins</span> — creativity beats capital.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Targets:</b> Buy-low candidates, waiver gems, players others have given up on.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Edge:</b> We win trades on brains since the asset cupboard is bare. Find hidden value.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'rising_powerhouse':
+        strategy += f"&nbsp;&nbsp;<span style='color:#34d399;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#34d399'>Protect the foundation</span> — prospects are untouchable except for elite returns.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Rule:</b> Only move young talent for PROVEN stars at significant discounts.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Patience:</b> The dynasty is coming. Don't trade the future for mediocre present gains.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'crossroads_decision':
+        strategy += f"&nbsp;&nbsp;<span style='color:#fbbf24;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#fbbf24'>Decision time</span> — the middle is quicksand.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Option A:</b> Go ALL IN — trade youth for win-now pieces, push for playoffs.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Option B:</b> SELL — move veterans for prospects, commit to rebuild.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Warning:</b> Status quo is death. Pick a direction and commit HARD.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'reluctant_dealer':
+        strategy += f"&nbsp;&nbsp;<span style='color:#fb923c;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#fb923c'>Time to act</span> — hesitation is costing us value daily.<br>"
         if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Sell Now:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])}.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Target:</b> Young players, prospects, draft picks — anything with upside.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Urgency:</b> Every week you wait, your veteran assets lose value."
-    elif window == "retooling":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#fbbf24'>Pick a lane</span> — indecision is the enemy.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Reality Check:</b> You're #{power_rank} — not good enough to win, not bad enough for top picks.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Recommendation:</b> Commit to rebuild. Sell veterans, accumulate youth. Half-measures won't work."
-    elif window == "rebuilding":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#60a5fa'>Patient accumulation</span> — trust the process.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Target:</b> Prospects, young players, draft picks. Accept quantity over quality for now.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Sell:</b> Any player over 28 with trade value — you don't need veterans.<br>"
-        if farm_grade in ['C+', 'C', 'D']:
-            strategy += f"&nbsp;&nbsp;<b>Priority:</b> Your farm (grade {farm_grade}) needs restocking. Be aggressive acquiring prospects."
-    elif window == "teardown":
-        strategy += f"&nbsp;&nbsp;<b>Approach:</b> <span style='color:#f87171'>Full liquidation</span> — sell everything that moves.<br>"
+            strategy += f"&nbsp;&nbsp;<b>Sell NOW:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])} — their value depreciates weekly.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Reality:</b> Every week we wait, we lose leverage. Start the conversations.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'analytical_rebuilder':
+        strategy += f"&nbsp;&nbsp;<span style='color:#60a5fa;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#60a5fa'>Data-driven teardown</span> — zero emotion, maximum return.<br>"
         if sell_candidates:
-            strategy += f"&nbsp;&nbsp;<b>Immediate Sales:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])}.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Target:</b> Volume of prospects > quality. Cast a wide net.<br>"
-        strategy += f"&nbsp;&nbsp;<b>Mindset:</b> You're building for 2-3 years from now. Accept short-term pain."
+            strategy += f"&nbsp;&nbsp;<b>Optimal Sales:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])} — peak value extraction window.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Targets:</b> High-upside prospects, analytical darlings, undervalued youth.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'desperate_accumulator':
+        strategy += f"&nbsp;&nbsp;<span style='color:#f87171;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#f87171'>Cast wide nets</span> — quantity now, sort for quality later.<br>"
+        if sell_candidates:
+            strategy += f"&nbsp;&nbsp;<b>Fire Sale:</b> {', '.join([s.split(' (')[0] for s in sell_candidates[:3]])} — any prospect return is a win.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Strategy:</b> Volume of young assets > individual quality. We need bodies.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    elif philosophy == 'prospect_rich_rebuilder':
+        strategy += f"&nbsp;&nbsp;<span style='color:#22d3ee;font-style:italic'>\"{gm_quote}\"</span><br>"
+        strategy += f"&nbsp;&nbsp;<b>My Approach:</b> <span style='color:#22d3ee'>Guard the treasure</span> — these prospects ARE the championship plan.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Untouchable:</b> Top prospects only move for elite proven stars at massive discounts.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Patience:</b> Let the talent develop. In 2-3 years, everyone will wish they'd traded with us.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm['trade_style']}"
+    else:
+        strategy += f"&nbsp;&nbsp;<b>Approach:</b> Evaluate opportunities based on roster fit and value.<br>"
+        if biggest_weakness:
+            strategy += f"&nbsp;&nbsp;<b>Target:</b> Address {biggest_weakness[0]} weakness.<br>"
+        strategy += f"&nbsp;&nbsp;<b>Trade Style:</b> {gm.get('trade_style', 'Value-focused evaluation.')}"
 
     analysis_parts.append(strategy.rstrip('<br>'))
 
@@ -5994,25 +6031,51 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         depth_text += f"Consider trading from {deep_positions[0]} surplus for needs."
     analysis_parts.append(depth_text)
 
-    # Bottom line summary
-    bottom_line = "<b>BOTTOM LINE:</b> "
+    # Personalized bottom line from GM's perspective
+    bottom_line = f"<b>{gm['name'].upper()}'S BOTTOM LINE:</b> "
     total_value = sum(v for _, v in players_with_value)
-    if window in ['dynasty', 'contender', 'win-now']:
+
+    if philosophy == 'dynasty_champion':
+        bottom_line += f"<span style='color:#ffd700'>We're the team to beat.</span> {total_value:.0f} points of pure dominance. "
+        bottom_line += "Everyone wants what we have. Make them overpay for even a conversation."
+    elif philosophy == 'championship_closer':
         if cat_weaknesses:
-            bottom_line += f"A {window} team that should be aggressive acquiring {cat_weaknesses[0]} help. "
-        else:
-            bottom_line += f"An elite roster built to win. Protect your core and target marginal upgrades. "
-        bottom_line += f"Total roster value: <span style='color:#ffd700'>{total_value:.0f} points</span>."
-    elif window in ['rebuilding', 'rising']:
-        bottom_line += f"The future is bright with {len(prospects)} prospects and {len(young_players)} young players. "
-        bottom_line += f"Be patient, accumulate assets, and let the talent develop. Value: {total_value:.0f} pts."
-    elif window in ['teardown', 'declining']:
+            bottom_line += f"<span style='color:#ff6b6b'>{cat_weaknesses[0][0]} is the gap.</span> Close it. "
+        bottom_line += f"We're {total_value:.0f} points of potential championship — but potential doesn't hang banners. Hunt relentlessly."
+    elif philosophy == 'smart_contender':
+        bottom_line += f"<span style='color:#4ade80'>{total_value:.0f} points of optimized value.</span> "
+        bottom_line += "Continue exploiting market inefficiencies. The spreadsheet says we're positioned — trust the process."
+    elif philosophy == 'all_in_buyer':
+        bottom_line += f"<span style='color:#f59e0b'>Window is NOW.</span> {total_value:.0f} roster points, but points don't matter if we don't win. "
+        bottom_line += "Every prospect should be on the trading block. Make it happen."
+    elif philosophy == 'loaded_and_ready':
+        bottom_line += f"<span style='color:#00d4ff'>Best of both worlds:</span> {total_value:.0f} points AND prospect depth. "
+        bottom_line += "We dictate terms in every negotiation. Stay patient, stay dominant."
+    elif philosophy == 'bargain_hunter':
+        bottom_line += f"<span style='color:#a78bfa'>Creativity over capital.</span> {total_value:.0f} points built from hustle, not spending. "
+        bottom_line += "Keep hunting the margins. One man's trash is our treasure."
+    elif philosophy == 'rising_powerhouse':
+        bottom_line += f"<span style='color:#34d399'>The future is ours.</span> {len(prospects)} prospects forming the next dynasty. "
+        bottom_line += f"{total_value:.0f} points today, championship core tomorrow. Patience builds empires."
+    elif philosophy == 'crossroads_decision':
+        bottom_line += f"<span style='color:#fbbf24'>Decision time.</span> {total_value:.0f} points stuck in purgatory. "
+        bottom_line += "The middle is quicksand. Pick a direction TODAY and commit with everything."
+    elif philosophy == 'reluctant_dealer':
         if sell_candidates:
-            bottom_line += f"Move {sell_candidates[0].split(' (')[0]} and other vets ASAP. "
-        bottom_line += f"Every week you wait costs you draft capital. Time to accelerate the rebuild."
+            bottom_line += f"<span style='color:#fb923c'>{sell_candidates[0].split(' (')[0]} and others are depreciating assets.</span> "
+        bottom_line += f"{total_value:.0f} points that shrink daily while we hesitate. Time to act is NOW."
+    elif philosophy == 'analytical_rebuilder':
+        bottom_line += f"<span style='color:#60a5fa'>Rebuild metrics: {total_value:.0f} pts, {len(prospects)} prospects.</span> "
+        bottom_line += "The algorithm says sell every veteran. Zero emotion, maximum return extraction."
+    elif philosophy == 'desperate_accumulator':
+        bottom_line += f"<span style='color:#f87171'>Farm needs volume.</span> {len(prospects)} prospects isn't enough. "
+        bottom_line += f"Liquidate everything. {total_value:.0f} points of veteran value should become 20+ young assets."
+    elif philosophy == 'prospect_rich_rebuilder':
+        bottom_line += f"<span style='color:#22d3ee'>{len(prospects)} prospects ARE the plan.</span> "
+        bottom_line += f"{total_value:.0f} total points, but the real treasure is the farm. Protect it fiercely. The dynasty is 2 years away."
     else:
-        bottom_line += f"Stuck in no-man's land with {total_value:.0f} points of value. "
-        bottom_line += "Make a decisive move - buy in or sell out. The middle path leads nowhere."
+        bottom_line += f"Total value: {total_value:.0f} points. Evaluate the roster and make strategic moves."
+
     analysis_parts.append(bottom_line)
 
     # === ENHANCED AI ANALYSIS SECTIONS ===
