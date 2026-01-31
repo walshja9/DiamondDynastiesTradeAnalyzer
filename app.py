@@ -766,7 +766,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
             --color-accent: #ffd700;
             --color-success: #00ff88;
             --color-danger: #ff4d6d;
-            --color-text-muted: #888;
+            --color-text-muted: #666;
+            --bg-darkest: #08080c;
+            --bg-dark: #0d0d12;
+            --bg-card: #111118;
+            --bg-elevated: #16161f;
+            --border-subtle: rgba(0, 212, 255, 0.12);
             --space-sm: 8px;
             --space-md: 16px;
             --space-lg: 24px;
@@ -775,103 +780,104 @@ HTML_CONTENT = '''<!DOCTYPE html>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            background: linear-gradient(145deg, #05050a 0%, #0a0a12 50%, #08080f 100%);
             min-height: 100vh;
-            color: #f0f0f0;
+            color: #e8e8e8;
         }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        header { text-align: center; padding: 35px 0; border-bottom: 2px solid rgba(0, 212, 255, 0.3); margin-bottom: 30px; }
-        header h1 { font-size: 2.8rem; background: linear-gradient(90deg, #00d4ff, #7b2cbf, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-shadow: 0 0 30px rgba(0, 212, 255, 0.3); }
-        header p { color: #a0a0a0; margin-top: 10px; font-size: 1.1rem; }
+        header { text-align: center; padding: 35px 0; border-bottom: 1px solid rgba(0, 212, 255, 0.2); margin-bottom: 30px; }
+        header h1 { font-size: 2.8rem; background: linear-gradient(90deg, #00d4ff, #00a8cc, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-shadow: 0 0 40px rgba(0, 212, 255, 0.25); }
+        header p { color: #888; margin-top: 10px; font-size: 1.1rem; }
         .tabs { display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; }
-        .tab { padding: 14px 28px; background: linear-gradient(145deg, #1e1e3f, #2a2a5a); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 12px; color: #c0c0c0; cursor: pointer; font-size: 1rem; transition: all 0.3s ease; }
-        .tab:hover { background: linear-gradient(145deg, #2a2a5a, #3a3a7a); border-color: rgba(0, 212, 255, 0.5); color: #fff; transform: translateY(-2px); }
-        .tab.active { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #0f0c29; font-weight: 700; border-color: #00d4ff; box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4); }
-        .panel { display: none; background: linear-gradient(145deg, #1a1a3e, #252560); border-radius: 16px; padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); border: 1px solid rgba(123, 44, 191, 0.2); }
+        .tab { padding: 14px 28px; background: linear-gradient(145deg, #0f0f16, #141420); border: 1px solid rgba(0, 212, 255, 0.15); border-radius: 12px; color: #999; cursor: pointer; font-size: 1rem; transition: all 0.3s ease; }
+        .tab:hover { background: linear-gradient(145deg, #141420, #1a1a28); border-color: rgba(0, 212, 255, 0.4); color: #fff; transform: translateY(-2px); }
+        .tab.active { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #050508; font-weight: 700; border-color: #00d4ff; box-shadow: 0 4px 20px rgba(0, 212, 255, 0.35); }
+        .panel { display: none; background: linear-gradient(145deg, #0c0c12, #101018); border-radius: 16px; padding: 30px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); border: 1px solid rgba(0, 212, 255, 0.1); }
         .panel.active { display: block; }
         .form-group { margin-bottom: 22px; }
         label { display: block; margin-bottom: 10px; color: #00d4ff; font-weight: 600; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; }
-        select, input[type="text"] { width: 100%; padding: 14px; border: 2px solid rgba(123, 44, 191, 0.3); border-radius: 10px; background: rgba(15, 12, 41, 0.8); color: #f0f0f0; font-size: 1rem; transition: all 0.3s; }
-        select:focus, input[type="text"]:focus { outline: none; border-color: #00d4ff; box-shadow: 0 0 15px rgba(0, 212, 255, 0.3); }
+        select, input[type="text"] { width: 100%; padding: 14px; border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 10px; background: rgba(8, 8, 12, 0.9); color: #e8e8e8; font-size: 1rem; transition: all 0.3s; }
+        select:focus, input[type="text"]:focus { outline: none; border-color: #00d4ff; box-shadow: 0 0 15px rgba(0, 212, 255, 0.25); }
         .trade-sides { display: grid; grid-template-columns: 1fr auto 1fr; gap: 25px; align-items: start; }
-        .trade-side { background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 14px; padding: 25px; border: 1px solid rgba(0, 212, 255, 0.15); }
+        .trade-side { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 14px; padding: 25px; border: 1px solid rgba(0, 212, 255, 0.1); }
         .trade-side h3 { color: #00d4ff; margin-bottom: 18px; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; }
-        .arrow { display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #7b2cbf; padding-top: 60px; text-shadow: 0 0 20px rgba(123, 44, 191, 0.5); }
+        .arrow { display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #00d4ff; padding-top: 60px; text-shadow: 0 0 20px rgba(0, 212, 255, 0.4); }
         .player-input { display: flex; gap: 12px; margin-bottom: 12px; }
-        .player-input input { flex: 1; background: rgba(30, 30, 80, 0.6); border: 2px solid rgba(123, 44, 191, 0.4); }
-        .player-input input:focus { border-color: #00d4ff; background: rgba(30, 30, 80, 0.9); }
-        .player-input input::placeholder { color: #7070a0; }
+        .player-input input { flex: 1; background: rgba(8, 8, 12, 0.8); border: 1px solid rgba(0, 212, 255, 0.2); }
+        .player-input input:focus { border-color: #00d4ff; background: rgba(12, 12, 18, 0.95); }
+        .player-input input::placeholder { color: #555; }
         .pick-label { font-size: 0.9rem; color: #00d4ff; margin-bottom: 6px; font-weight: 500; }
         .player-list { margin-top: 12px; min-height: 45px; }
-        .player-tag { display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #3a3a7a, #4a4a9a); padding: 10px 16px; border-radius: 25px; margin: 5px; font-size: 0.95rem; border: 1px solid rgba(0, 212, 255, 0.3); }
-        .player-tag.pick { background: linear-gradient(135deg, #5a3a2a, #7a4a3a); border-color: rgba(255, 170, 100, 0.4); }
+        .player-tag { display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #1a1a24, #22222e); padding: 10px 16px; border-radius: 25px; margin: 5px; font-size: 0.95rem; border: 1px solid rgba(0, 212, 255, 0.2); }
+        .player-tag.pick { background: linear-gradient(135deg, #2a1a10, #382818); border-color: rgba(255, 170, 100, 0.3); }
         .player-tag .remove { cursor: pointer; color: #ff6b6b; font-weight: bold; font-size: 1.1rem; }
         .player-tag .remove:hover { color: #ff4040; }
         .btn { padding: 16px 32px; border: none; border-radius: 12px; font-size: 1.05rem; cursor: pointer; transition: all 0.3s ease; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-primary { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #0f0c29; box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3); }
-        .btn-primary:hover { background: linear-gradient(135deg, #00e5ff, #00aadd); transform: translateY(-3px); box-shadow: 0 6px 30px rgba(0, 212, 255, 0.5); }
-        .btn-secondary { background: linear-gradient(145deg, #3a3a6a, #4a4a8a); color: #f0f0f0; border: 1px solid rgba(123, 44, 191, 0.3); }
-        .btn-secondary:hover { background: linear-gradient(145deg, #4a4a8a, #5a5a9a); }
-        .btn-add { padding: 14px 20px; background: linear-gradient(135deg, #7b2cbf, #5a1a9f); color: #fff; }
-        .btn-add:hover { background: linear-gradient(135deg, #9b3cdf, #7b2cbf); }
+        .btn-primary { background: linear-gradient(135deg, #00d4ff, #0099cc); color: #050508; box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3); }
+        .btn-primary:hover { background: linear-gradient(135deg, #00e5ff, #00aadd); transform: translateY(-3px); box-shadow: 0 6px 30px rgba(0, 212, 255, 0.45); }
+        .btn-secondary { background: linear-gradient(145deg, #18181f, #1e1e28); color: #e0e0e0; border: 1px solid rgba(0, 212, 255, 0.2); }
+        .btn-secondary:hover { background: linear-gradient(145deg, #1e1e28, #252532); }
+        .btn-add { padding: 14px 20px; background: linear-gradient(135deg, #00a8cc, #0088aa); color: #fff; }
+        .btn-add:hover { background: linear-gradient(135deg, #00c4ee, #00a8cc); }
         .results { margin-top: 35px; }
-        .result-card { background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 16px; padding: 25px; margin-bottom: 18px; border: 1px solid rgba(0, 212, 255, 0.2); }
+        .result-card { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 16px; padding: 25px; margin-bottom: 18px; border: 1px solid rgba(0, 212, 255, 0.12); }
         .verdict { font-size: 1.6rem; font-weight: bold; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-        .verdict.fair { color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.4); }
-        .verdict.unfair { color: #ff4d6d; text-shadow: 0 0 20px rgba(255, 77, 109, 0.4); }
-        .verdict.questionable { color: #ffbe0b; text-shadow: 0 0 20px rgba(255, 190, 11, 0.4); }
+        .verdict.fair { color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.35); }
+        .verdict.unfair { color: #ff4d6d; text-shadow: 0 0 20px rgba(255, 77, 109, 0.35); }
+        .verdict.questionable { color: #ffbe0b; text-shadow: 0 0 20px rgba(255, 190, 11, 0.35); }
         .value-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin: 20px 0; }
         .value-box { background: linear-gradient(145deg, #1a1a4a, #252570); padding: 20px; border-radius: 12px; border: 1px solid rgba(123, 44, 191, 0.3); }
-        .value-box h4 { color: #a0a0c0; font-size: 0.95rem; margin-bottom: 8px; text-transform: uppercase; }
-        .value-box .value { font-size: 2rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #7b2cbf); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .reasoning { color: #b0b0c0; line-height: 1.7; font-size: 1rem; }
+        .value-box { background: linear-gradient(145deg, #0a0a10, #0e0e16); padding: 20px; border-radius: 12px; border: 1px solid rgba(0, 212, 255, 0.1); }
+        .value-box h4 { color: #888; font-size: 0.95rem; margin-bottom: 8px; text-transform: uppercase; }
+        .value-box .value { font-size: 2rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #00a8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .reasoning { color: #aaa; line-height: 1.7; font-size: 1rem; }
         .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; }
-        .team-card { background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 14px; padding: 22px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.15); }
-        .team-card:hover { transform: translateY(-5px); box-shadow: 0 12px 35px rgba(0, 212, 255, 0.2); border-color: rgba(0, 212, 255, 0.4); }
+        .team-card { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 14px; padding: 22px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.1); }
+        .team-card:hover { transform: translateY(-5px); box-shadow: 0 12px 35px rgba(0, 212, 255, 0.15); border-color: rgba(0, 212, 255, 0.35); }
         .team-card h3 { color: #00d4ff; margin-bottom: 12px; font-size: 1.15rem; }
-        .team-card .stats { color: #a0a0c0; font-size: 0.95rem; }
-        .player-card { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 10px; margin-bottom: 10px; border: 1px solid rgba(123, 44, 191, 0.2); transition: all 0.2s; }
-        .player-card:hover { border-color: rgba(0, 212, 255, 0.4); background: linear-gradient(145deg, #1a1a45, #252565); }
-        .player-card .name { font-weight: 600; color: #f0f0f0; }
+        .team-card .stats { color: #888; font-size: 0.95rem; }
+        .player-card { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 10px; margin-bottom: 10px; border: 1px solid rgba(0, 212, 255, 0.1); transition: all 0.2s; }
+        .player-card:hover { border-color: rgba(0, 212, 255, 0.35); background: linear-gradient(145deg, #0e0e16, #12121c); }
+        .player-card .name { font-weight: 600; color: #e8e8e8; }
         .player-card .value { color: #00d4ff; font-weight: bold; font-size: 1.1rem; }
         .search-container { position: relative; }
-        .search-results { position: absolute; top: 100%; left: 0; right: 0; background: linear-gradient(145deg, #1e1e4e, #2a2a6a); border-radius: 0 0 12px 12px; max-height: 320px; overflow-y: auto; z-index: 100; display: none; border: 1px solid rgba(0, 212, 255, 0.3); border-top: none; }
+        .search-results { position: absolute; top: 100%; left: 0; right: 0; background: linear-gradient(145deg, #0e0e16, #12121c); border-radius: 0 0 12px 12px; max-height: 320px; overflow-y: auto; z-index: 100; display: none; border: 1px solid rgba(0, 212, 255, 0.2); border-top: none; }
         .search-results.active { display: block; }
-        .search-result { padding: 14px 16px; cursor: pointer; border-bottom: 1px solid rgba(123, 44, 191, 0.2); transition: all 0.2s; }
-        .search-result:hover { background: rgba(0, 212, 255, 0.1); }
-        .search-result .player-name { font-weight: 600; color: #f0f0f0; }
-        .search-result .player-info { font-size: 0.88rem; color: #a0a0c0; margin-top: 4px; }
-        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 12, 41, 0.95); z-index: 1000; overflow-y: auto; }
+        .search-result { padding: 14px 16px; cursor: pointer; border-bottom: 1px solid rgba(0, 212, 255, 0.1); transition: all 0.2s; }
+        .search-result:hover { background: rgba(0, 212, 255, 0.08); }
+        .search-result .player-name { font-weight: 600; color: #e8e8e8; }
+        .search-result .player-info { font-size: 0.88rem; color: #888; margin-top: 4px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(5, 5, 8, 0.96); z-index: 1000; overflow-y: auto; }
         .modal.active { display: flex; justify-content: center; align-items: flex-start; padding: 50px 20px; }
-        .modal-content { background: linear-gradient(145deg, #1a1a4a, #252570); border-radius: 20px; max-width: 650px; width: 100%; padding: 35px; position: relative; border: 1px solid rgba(0, 212, 255, 0.3); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+        .modal-content { background: linear-gradient(145deg, #0c0c12, #101018); border-radius: 20px; max-width: 650px; width: 100%; padding: 35px; position: relative; border: 1px solid rgba(0, 212, 255, 0.2); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
         #player-modal { z-index: 1100; }
         #player-modal .modal-content { max-width: 520px; }
-        .modal-close { position: absolute; top: 18px; right: 22px; font-size: 1.8rem; cursor: pointer; color: #7070a0; transition: all 0.2s; }
+        .modal-close { position: absolute; top: 18px; right: 22px; font-size: 1.8rem; cursor: pointer; color: #555; transition: all 0.2s; }
         .modal-close:hover { color: #00d4ff; }
         .player-header { text-align: center; margin-bottom: 30px; }
-        .player-header h2 { color: #00d4ff; font-size: 2rem; text-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
-        .player-header .dynasty-value { font-size: 3rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #7b2cbf); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .player-header h2 { color: #00d4ff; font-size: 2rem; text-shadow: 0 0 20px rgba(0, 212, 255, 0.25); }
+        .player-header .dynasty-value { font-size: 3rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #00a8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .player-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 18px; }
-        .stat-box { background: linear-gradient(145deg, #151535, #1e1e50); padding: 18px; border-radius: 12px; text-align: center; border: 1px solid rgba(123, 44, 191, 0.2); }
-        .stat-box .label { color: #8080a0; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-box .value { font-size: 1.4rem; font-weight: bold; color: #f0f0f0; }
+        .stat-box { background: linear-gradient(145deg, #0a0a10, #0e0e16); padding: 18px; border-radius: 12px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1); }
+        .stat-box .label { color: #666; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-box .value { font-size: 1.4rem; font-weight: bold; color: #e8e8e8; }
         .stat-box .value.ascending { color: #00ff88; }
         .stat-box .value.descending { color: #ff4d6d; }
-        .trade-advice { margin-top: 25px; padding: 20px; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 12px; border-left: 4px solid #7b2cbf; }
-        .trade-advice h4 { color: #7b2cbf; margin-bottom: 10px; font-size: 1.1rem; }
-        .loading { text-align: center; padding: 50px; color: #7070a0; font-size: 1.1rem; }
-        .suggestion-card { background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 16px; padding: 22px; margin-bottom: 18px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(123, 44, 191, 0.2); }
-        .suggestion-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0, 212, 255, 0.15); border-color: rgba(0, 212, 255, 0.4); }
+        .trade-advice { margin-top: 25px; padding: 20px; background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 12px; border-left: 4px solid #00d4ff; }
+        .trade-advice h4 { color: #00d4ff; margin-bottom: 10px; font-size: 1.1rem; }
+        .loading { text-align: center; padding: 50px; color: #555; font-size: 1.1rem; }
+        .suggestion-card { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 16px; padding: 22px; margin-bottom: 18px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.1); }
+        .suggestion-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0, 212, 255, 0.12); border-color: rgba(0, 212, 255, 0.35); }
         .suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
         .suggestion-verdict { font-weight: bold; padding: 6px 16px; border-radius: 25px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
-        .suggestion-verdict.great { background: linear-gradient(135deg, #00ff88, #00cc6a); color: #0f0c29; }
-        .suggestion-verdict.good { background: linear-gradient(135deg, #ffbe0b, #cc9900); color: #0f0c29; }
+        .suggestion-verdict.great { background: linear-gradient(135deg, #00ff88, #00cc6a); color: #050508; }
+        .suggestion-verdict.good { background: linear-gradient(135deg, #ffbe0b, #cc9900); color: #050508; }
         .suggestion-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        .suggestion-side h4 { color: #8080a0; font-size: 0.9rem; margin-bottom: 10px; text-transform: uppercase; }
-        .suggestion-players { font-size: 1rem; color: #d0d0e0; }
+        .suggestion-side h4 { color: #666; font-size: 0.9rem; margin-bottom: 10px; text-transform: uppercase; }
+        .suggestion-players { font-size: 1rem; color: #ccc; }
         .suggestion-value { color: #00d4ff; font-weight: 600; margin-top: 8px; font-size: 1.05rem; }
         .player-link { cursor: pointer; color: #00d4ff; transition: all 0.2s; }
-        .player-link:hover { color: #7b2cbf; text-decoration: underline; }
+        .player-link:hover { color: #00a8cc; text-decoration: underline; }
         @media (max-width: 768px) {
             .trade-sides { grid-template-columns: 1fr; }
             .arrow { transform: rotate(90deg); padding: 20px 0; }
@@ -1017,7 +1023,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             <!-- AI Trade Suggestions Section -->
             <h3 style="color: #ffd700; margin: 0 0 15px 0; font-size: 1.1rem;">AI Trade Suggestions</h3>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 12px;">
                 <div class="form-group" style="flex: 1; min-width: 180px;">
                     <label>Your Team</label>
                     <select id="suggestTeamSelect" onchange="loadSuggestions()"></select>
@@ -1036,6 +1042,45 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <option value="2-for-1">2-for-1</option>
                         <option value="2-for-2">2-for-2</option>
                     </select>
+                </div>
+            </div>
+            <!-- Quick Filters Row -->
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div class="form-group" style="flex: 1; min-width: 140px;">
+                    <label style="font-size: 0.8rem;">Position Need</label>
+                    <select id="filterPosition" onchange="applyQuickFilters()">
+                        <option value="">Any Position</option>
+                        <option value="SP">SP</option>
+                        <option value="RP">RP</option>
+                        <option value="C">C</option>
+                        <option value="1B">1B</option>
+                        <option value="2B">2B</option>
+                        <option value="3B">3B</option>
+                        <option value="SS">SS</option>
+                        <option value="OF">OF</option>
+                        <option value="DH">DH</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 140px;">
+                    <label style="font-size: 0.8rem;">Min Fit Score</label>
+                    <select id="filterFitScore" onchange="applyQuickFilters()">
+                        <option value="0">Show All</option>
+                        <option value="80">Good+ (80+)</option>
+                        <option value="95">Great+ (95+)</option>
+                        <option value="110">Excellent (110+)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 160px;">
+                    <label style="font-size: 0.8rem;">Value Difference</label>
+                    <select id="filterValueDiff" onchange="applyQuickFilters()">
+                        <option value="100">Show All</option>
+                        <option value="20">Within 20 pts</option>
+                        <option value="10">Within 10 pts</option>
+                        <option value="5">Within 5 pts</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: flex-end;">
+                    <button onclick="clearQuickFilters()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #888; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">Clear Filters</button>
                 </div>
             </div>
             <div id="suggestions-results"></div>
@@ -1532,7 +1577,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         </div>
                         ${data.category_impact && data.category_impact.length > 0 ? `
                             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0;">
-                                ${data.category_impact.map(c => `<span style="background: linear-gradient(135deg, #2a2a5a, #3a3a7a); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; border: 1px solid rgba(0, 212, 255, 0.2);">${c}</span>`).join('')}
+                                ${data.category_impact.map(c => `<span style="background: linear-gradient(135deg, #14141c, #1a1a24); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; border: 1px solid rgba(0, 212, 255, 0.2);">${c}</span>`).join('')}
                             </div>
                         ` : ''}
                         ${statTableHtml}
@@ -1563,7 +1608,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <span style="color: #e4e4e4; font-weight: 500;">${cat}</span>
                         <span style="color: ${color}; font-weight: bold;">${displayVal} <span style="color: #888; font-weight: normal;">(#${rank})</span></span>
                     </div>
-                    <div style="background: #2a2a3e; height: 8px; border-radius: 4px; overflow: hidden;">
+                    <div style="background: #12121a; height: 8px; border-radius: 4px; overflow: hidden;">
                         <div style="background: linear-gradient(90deg, ${color}, ${color}88); width: ${rankPct}%; height: 100%; border-radius: 4px;"></div>
                     </div>
                 </div>
@@ -1591,26 +1636,26 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                     <!-- Quick Stats -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 25px;">
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <div style="color: #888; font-size: 0.75rem;">Total Value</div>
                             <div style="color: #ffd700; font-size: 1.3rem; font-weight: bold;">${data.total_value.toFixed(1)}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <div style="color: #888; font-size: 0.75rem;">Avg Age</div>
                             <div style="color: #e4e4e4; font-size: 1.3rem; font-weight: bold;">${comp.avg_age || 'N/A'}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <div style="color: #888; font-size: 0.75rem;">Roster</div>
                             <div style="color: #e4e4e4; font-size: 1.3rem; font-weight: bold;">${data.player_count}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <div style="color: #888; font-size: 0.75rem;">Prospects</div>
                             <div style="color: #4ade80; font-size: 1.3rem; font-weight: bold;">${(data.prospects || []).length}</div>
                         </div>
                     </div>
 
                     <!-- Roster Composition -->
-                    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                    <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(0, 212, 255, 0.1);">
                         <h4 style="color: #00d4ff; margin: 0 0 12px 0; font-size: 0.9rem;">ROSTER COMPOSITION</h4>
                         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                             <div><span style="color: #888;">Hitters:</span> <span style="color: #e4e4e4; font-weight: bold;">${comp.hitters || 0}</span></div>
@@ -1626,7 +1671,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                     <!-- Category Rankings -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">HITTING CATEGORIES</h4>
                             ${cats.HR ? renderCategoryBar('HR', cats.HR.value, cats.HR.rank, numTeams) : ''}
                             ${cats.RBI ? renderCategoryBar('RBI', cats.RBI.value, cats.RBI.rank, numTeams) : ''}
@@ -1636,7 +1681,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             ${cats.OPS ? renderCategoryBar('OPS', cats.OPS.value, cats.OPS.rank, numTeams) : ''}
                             ${cats.SO ? renderCategoryBar('SO', cats.SO.value, cats.SO.rank, numTeams, true) : ''}
                         </div>
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">PITCHING CATEGORIES</h4>
                             ${cats.K ? renderCategoryBar('K', cats.K.value, cats.K.rank, numTeams) : ''}
                             ${cats.QS ? renderCategoryBar('QS', cats.QS.value, cats.QS.rank, numTeams) : ''}
@@ -1661,17 +1706,17 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </div>
 
                     <!-- Analysis -->
-                    ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 10px; line-height: 1.7; border: 1px solid #3a3a5a;">${data.analysis}</div>` : ''}
+                    ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: linear-gradient(135deg, #0a0a10, #0e0e16); border-radius: 10px; line-height: 1.7; border: 1px solid rgba(0, 212, 255, 0.1);">${data.analysis}</div>` : ''}
 
                     <!-- Positional Depth -->
-                    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #3a3a5a;">
+                    <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid rgba(0, 212, 255, 0.1);">
                         <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">POSITIONAL DEPTH <span style="color: #888; font-size: 0.75rem;">(click to view all)</span></h4>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
                             ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
                                 const players = posDepth[pos] || [];
                                 const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
                                 return `
-                                    <div onclick="showPositionDepth('${pos}')" style="background: #2a2a3e; padding: 10px; border-radius: 6px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 12px rgba(0,212,255,0.2)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
+                                    <div onclick="showPositionDepth('${pos}')" style="background: #12121a; padding: 10px; border-radius: 6px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 12px rgba(0,212,255,0.2)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
                                         <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                                             <span style="color: #00d4ff; font-weight: bold;">${pos}</span>
                                             <span style="color: ${depthColor}; font-size: 0.8rem;">${players.length} deep</span>
@@ -1705,7 +1750,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
 
                         const posDiv = document.createElement('div');
-                        posDiv.style.cssText = 'background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;';
+                        posDiv.style.cssText = 'background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; border: 1px solid rgba(0, 212, 255, 0.1);';
 
                         let html = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #3a3a5a; padding-bottom: 8px;">';
                         html += '<span style="color: ' + posColor + '; font-weight: bold; font-size: 1.1rem;">' + pos + '</span>';
@@ -1853,7 +1898,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 if (data.category_contributions && data.category_contributions.length > 0) {
                     categoryHtml = '<div style="margin-top:15px;"><div style="color:#888;font-size:0.85rem;margin-bottom:10px;">Category Contributions</div>' +
                         '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
-                        data.category_contributions.map(c => '<span style="background:#3a3a5a;padding:6px 12px;border-radius:20px;font-size:0.8rem;color:#4ade80;">' + c + '</span>').join('') +
+                        data.category_contributions.map(c => '<span style="background:#1a1a24;padding:6px 12px;border-radius:20px;font-size:0.8rem;color:#4ade80;">' + c + '</span>').join('') +
                         '</div></div>';
                 }
 
@@ -2006,10 +2051,18 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 results.innerHTML = '<div class="loading">Finding trade suggestions...</div>';
             }
 
+            // Get quick filter values
+            const filterPosition = document.getElementById('filterPosition').value;
+            const filterFitScore = document.getElementById('filterFitScore').value;
+            const filterValueDiff = document.getElementById('filterValueDiff').value;
+
             try {
                 let url = `${API_BASE}/suggest?my_team=${encodeURIComponent(myTeam)}&offset=${currentSuggestOffset}&limit=${currentSuggestLimit}`;
                 if (targetTeam) url += `&target_team=${encodeURIComponent(targetTeam)}`;
                 if (tradeType !== 'any') url += `&trade_type=${encodeURIComponent(tradeType)}`;
+                if (filterPosition) url += `&filter_position=${encodeURIComponent(filterPosition)}`;
+                if (filterFitScore) url += `&filter_min_fit=${filterFitScore}`;
+                if (filterValueDiff) url += `&filter_max_diff=${filterValueDiff}`;
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -2032,7 +2085,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 if (data.team_needs) {
                     const needs = data.team_needs;
                     needsHtml = `
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
                                 <div>
                                     <span style="color: #888; font-size: 0.85rem;">Your Window:</span>
@@ -2068,7 +2121,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <div class="suggestion-header">
                             <span>Trade with ${s.other_team}</span>
                             <div style="display:flex;gap:8px;align-items:center;">
-                                <span style="background:#3a3a5a;padding:4px 10px;border-radius:12px;font-size:0.75rem;">${s.trade_type || '1-for-1'}</span>
+                                <span style="background:#1a1a24;padding:4px 10px;border-radius:12px;font-size:0.75rem;">${s.trade_type || '1-for-1'}</span>
                                 <span style="background: rgba(255,215,0,0.15); color: ${fitColor}; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">${fitLabel}</span>
                             </div>
                         </div>
@@ -2103,6 +2156,18 @@ HTML_CONTENT = '''<!DOCTYPE html>
             loadSuggestions(true);
         }
 
+        function applyQuickFilters() {
+            // Reset pagination and reload with filters
+            loadSuggestions(false);
+        }
+
+        function clearQuickFilters() {
+            document.getElementById('filterPosition').value = '';
+            document.getElementById('filterFitScore').value = '0';
+            document.getElementById('filterValueDiff').value = '100';
+            loadSuggestions(false);
+        }
+
         async function loadFASuggestions() {
             const myTeam = document.getElementById('faTeamSelect').value;
             const posFilter = document.getElementById('faPosFilter').value;
@@ -2134,7 +2199,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 if (data.team_needs) {
                     const needs = data.team_needs;
                     needsHtml = `
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
                                 <div>
                                     <span style="color: #888; font-size: 0.85rem;">Team Window:</span>
@@ -2162,7 +2227,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     `;
                 } else {
                     needsHtml = `
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #3a3a5a;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(0, 212, 255, 0.1);">
                             <div style="color: #ffd700; font-weight: bold;">Top ${data.suggestions.length} Available Free Agents</div>
                             <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">Select your team above for personalized recommendations based on your needs.</div>
                         </div>
@@ -2430,7 +2495,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     const diffColor = Math.abs(pkg.value_diff) <= 5 ? '#4ade80' : (Math.abs(pkg.value_diff) <= 15 ? '#ffd700' : '#f87171');
                     const diffText = pkg.value_diff >= 0 ? '+' + pkg.value_diff : pkg.value_diff;
 
-                    html += '<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 10px; padding: 15px; border: 1px solid #3a3a5a;">';
+                    html += '<div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); border-radius: 10px; padding: 15px; border: 1px solid rgba(0, 212, 255, 0.1);">';
                     html += '<div style="display: flex; justify-content: space-between; margin-bottom: 10px;">';
                     html += '<span style="color: #00d4ff;">' + pkg.other_team + '</span>';
                     html += '<span style="color: ' + diffColor + ';">' + diffText + ' pts</span>';
@@ -6760,6 +6825,10 @@ def get_suggestions():
         trade_type = request.args.get('trade_type', 'any')
         offset = int(request.args.get('offset', 0))
         limit = int(request.args.get('limit', 8))
+        # Quick filter parameters
+        filter_position = request.args.get('filter_position', '')
+        filter_min_fit = int(request.args.get('filter_min_fit', 0))
+        filter_max_diff = int(request.args.get('filter_max_diff', 100))
 
         if not my_team or my_team not in teams:
             return jsonify({"error": "Invalid team specified"}), 400
@@ -6805,6 +6874,8 @@ def get_suggestions():
                                 "other_team": other_team,
                                 "you_send": [my_p.name],
                                 "you_receive": [their_p.name],
+                                "you_send_positions": [my_p.position],
+                                "you_receive_positions": [their_p.position],
                                 "you_send_value": round(my_val, 1),
                                 "you_receive_value": round(their_val, 1),
                                 "value_diff": round(diff, 1),
@@ -6830,6 +6901,8 @@ def get_suggestions():
                                     "other_team": other_team,
                                     "you_send": [my_p1.name, my_p2.name],
                                     "you_receive": [their_p.name],
+                                    "you_send_positions": [my_p1.position, my_p2.position],
+                                    "you_receive_positions": [their_p.position],
                                     "you_send_value": round(combined_val, 1),
                                     "you_receive_value": round(their_val, 1),
                                     "value_diff": round(diff, 1),
@@ -6856,6 +6929,8 @@ def get_suggestions():
                                         "other_team": other_team,
                                         "you_send": [my_p1.name, my_p2.name],
                                         "you_receive": [their_p1.name, their_p2.name],
+                                        "you_send_positions": [my_p1.position, my_p2.position],
+                                        "you_receive_positions": [their_p1.position, their_p2.position],
                                         "you_send_value": round(my_combined, 1),
                                         "you_receive_value": round(their_combined, 1),
                                         "value_diff": round(diff, 1),
@@ -6867,6 +6942,14 @@ def get_suggestions():
         # Sort by fit score (best fits first), not just value difference
         suggestions.sort(key=lambda x: x['fit_score'], reverse=True)
         suggestions = suggestions[:200]  # Cap at 200 total suggestions
+
+        # Apply quick filters
+        if filter_position:
+            suggestions = [s for s in suggestions if any(filter_position in pos for pos in s.get('you_receive_positions', []))]
+        if filter_min_fit > 0:
+            suggestions = [s for s in suggestions if s['fit_score'] >= filter_min_fit]
+        if filter_max_diff < 100:
+            suggestions = [s for s in suggestions if s['value_diff'] <= filter_max_diff]
 
         # Paginate
         paginated = suggestions[offset:offset + limit]
