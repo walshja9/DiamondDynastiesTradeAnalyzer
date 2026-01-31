@@ -3743,161 +3743,167 @@ def calculate_league_category_rankings():
 
 @app.route('/team/<team_name>')
 def get_team(team_name):
-    if team_name not in teams:
-        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+    try:
+        if team_name not in teams:
+            return jsonify({"error": f"Team '{team_name}' not found", "available_teams": list(teams.keys())}), 404
 
-    team = teams[team_name]
-    draft_order, power_rankings, team_totals = get_team_rankings()
+        team = teams[team_name]
+        draft_order, power_rankings, team_totals = get_team_rankings()
 
-    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
-    players_with_value.sort(key=lambda x: x[1], reverse=True)
+        players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+        players_with_value.sort(key=lambda x: x[1], reverse=True)
 
-    players = []
-    for p, value in players_with_value:
-        # Get projections for player info
-        proj = HITTER_PROJECTIONS.get(p.name) or PITCHER_PROJECTIONS.get(p.name) or RELIEVER_PROJECTIONS.get(p.name, {})
-        proj_str = ""
-        if proj:
-            if p.name in HITTER_PROJECTIONS:
-                proj_str = f"{proj.get('HR', 0)} HR, {proj.get('RBI', 0)} RBI, .{int(proj.get('AVG', 0)*1000):03d} AVG"
-            elif p.name in PITCHER_PROJECTIONS:
-                proj_str = f"{proj.get('K', 0)} K, {proj.get('ERA', 0):.2f} ERA"
-            elif p.name in RELIEVER_PROJECTIONS:
-                proj_str = f"{proj.get('SV', 0)} SV, {proj.get('ERA', 0):.2f} ERA"
+        players = []
+        for p, value in players_with_value:
+            # Get projections for player info
+            proj = HITTER_PROJECTIONS.get(p.name) or PITCHER_PROJECTIONS.get(p.name) or RELIEVER_PROJECTIONS.get(p.name, {})
+            proj_str = ""
+            if proj:
+                if p.name in HITTER_PROJECTIONS:
+                    proj_str = f"{proj.get('HR', 0)} HR, {proj.get('RBI', 0)} RBI, .{int(proj.get('AVG', 0)*1000):03d} AVG"
+                elif p.name in PITCHER_PROJECTIONS:
+                    proj_str = f"{proj.get('K', 0)} K, {proj.get('ERA', 0):.2f} ERA"
+                elif p.name in RELIEVER_PROJECTIONS:
+                    proj_str = f"{proj.get('SV', 0)} SV, {proj.get('ERA', 0):.2f} ERA"
 
-        players.append({
-            "name": p.name,
-            "position": p.position,
-            "team": p.mlb_team,
-            "age": p.age,
-            "value": round(value, 1),
-            "status": p.roster_status,
-            "proj": proj_str
+            players.append({
+                "name": p.name,
+                "position": p.position,
+                "team": p.mlb_team,
+                "age": p.age,
+                "value": round(value, 1),
+                "status": p.roster_status,
+                "proj": proj_str
+            })
+
+        total_value = team_totals.get(team_name, 0)
+        power_rank = power_rankings.get(team_name, 0)
+        draft_pick = draft_order.get(team_name, 0)
+
+        # Get top players and prospects
+        top_players = players[:20]
+        prospects = [{"name": p.name, "rank": p.prospect_rank, "age": p.age, "position": p.position}
+                     for p in team.players if p.is_prospect and p.prospect_rank]
+        prospects.sort(key=lambda x: x['rank'])
+
+        # Calculate league-wide category rankings
+        team_cats, league_rankings = calculate_league_category_rankings()
+        my_cats = team_cats.get(team_name, {})
+        my_rankings = league_rankings.get(team_name, {})
+        num_teams = len(teams)
+
+        # Build category details with values and rankings
+        category_details = {
+            'HR': {'value': my_cats.get('HR', 0), 'rank': my_rankings.get('HR', 0)},
+            'SB': {'value': my_cats.get('SB', 0), 'rank': my_rankings.get('SB', 0)},
+            'RBI': {'value': my_cats.get('RBI', 0), 'rank': my_rankings.get('RBI', 0)},
+            'R': {'value': my_cats.get('R', 0), 'rank': my_rankings.get('R', 0)},
+            'AVG': {'value': round(my_cats.get('AVG', .250), 3), 'rank': my_rankings.get('AVG', 0)},
+            'OPS': {'value': round(my_cats.get('OPS', .700), 3), 'rank': my_rankings.get('OPS', 0)},
+            'SO': {'value': my_cats.get('SO', 0), 'rank': my_rankings.get('SO', 0)},
+            'K': {'value': my_cats.get('K', 0), 'rank': my_rankings.get('K', 0)},
+            'ERA': {'value': round(my_cats.get('ERA', 4.50), 2), 'rank': my_rankings.get('ERA', 0)},
+            'WHIP': {'value': round(my_cats.get('WHIP', 1.30), 2), 'rank': my_rankings.get('WHIP', 0)},
+            'SV+HLD': {'value': my_cats.get('SV+HLD', 0), 'rank': my_rankings.get('SV+HLD', 0)},
+            'QS': {'value': my_cats.get('QS', 0), 'rank': my_rankings.get('QS', 0)},
+            'L': {'value': my_cats.get('L', 0), 'rank': my_rankings.get('L', 0)},
+            'K/BB': {'value': round(my_cats.get('K/BB', 0), 2), 'rank': my_rankings.get('K/BB', 0)},
+        }
+
+        # Calculate category strengths/weaknesses based on rankings
+        hitting_strengths, hitting_weaknesses = [], []
+        pitching_strengths, pitching_weaknesses = [], []
+
+        top_third = num_teams // 3
+        bottom_third = num_teams - top_third
+
+        for cat in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS', 'SO']:
+            rank = my_rankings.get(cat, num_teams)
+            if rank <= top_third:
+                hitting_strengths.append(cat)
+            elif rank >= bottom_third:
+                hitting_weaknesses.append(cat)
+
+        for cat in ['K', 'ERA', 'WHIP', 'SV+HLD', 'QS', 'L', 'K/BB']:
+            rank = my_rankings.get(cat, num_teams)
+            if rank <= top_third:
+                pitching_strengths.append(cat)
+            elif rank >= bottom_third:
+                pitching_weaknesses.append(cat)
+
+        # Positional depth analysis
+        pos_depth = {'C': [], '1B': [], '2B': [], 'SS': [], '3B': [], 'OF': [], 'SP': [], 'RP': []}
+        for p, v in players_with_value:
+            pos = p.position.upper() if p.position else ''
+            player_info = {"name": p.name, "value": round(v, 1), "age": p.age}
+            if 'C' in pos and '1B' not in pos and 'CF' not in pos:
+                pos_depth['C'].append(player_info)
+            if '1B' in pos:
+                pos_depth['1B'].append(player_info)
+            if '2B' in pos:
+                pos_depth['2B'].append(player_info)
+            if 'SS' in pos:
+                pos_depth['SS'].append(player_info)
+            if '3B' in pos:
+                pos_depth['3B'].append(player_info)
+            if 'OF' in pos or 'LF' in pos or 'CF' in pos or 'RF' in pos:
+                pos_depth['OF'].append(player_info)
+            if 'SP' in pos:
+                pos_depth['SP'].append(player_info)
+            if 'RP' in pos or 'CL' in pos:
+                pos_depth['RP'].append(player_info)
+
+        # Sort each position by value (keep all players for full depth chart)
+        for pos in pos_depth:
+            pos_depth[pos] = sorted(pos_depth[pos], key=lambda x: x['value'], reverse=True)
+
+        # Calculate roster composition
+        hitters = len([p for p in team.players if p.name in HITTER_PROJECTIONS])
+        starters = len([p for p in team.players if p.name in PITCHER_PROJECTIONS])
+        relievers = len([p for p in team.players if p.name in RELIEVER_PROJECTIONS])
+        ages = [p.age for p in team.players if p.age > 0]
+        avg_age = round(sum(ages) / len(ages), 1) if ages else 0
+        young_count = len([a for a in ages if a <= 25])
+        prime_count = len([a for a in ages if 26 <= a <= 30])
+        vet_count = len([a for a in ages if a > 30])
+
+        roster_composition = {
+            'hitters': hitters,
+            'starters': starters,
+            'relievers': relievers,
+            'avg_age': avg_age,
+            'young': young_count,
+            'prime': prime_count,
+            'veteran': vet_count
+        }
+
+        # Generate analysis
+        analysis = generate_team_analysis(team_name, team, players_with_value, power_rank, len(teams))
+
+        return jsonify({
+            "name": team_name,
+            "players": players,
+            "top_players": top_players,
+            "prospects": prospects,
+            "player_count": len(players),
+            "total_value": round(total_value, 1),
+            "power_rank": power_rank,
+            "draft_pick": draft_pick,
+            "hitting_strengths": hitting_strengths,
+            "hitting_weaknesses": hitting_weaknesses,
+            "pitching_strengths": pitching_strengths,
+            "pitching_weaknesses": pitching_weaknesses,
+            "category_details": category_details,
+            "positional_depth": pos_depth,
+            "roster_composition": roster_composition,
+            "num_teams": num_teams,
+            "analysis": analysis
         })
-
-    total_value = team_totals.get(team_name, 0)
-    power_rank = power_rankings.get(team_name, 0)
-    draft_pick = draft_order.get(team_name, 0)
-
-    # Get top players and prospects
-    top_players = players[:20]
-    prospects = [{"name": p.name, "rank": p.prospect_rank, "age": p.age, "position": p.position}
-                 for p in team.players if p.is_prospect and p.prospect_rank]
-    prospects.sort(key=lambda x: x['rank'])
-
-    # Calculate league-wide category rankings
-    team_cats, league_rankings = calculate_league_category_rankings()
-    my_cats = team_cats.get(team_name, {})
-    my_rankings = league_rankings.get(team_name, {})
-    num_teams = len(teams)
-
-    # Build category details with values and rankings
-    category_details = {
-        'HR': {'value': my_cats.get('HR', 0), 'rank': my_rankings.get('HR', 0)},
-        'SB': {'value': my_cats.get('SB', 0), 'rank': my_rankings.get('SB', 0)},
-        'RBI': {'value': my_cats.get('RBI', 0), 'rank': my_rankings.get('RBI', 0)},
-        'R': {'value': my_cats.get('R', 0), 'rank': my_rankings.get('R', 0)},
-        'AVG': {'value': round(my_cats.get('AVG', .250), 3), 'rank': my_rankings.get('AVG', 0)},
-        'OPS': {'value': round(my_cats.get('OPS', .700), 3), 'rank': my_rankings.get('OPS', 0)},
-        'SO': {'value': my_cats.get('SO', 0), 'rank': my_rankings.get('SO', 0)},
-        'K': {'value': my_cats.get('K', 0), 'rank': my_rankings.get('K', 0)},
-        'ERA': {'value': round(my_cats.get('ERA', 4.50), 2), 'rank': my_rankings.get('ERA', 0)},
-        'WHIP': {'value': round(my_cats.get('WHIP', 1.30), 2), 'rank': my_rankings.get('WHIP', 0)},
-        'SV+HLD': {'value': my_cats.get('SV+HLD', 0), 'rank': my_rankings.get('SV+HLD', 0)},
-        'QS': {'value': my_cats.get('QS', 0), 'rank': my_rankings.get('QS', 0)},
-        'L': {'value': my_cats.get('L', 0), 'rank': my_rankings.get('L', 0)},
-        'K/BB': {'value': round(my_cats.get('K/BB', 0), 2), 'rank': my_rankings.get('K/BB', 0)},
-    }
-
-    # Calculate category strengths/weaknesses based on rankings
-    hitting_strengths, hitting_weaknesses = [], []
-    pitching_strengths, pitching_weaknesses = [], []
-
-    top_third = num_teams // 3
-    bottom_third = num_teams - top_third
-
-    for cat in ['HR', 'SB', 'RBI', 'R', 'AVG', 'OPS', 'SO']:
-        rank = my_rankings.get(cat, num_teams)
-        if rank <= top_third:
-            hitting_strengths.append(cat)
-        elif rank >= bottom_third:
-            hitting_weaknesses.append(cat)
-
-    for cat in ['K', 'ERA', 'WHIP', 'SV+HLD', 'QS', 'L', 'K/BB']:
-        rank = my_rankings.get(cat, num_teams)
-        if rank <= top_third:
-            pitching_strengths.append(cat)
-        elif rank >= bottom_third:
-            pitching_weaknesses.append(cat)
-
-    # Positional depth analysis
-    pos_depth = {'C': [], '1B': [], '2B': [], 'SS': [], '3B': [], 'OF': [], 'SP': [], 'RP': []}
-    for p, v in players_with_value:
-        pos = p.position.upper() if p.position else ''
-        player_info = {"name": p.name, "value": round(v, 1), "age": p.age}
-        if 'C' in pos and '1B' not in pos and 'CF' not in pos:
-            pos_depth['C'].append(player_info)
-        if '1B' in pos:
-            pos_depth['1B'].append(player_info)
-        if '2B' in pos:
-            pos_depth['2B'].append(player_info)
-        if 'SS' in pos:
-            pos_depth['SS'].append(player_info)
-        if '3B' in pos:
-            pos_depth['3B'].append(player_info)
-        if 'OF' in pos or 'LF' in pos or 'CF' in pos or 'RF' in pos:
-            pos_depth['OF'].append(player_info)
-        if 'SP' in pos:
-            pos_depth['SP'].append(player_info)
-        if 'RP' in pos or 'CL' in pos:
-            pos_depth['RP'].append(player_info)
-
-    # Sort each position by value (keep all players for full depth chart)
-    for pos in pos_depth:
-        pos_depth[pos] = sorted(pos_depth[pos], key=lambda x: x['value'], reverse=True)
-
-    # Calculate roster composition
-    hitters = len([p for p in team.players if p.name in HITTER_PROJECTIONS])
-    starters = len([p for p in team.players if p.name in PITCHER_PROJECTIONS])
-    relievers = len([p for p in team.players if p.name in RELIEVER_PROJECTIONS])
-    ages = [p.age for p in team.players if p.age > 0]
-    avg_age = round(sum(ages) / len(ages), 1) if ages else 0
-    young_count = len([a for a in ages if a <= 25])
-    prime_count = len([a for a in ages if 26 <= a <= 30])
-    vet_count = len([a for a in ages if a > 30])
-
-    roster_composition = {
-        'hitters': hitters,
-        'starters': starters,
-        'relievers': relievers,
-        'avg_age': avg_age,
-        'young': young_count,
-        'prime': prime_count,
-        'veteran': vet_count
-    }
-
-    # Generate analysis
-    analysis = generate_team_analysis(team_name, team, players_with_value, power_rank, len(teams))
-
-    return jsonify({
-        "name": team_name,
-        "players": players,
-        "top_players": top_players,
-        "prospects": prospects,
-        "player_count": len(players),
-        "total_value": round(total_value, 1),
-        "power_rank": power_rank,
-        "draft_pick": draft_pick,
-        "hitting_strengths": hitting_strengths,
-        "hitting_weaknesses": hitting_weaknesses,
-        "pitching_strengths": pitching_strengths,
-        "pitching_weaknesses": pitching_weaknesses,
-        "category_details": category_details,
-        "positional_depth": pos_depth,
-        "roster_composition": roster_composition,
-        "num_teams": num_teams,
-        "analysis": analysis
-    })
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error in get_team for '{team_name}': {error_details}")
+        return jsonify({"error": str(e), "team_name": team_name, "traceback": error_details}), 500
 
 
 @app.route('/team-profile/<team_name>', methods=['GET'])
