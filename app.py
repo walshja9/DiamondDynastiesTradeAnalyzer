@@ -73,104 +73,6 @@ RIVALRY_HISTORY = {
     "Hershey Bears": {"record": "10-16-2", "h2h": "1-1", "rival_record": "16-10-2", "rival_h2h": "1-1"},
 }
 
-# ============================================================================
-# GM PHILOSOPHY & TEAM PERSONALITY SYSTEM
-# ============================================================================
-
-GM_PHILOSOPHIES = {
-    "win_now": {
-        "name": "Win-Now Contender",
-        "description": "Aggressive buyer willing to pay premium for proven talent. Prioritizes immediate impact over long-term value.",
-        "prospect_trade_penalty": 0.15,  # More willing to trade prospects
-        "proven_talent_bonus": 0.20,     # Values established players more
-        "age_tolerance": 34,              # Will acquire older players
-        "risk_tolerance": 0.7
-    },
-    "dynasty_builder": {
-        "name": "Dynasty Builder",
-        "description": "Focuses on building sustainable success through young talent and development.",
-        "prospect_trade_penalty": -0.25,  # Reluctant to trade prospects
-        "proven_talent_bonus": -0.10,     # Less interested in aging stars
-        "age_tolerance": 28,               # Prefers younger players
-        "risk_tolerance": 0.4
-    },
-    "balanced": {
-        "name": "Balanced Approach",
-        "description": "Evaluates trades purely on value, balancing present and future considerations.",
-        "prospect_trade_penalty": 0.0,
-        "proven_talent_bonus": 0.0,
-        "age_tolerance": 31,
-        "risk_tolerance": 0.5
-    },
-    "value_seeker": {
-        "name": "Value Seeker",
-        "description": "Opportunistic trader who buys low and sells high. Targets undervalued assets.",
-        "prospect_trade_penalty": 0.05,
-        "proven_talent_bonus": -0.05,
-        "age_tolerance": 30,
-        "risk_tolerance": 0.6
-    },
-    "prospect_hoarder": {
-        "name": "Prospect Hoarder",
-        "description": "Extremely protective of prospects. Only trades young talent for significant overpays.",
-        "prospect_trade_penalty": -0.35,  # Very reluctant to trade prospects
-        "proven_talent_bonus": -0.15,
-        "age_tolerance": 26,
-        "risk_tolerance": 0.3
-    }
-}
-
-# Default team profiles - can be customized per team
-DEFAULT_TEAM_PROFILE = {
-    "gm_name": "",
-    "philosophy": "balanced",
-    "trade_aggressiveness": 0.5,  # 0-1 scale, how actively they seek trades
-    "risk_tolerance": 0.5,        # 0-1 scale, willingness to take risks
-    "position_priorities": [],     # Positions they're targeting
-    "category_priorities": [],     # Categories they want to improve
-    "custom_notes": ""
-}
-
-# Team profiles storage path
-TEAM_PROFILES_FILE = os.path.join(os.path.dirname(__file__), "team_profiles.json")
-
-def load_team_profiles():
-    """Load team profiles from JSON file."""
-    if os.path.exists(TEAM_PROFILES_FILE):
-        try:
-            with open(TEAM_PROFILES_FILE, 'r') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            return {}
-    return {}
-
-def save_team_profiles(profiles):
-    """Save team profiles to JSON file."""
-    try:
-        with open(TEAM_PROFILES_FILE, 'w') as f:
-            json.dump(profiles, f, indent=2)
-        return True
-    except IOError:
-        return False
-
-def get_team_profile(team_name):
-    """Get a team's profile, returning default if not set."""
-    profiles = load_team_profiles()
-    if team_name in profiles:
-        # Merge with defaults to ensure all keys exist
-        profile = DEFAULT_TEAM_PROFILE.copy()
-        profile.update(profiles[team_name])
-        return profile
-    return DEFAULT_TEAM_PROFILE.copy()
-
-def update_team_profile(team_name, updates):
-    """Update a team's profile."""
-    profiles = load_team_profiles()
-    if team_name not in profiles:
-        profiles[team_name] = DEFAULT_TEAM_PROFILE.copy()
-    profiles[team_name].update(updates)
-    return save_team_profiles(profiles)
-
 app = Flask(__name__)
 
 # Name aliases: Fantrax name -> Fangraphs/projection name
@@ -410,53 +312,14 @@ HTML_CONTENT = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Diamond Dynasties Trade Analyzer</title>
     <style>
-        :root {
-            --color-primary: #00d4ff;
-            --color-primary-dark: #0099cc;
-            --color-accent: #ffd700;
-            --color-purple: #7b2cbf;
-            --color-success: #00ff88;
-            --color-danger: #ff4d6d;
-            --color-warning: #ffbe0b;
-            --color-text: #f0f0f0;
-            --color-text-muted: #888;
-            --color-text-dim: #7070a0;
-            --bg-dark: #0f0c29;
-            --bg-card: linear-gradient(145deg, #151535, #1e1e50);
-            --bg-card-hover: linear-gradient(145deg, #1a1a45, #252565);
-            --border-subtle: rgba(123, 44, 191, 0.2);
-            --border-accent: rgba(0, 212, 255, 0.3);
-            --space-xs: 4px;
-            --space-sm: 8px;
-            --space-md: 16px;
-            --space-lg: 24px;
-            --space-xl: 32px;
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 16px;
-            --radius-xl: 20px;
-            --shadow-sm: 0 4px 12px rgba(0,0,0,0.2);
-            --shadow-md: 0 8px 24px rgba(0,0,0,0.3);
-            --shadow-lg: 0 12px 40px rgba(0,0,0,0.4);
-        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, var(--bg-dark) 0%, #302b63 50%, #24243e 100%);
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
             min-height: 100vh;
-            color: var(--color-text);
-            line-height: 1.6;
+            color: #f0f0f0;
         }
-        .container { max-width: 1200px; margin: 0 auto; padding: var(--space-lg); }
-
-        /* Utility classes */
-        .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border-accent), transparent); margin: var(--space-lg) 0; }
-        .text-muted { color: var(--color-text-muted); }
-        .text-primary { color: var(--color-primary); }
-        .text-accent { color: var(--color-accent); }
-        .text-success { color: var(--color-success); }
-        .text-danger { color: var(--color-danger); }
-        .card-base { background: var(--bg-card); padding: var(--space-lg); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 35px 0; border-bottom: 2px solid rgba(0, 212, 255, 0.3); margin-bottom: 30px; }
         header h1 { font-size: 2.8rem; background: linear-gradient(90deg, #00d4ff, #7b2cbf, #ff6b6b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-shadow: 0 0 30px rgba(0, 212, 255, 0.3); }
         header p { color: #a0a0a0; margin-top: 10px; font-size: 1.1rem; }
@@ -507,10 +370,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .team-card:hover { transform: translateY(-5px); box-shadow: 0 12px 35px rgba(0, 212, 255, 0.2); border-color: rgba(0, 212, 255, 0.4); }
         .team-card h3 { color: #00d4ff; margin-bottom: 12px; font-size: 1.15rem; }
         .team-card .stats { color: #a0a0c0; font-size: 0.95rem; }
-        .player-card { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--bg-card); border-radius: var(--radius-md); margin-bottom: 12px; border: 1px solid var(--border-subtle); transition: all 0.2s; }
-        .player-card:hover { border-color: var(--border-accent); background: var(--bg-card-hover); transform: translateX(4px); }
-        .player-card .name { font-weight: 600; color: var(--color-text); }
-        .player-card .value { color: var(--color-primary); font-weight: bold; font-size: 1.1rem; }
+        .player-card { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 10px; margin-bottom: 10px; border: 1px solid rgba(123, 44, 191, 0.2); transition: all 0.2s; }
+        .player-card:hover { border-color: rgba(0, 212, 255, 0.4); background: linear-gradient(145deg, #1a1a45, #252565); }
+        .player-card .name { font-weight: 600; color: #f0f0f0; }
+        .player-card .value { color: #00d4ff; font-weight: bold; font-size: 1.1rem; }
         .search-container { position: relative; }
         .search-results { position: absolute; top: 100%; left: 0; right: 0; background: linear-gradient(145deg, #1e1e4e, #2a2a6a); border-radius: 0 0 12px 12px; max-height: 320px; overflow-y: auto; z-index: 100; display: none; border: 1px solid rgba(0, 212, 255, 0.3); border-top: none; }
         .search-results.active { display: block; }
@@ -528,26 +391,25 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .player-header { text-align: center; margin-bottom: 30px; }
         .player-header h2 { color: #00d4ff; font-size: 2rem; text-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
         .player-header .dynasty-value { font-size: 3rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #7b2cbf); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .player-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 20px; margin: var(--space-md) 0; }
-        .stat-box { background: linear-gradient(145deg, #151535, #1e1e50); padding: 20px 16px; border-radius: var(--radius-md); text-align: center; border: 1px solid var(--border-subtle); transition: all 0.2s; }
-        .stat-box:hover { border-color: var(--border-accent); }
-        .stat-box .label { color: #8080a0; font-size: 0.8rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-box .value { font-size: 1.4rem; font-weight: bold; color: var(--color-text); }
-        .stat-box .value.ascending { color: var(--color-success); }
-        .stat-box .value.descending { color: var(--color-danger); }
-        .trade-advice { margin-top: 28px; padding: 22px; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: var(--radius-md); border-left: 4px solid var(--color-purple); }
-        .trade-advice h4 { color: var(--color-purple); margin-bottom: 12px; font-size: 1.1rem; }
+        .player-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 18px; }
+        .stat-box { background: linear-gradient(145deg, #151535, #1e1e50); padding: 18px; border-radius: 12px; text-align: center; border: 1px solid rgba(123, 44, 191, 0.2); }
+        .stat-box .label { color: #8080a0; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-box .value { font-size: 1.4rem; font-weight: bold; color: #f0f0f0; }
+        .stat-box .value.ascending { color: #00ff88; }
+        .stat-box .value.descending { color: #ff4d6d; }
+        .trade-advice { margin-top: 25px; padding: 20px; background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 12px; border-left: 4px solid #7b2cbf; }
+        .trade-advice h4 { color: #7b2cbf; margin-bottom: 10px; font-size: 1.1rem; }
         .loading { text-align: center; padding: 50px; color: #7070a0; font-size: 1.1rem; }
-        .suggestion-card { background: linear-gradient(145deg, #151535, #1e1e50); border-radius: var(--radius-lg); padding: 28px; margin-bottom: 20px; cursor: pointer; transition: all 0.3s ease; border: 1px solid var(--border-subtle); }
-        .suggestion-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0, 212, 255, 0.15); border-color: var(--border-accent); }
-        .suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(123, 44, 191, 0.15); }
+        .suggestion-card { background: linear-gradient(145deg, #151535, #1e1e50); border-radius: 16px; padding: 22px; margin-bottom: 18px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(123, 44, 191, 0.2); }
+        .suggestion-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0, 212, 255, 0.15); border-color: rgba(0, 212, 255, 0.4); }
+        .suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
         .suggestion-verdict { font-weight: bold; padding: 6px 16px; border-radius: 25px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
         .suggestion-verdict.great { background: linear-gradient(135deg, #00ff88, #00cc6a); color: #0f0c29; }
         .suggestion-verdict.good { background: linear-gradient(135deg, #ffbe0b, #cc9900); color: #0f0c29; }
-        .suggestion-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-        .suggestion-side h4 { color: #8080a0; font-size: 0.9rem; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .suggestion-players { font-size: 1rem; color: #d0d0e0; line-height: 1.8; }
-        .suggestion-value { color: var(--color-primary); font-weight: 600; margin-top: 12px; font-size: 1.05rem; }
+        .suggestion-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .suggestion-side h4 { color: #8080a0; font-size: 0.9rem; margin-bottom: 10px; text-transform: uppercase; }
+        .suggestion-players { font-size: 1rem; color: #d0d0e0; }
+        .suggestion-value { color: #00d4ff; font-weight: 600; margin-top: 8px; font-size: 1.05rem; }
         .player-link { cursor: pointer; color: #00d4ff; transition: all 0.2s; }
         .player-link:hover { color: #7b2cbf; text-decoration: underline; }
         @media (max-width: 768px) {
@@ -602,7 +464,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div id="teamAPlayers" class="player-list"></div>
                 </div>
 
-                <div class="arrow">&harr;</div>
+                <div class="arrow">⇄</div>
 
                 <div class="trade-side">
                     <h3>Team B Sends</h3>
@@ -653,50 +515,6 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
 
         <div id="suggest-panel" class="panel">
-            <!-- Trade Finder Section -->
-            <div style="background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(255,215,0,0.05)); border: 1px solid rgba(0,212,255,0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
-                <h3 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 1.2rem;">&#128269;</span> Trade Finder
-                </h3>
-                <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">Select a player to find trade packages involving them.</p>
-                <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
-                    <div class="form-group" style="flex: 1; min-width: 180px;">
-                        <label>Team</label>
-                        <select id="tradeFinderTeamSelect" onchange="loadTradeFinderPlayers()">
-                            <option value="">Select Team</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex: 1; min-width: 200px;">
-                        <label>Player</label>
-                        <select id="tradeFinderPlayerSelect" disabled>
-                            <option value="">Select team first</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex: 1; min-width: 150px;">
-                        <label>Direction</label>
-                        <select id="tradeFinderDirection">
-                            <option value="send">Trade Away</option>
-                            <option value="receive">Acquire</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex: 1; min-width: 180px;">
-                        <label>Target Team (optional)</label>
-                        <select id="tradeFinderTargetTeam">
-                            <option value="">All Teams</option>
-                        </select>
-                    </div>
-                </div>
-                <button onclick="findTradesForPlayer()" style="background: linear-gradient(135deg, #00d4ff, #0099cc); color: #000; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                    Find Trade Packages
-                </button>
-                <div id="trade-finder-results" style="margin-top: 20px;"></div>
-            </div>
-
-            <!-- Divider -->
-            <div style="height: 1px; background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent); margin: 25px 0;"></div>
-
-            <!-- AI Trade Suggestions Section -->
-            <h3 style="color: #ffd700; margin: 0 0 15px 0; font-size: 1.1rem;">AI Trade Suggestions</h3>
             <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                 <div class="form-group" style="flex: 1; min-width: 180px;">
                     <label>Your Team</label>
@@ -754,7 +572,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         <div id="search-panel" class="panel">
             <div class="form-group">
                 <label>Search for any player</label>
-                <input type="text" id="playerSearchInput" placeholder="Type player name..." oninput="searchPlayersGlobal()" style="max-width: 400px;">
+                <input type="text" id="playerSearchInput" placeholder="Type player name..." oninput="searchPlayers()" style="max-width: 400px;">
             </div>
             <div id="search-results" style="margin-top: 20px;"></div>
         </div>
@@ -782,77 +600,6 @@ HTML_CONTENT = '''<!DOCTYPE html>
         <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 800px;">
             <span class="modal-close" onclick="closeTeamModal()">&times;</span>
             <div id="team-modal-content"></div>
-        </div>
-    </div>
-
-    <!-- GM Profile Editor Modal -->
-    <div id="gm-profile-modal" class="modal" onclick="closeGMProfileModal(event)" style="z-index: 1200;">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 520px;">
-            <span class="modal-close" onclick="closeGMProfileModal()">&times;</span>
-            <h3 style="color: #7b2cbf; margin-bottom: 20px;">Edit GM Profile</h3>
-            <input type="hidden" id="gm-profile-team-name">
-
-            <div class="form-group">
-                <label>GM Name</label>
-                <input type="text" id="gm-profile-name" placeholder="Enter GM name..." style="background: rgba(30,30,80,0.6);">
-            </div>
-
-            <div class="form-group">
-                <label>Trading Philosophy</label>
-                <select id="gm-profile-philosophy" style="background: rgba(30,30,80,0.6);">
-                    <option value="balanced">Balanced Approach</option>
-                    <option value="win_now">Win-Now Contender</option>
-                    <option value="dynasty_builder">Dynasty Builder</option>
-                    <option value="value_seeker">Value Seeker</option>
-                    <option value="prospect_hoarder">Prospect Hoarder</option>
-                </select>
-                <div id="philosophy-description" style="color: #888; font-size: 0.85rem; margin-top: 8px; font-style: italic;"></div>
-            </div>
-
-            <div class="form-group">
-                <label>Trade Aggressiveness</label>
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <input type="range" id="gm-profile-aggressiveness" min="0" max="100" value="50" style="flex: 1;">
-                    <span id="aggressiveness-value" style="color: #00d4ff; font-weight: bold; min-width: 45px;">50%</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; color: #666; font-size: 0.75rem; margin-top: 4px;">
-                    <span>Passive</span>
-                    <span>Aggressive</span>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Position Priorities (select up to 3)</label>
-                <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="position-priorities-container">
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="C" class="pos-priority"> C</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="1B" class="pos-priority"> 1B</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="2B" class="pos-priority"> 2B</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="SS" class="pos-priority"> SS</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="3B" class="pos-priority"> 3B</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="OF" class="pos-priority"> OF</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="SP" class="pos-priority"> SP</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="RP" class="pos-priority"> RP</label>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Category Priorities (select up to 3)</label>
-                <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="category-priorities-container">
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="HR" class="cat-priority"> HR</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="RBI" class="cat-priority"> RBI</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="R" class="cat-priority"> R</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="SB" class="cat-priority"> SB</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="AVG" class="cat-priority"> AVG</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="K" class="cat-priority"> K</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="QS" class="cat-priority"> QS</label>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" value="SV+HLD" class="cat-priority"> SV+HLD</label>
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 12px; margin-top: 25px;">
-                <button onclick="saveGMProfile()" class="btn btn-primary" style="flex: 1;">Save Profile</button>
-                <button onclick="closeGMProfileModal()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
-            </div>
         </div>
     </div>
 
@@ -942,12 +689,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
         }
 
         function populateTeamSelects() {
-            const selects = ['teamASelect', 'teamBSelect', 'suggestTeamSelect', 'suggestTargetSelect', 'faTeamSelect', 'tradeFinderTeamSelect', 'tradeFinderTargetTeam'];
+            const selects = ['teamASelect', 'teamBSelect', 'suggestTeamSelect', 'suggestTargetSelect', 'faTeamSelect'];
             selects.forEach(id => {
                 const select = document.getElementById(id);
                 if (!select) return;
                 const currentValue = select.value;
-                const isTarget = id === 'suggestTargetSelect' || id === 'tradeFinderTargetTeam';
+                const isTarget = id === 'suggestTargetSelect';
                 select.innerHTML = isTarget ? '<option value="">All Teams</option>' : '<option value="">Select team...</option>';
                 teamsData.forEach(team => {
                     const opt = document.createElement('option');
@@ -959,195 +706,6 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     select.value = currentValue;
                 }
             });
-        }
-
-        // Trade Finder functions
-        async function loadTradeFinderPlayers() {
-            const teamSelect = document.getElementById('tradeFinderTeamSelect');
-            const playerSelect = document.getElementById('tradeFinderPlayerSelect');
-            const teamName = teamSelect.value;
-
-            if (!teamName) {
-                playerSelect.innerHTML = '<option value="">Select team first</option>';
-                playerSelect.disabled = true;
-                return;
-            }
-
-            playerSelect.innerHTML = '<option value="">Loading players...</option>';
-            playerSelect.disabled = true;
-
-            try {
-                const res = await fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`);
-                const data = await res.json();
-
-                if (data.error) {
-                    playerSelect.innerHTML = '<option value="">Error loading players</option>';
-                    return;
-                }
-
-                // Sort players by value descending
-                const players = (data.players || []).sort((a, b) => b.dynasty_value - a.dynasty_value);
-
-                playerSelect.innerHTML = '<option value="">Select player...</option>';
-                players.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.name;
-                    opt.textContent = `${p.name} (${p.position}) - ${p.dynasty_value.toFixed(1)} pts`;
-                    playerSelect.appendChild(opt);
-                });
-                playerSelect.disabled = false;
-            } catch (e) {
-                console.error('Failed to load players:', e);
-                playerSelect.innerHTML = '<option value="">Error loading players</option>';
-            }
-        }
-
-        function buildTradeFinderResults(packages, playerName, playerValue) {
-            let html = '<div style="margin-bottom: 15px; padding: 12px; background: rgba(255,215,0,0.1); border-radius: 8px; border-left: 3px solid #ffd700;">';
-            html += '<span style="color: #ffd700; font-weight: bold;">' + packages.length + '</span>';
-            html += '<span style="color: #ccc;"> trade packages found for </span>';
-            html += '<span style="color: #00d4ff; font-weight: bold;">' + playerName + '</span>';
-            html += '<span style="color: #ccc;"> (' + playerValue.toFixed(1) + ' pts)</span></div>';
-            html += '<div style="display: flex; flex-direction: column; gap: 15px;">';
-
-            packages.forEach((pkg, idx) => {
-                const fitLabel = pkg.fit_score >= 110 ? 'Excellent' : (pkg.fit_score >= 95 ? 'Great' : (pkg.fit_score >= 80 ? 'Good' : 'Fair'));
-                const fitColor = pkg.fit_score >= 110 ? '#4ade80' : (pkg.fit_score >= 95 ? '#ffd700' : (pkg.fit_score >= 80 ? '#60a5fa' : '#888'));
-                const valueDiff = pkg.value_diff;
-                const valueDiffColor = Math.abs(valueDiff) <= 5 ? '#4ade80' : (Math.abs(valueDiff) <= 15 ? '#ffd700' : '#f87171');
-                const valueDiffText = valueDiff >= 0 ? '+' + valueDiff.toFixed(1) : valueDiff.toFixed(1);
-
-                html += '<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 12px; padding: 18px; border: 1px solid #3a3a5a; cursor: pointer; transition: all 0.2s;" onclick="applyTradeFinderPackage(' + idx + ')" onmouseover="this.style.borderColor=\'#00d4ff\';this.style.transform=\'translateY(-2px)\';" onmouseout="this.style.borderColor=\'#3a3a5a\';this.style.transform=\'translateY(0)\';">';
-                html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">';
-                html += '<div style="display: flex; gap: 10px; align-items: center;">';
-                html += '<span style="color: #ccc;">Trade with</span>';
-                html += '<span style="color: #00d4ff; font-weight: bold;">' + pkg.other_team + '</span>';
-                html += '<span style="background: #3a3a5a; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; color: #ccc;">' + pkg.trade_type + '</span>';
-                html += '</div>';
-                html += '<div style="display: flex; gap: 10px; align-items: center;">';
-                html += '<span style="background: rgba(255,215,0,0.15); color: ' + fitColor + '; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">' + fitLabel + ' Fit</span>';
-                html += '<span style="color: ' + valueDiffColor + '; font-size: 0.85rem;">' + valueDiffText + '</span>';
-                html += '</div></div>';
-                html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
-                html += '<div style="background: rgba(248,113,113,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #f87171;">';
-                html += '<div style="color: #f87171; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">Send (' + pkg.send_total.toFixed(1) + ' pts)</div>';
-                pkg.send.forEach(p => {
-                    html += '<div style="color: #e0e0e0; font-size: 0.9rem; padding: 3px 0;">' + p.name + ' <span style="color: #888;">(' + p.position + ') - ' + p.value.toFixed(1) + '</span></div>';
-                });
-                html += '</div>';
-                html += '<div style="background: rgba(74,222,128,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #4ade80;">';
-                html += '<div style="color: #4ade80; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">Receive (' + pkg.receive_total.toFixed(1) + ' pts)</div>';
-                pkg.receive.forEach(p => {
-                    html += '<div style="color: #e0e0e0; font-size: 0.9rem; padding: 3px 0;">' + p.name + ' <span style="color: #888;">(' + p.position + ') - ' + p.value.toFixed(1) + '</span></div>';
-                });
-                html += '</div></div>';
-                if (pkg.reasons && pkg.reasons.length > 0) {
-                    html += '<div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">';
-                    pkg.reasons.forEach(r => {
-                        html += '<span style="background: rgba(74,222,128,0.15); color: #4ade80; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem;">' + r + '</span>';
-                    });
-                    html += '</div>';
-                }
-                html += '</div>';
-            });
-
-            html += '</div>';
-            return html;
-        }
-
-        async function findTradesForPlayer() {
-            const teamSelect = document.getElementById('tradeFinderTeamSelect');
-            const playerSelect = document.getElementById('tradeFinderPlayerSelect');
-            const directionSelect = document.getElementById('tradeFinderDirection');
-            const targetSelect = document.getElementById('tradeFinderTargetTeam');
-            const results = document.getElementById('trade-finder-results');
-
-            const teamName = teamSelect.value;
-            const playerName = playerSelect.value;
-            const direction = directionSelect.value;
-            const targetTeam = targetSelect.value;
-
-            if (!teamName || !playerName) {
-                results.innerHTML = '<p style="color: #f87171; padding: 15px;">Please select a team and player.</p>';
-                return;
-            }
-
-            results.innerHTML = '<div class="loading">Finding trade packages...</div>';
-
-            try {
-                let url = `${API_BASE}/find-trades-for-player?player_name=${encodeURIComponent(playerName)}&team_name=${encodeURIComponent(teamName)}&direction=${direction}&limit=20`;
-                if (targetTeam) url += `&target_team=${encodeURIComponent(targetTeam)}`;
-
-                const res = await fetch(url);
-                const data = await res.json();
-
-                if (data.error) {
-                    results.innerHTML = `<p style="color: #f87171; padding: 15px;">${data.error}</p>`;
-                    return;
-                }
-
-                if (!data.packages || data.packages.length === 0) {
-                    results.innerHTML = '<p style="color: #888; padding: 15px;">No trade packages found for this player.</p>';
-                    return;
-                }
-
-                // Display results using helper function to avoid template literal issues
-                results.innerHTML = buildTradeFinderResults(data.packages, playerName, data.player_value);
-
-                // Store packages for applying
-                window.tradeFinderPackages = data.packages;
-
-            } catch (e) {
-                console.error('Failed to find trades:', e);
-                results.innerHTML = '<p style="color: #f87171; padding: 15px;">Error finding trade packages.</p>';
-            }
-        }
-
-        function applyTradeFinderPackage(idx) {
-            const pkg = window.tradeFinderPackages[idx];
-            if (!pkg) return;
-
-            // Get the team names
-            const myTeam = document.getElementById('tradeFinderTeamSelect').value;
-            const otherTeam = pkg.other_team;
-
-            // Set up the Trade Analyzer with this trade
-            document.getElementById('teamASelect').value = myTeam;
-            document.getElementById('teamBSelect').value = otherTeam;
-
-            // Trigger the team loads
-            updateTeamA();
-            updateTeamB();
-
-            // Wait for players to load, then select them
-            setTimeout(() => {
-                // Clear existing trade players
-                tradePlayersA = [];
-                tradePlayersB = [];
-                tradePicksA = [];
-                tradePicksB = [];
-
-                // Add the send players to team A (my team sends these)
-                pkg.send.forEach(p => {
-                    tradePlayersA.push({ name: p.name, team: myTeam });
-                });
-
-                // Add the receive players to team B (other team sends these)
-                pkg.receive.forEach(p => {
-                    tradePlayersB.push({ name: p.name, team: otherTeam });
-                });
-
-                // Re-render the player lists
-                renderTradePlayers('A');
-                renderTradePlayers('B');
-
-                // Switch to Analyze Trade tab
-                showPanel('analyze');
-                document.querySelector('.tabs .tab.active').click();
-
-                // Analyze the trade
-                analyzeTrade();
-            }, 500);
         }
 
         function renderTeamsGrid() {
@@ -1476,7 +1034,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             </div>
                         ` : ''}
                         ${statTableHtml}
-                        <div style="padding: 14px 24px; background: ${data.recommendation?.includes('[OK]') ? 'linear-gradient(135deg, #0a2a15, #153d20)' : data.recommendation?.includes('[WARN]') ? 'linear-gradient(135deg, #2a2510, #3d3515)' : 'linear-gradient(135deg, #2a1015, #3d1520)'}; border-radius: 12px; font-weight: 600; text-align: center; font-size: 1.05rem; border: 1px solid ${data.recommendation?.includes('[OK]') ? 'rgba(0, 255, 136, 0.3)' : data.recommendation?.includes('[WARN]') ? 'rgba(255, 190, 11, 0.3)' : 'rgba(255, 77, 109, 0.3)'};">
+                        <div style="padding: 14px 24px; background: ${data.recommendation?.includes('✓') ? 'linear-gradient(135deg, #0a2a15, #153d20)' : data.recommendation?.includes('⚠') ? 'linear-gradient(135deg, #2a2510, #3d3515)' : 'linear-gradient(135deg, #2a1015, #3d1520)'}; border-radius: 12px; font-weight: 600; text-align: center; font-size: 1.05rem; border: 1px solid ${data.recommendation?.includes('✓') ? 'rgba(0, 255, 136, 0.3)' : data.recommendation?.includes('⚠') ? 'rgba(255, 190, 11, 0.3)' : 'rgba(255, 77, 109, 0.3)'};">
                             ${data.recommendation || ''}
                         </div>
                     </div>
@@ -1510,41 +1068,6 @@ HTML_CONTENT = '''<!DOCTYPE html>
             `;
         }
 
-        function buildGMProfileSection(teamName, profile, philosophy) {
-            const safeName = teamName.replace(/'/g, "\\'");
-            const safeGmName = (profile.gm_name || '').replace(/'/g, "\\'");
-            const philKey = profile.philosophy || 'balanced';
-            const aggr = profile.trade_aggressiveness || 0.5;
-            const posPri = (profile.position_priorities || []).join(',');
-            const catPri = (profile.category_priorities || []).join(',');
-            const aggrPct = Math.round(aggr * 100);
-            const priorities = [...(profile.position_priorities || []), ...(profile.category_priorities || [])].join(', ') || 'None set';
-
-            let html = '<div id="gm-profile-section" style="background: linear-gradient(135deg, rgba(123,44,191,0.15), rgba(0,212,255,0.05)); padding: 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(123,44,191,0.3);">';
-            html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">';
-            html += '<h4 style="color: #7b2cbf; margin: 0; font-size: 0.95rem;">GM PROFILE</h4>';
-            html += '<button onclick="openGMProfileEditor(\'' + safeName + '\', \'' + safeGmName + '\', \'' + philKey + '\', ' + aggr + ', \'' + posPri + '\', \'' + catPri + '\')" style="background: rgba(123,44,191,0.3); color: #7b2cbf; border: 1px solid rgba(123,44,191,0.5); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s;">Edit Profile</button>';
-            html += '</div>';
-            html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
-            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">GM Name</div>';
-            html += '<div style="color: #e4e4e4; font-weight: 600;">' + (profile.gm_name || 'Not Set') + '</div></div>';
-            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Philosophy</div>';
-            html += '<div style="color: #00d4ff; font-weight: 600;">' + philosophy.name + '</div></div>';
-            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Trade Aggressiveness</div>';
-            html += '<div style="display: flex; align-items: center; gap: 8px;">';
-            html += '<div style="flex: 1; height: 6px; background: #2a2a4a; border-radius: 3px; overflow: hidden;">';
-            html += '<div style="width: ' + aggrPct + '%; height: 100%; background: linear-gradient(90deg, #00d4ff, #7b2cbf);"></div></div>';
-            html += '<span style="color: #e4e4e4; font-size: 0.85rem;">' + aggrPct + '%</span></div></div>';
-            html += '<div><div style="color: #888; font-size: 0.75rem; margin-bottom: 4px;">Priorities</div>';
-            html += '<div style="color: #e4e4e4; font-size: 0.85rem;">' + priorities + '</div></div>';
-            html += '</div>';
-            if (philosophy.description) {
-                html += '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(123,44,191,0.2); color: #888; font-size: 0.85rem; font-style: italic;">' + philosophy.description + '</div>';
-            }
-            html += '</div>';
-            return html;
-        }
-
         async function showTeamDetails(teamName) {
             const modal = document.getElementById('team-modal');
             const content = document.getElementById('team-modal-content');
@@ -1560,24 +1083,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 const posDepth = data.positional_depth || {};
                 currentTeamDepth = posDepth;  // Store for position modal
 
-                // Fetch team profile
-                let profileData = { profile: {}, philosophy_details: { name: 'Balanced Approach', description: '' } };
-                try {
-                    const profileRes = await fetch(API_BASE + '/team-profile/' + encodeURIComponent(teamName));
-                    profileData = await profileRes.json();
-                } catch (e) { console.warn('Could not load profile:', e); }
-
-                const profile = profileData.profile || {};
-                const philosophy = profileData.philosophy_details || { name: 'Balanced Approach', description: '' };
-
-                // Build GM profile HTML separately to avoid escaping issues
-                const gmProfileHtml = buildGMProfileSection(data.name, profile, philosophy);
-
                 content.innerHTML = `
                     <h2 style="color: #ffd700; margin-bottom: 5px;">#${data.power_rank} ${data.name}</h2>
                     <div style="font-size: 0.9rem; color: #888; margin-bottom: 15px;">2026 Draft Pick: #${data.draft_pick}</div>
-
-                    ${gmProfileHtml}
 
                     <!-- Quick Stats -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 25px;">
@@ -1615,10 +1123,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </div>
 
                     <!-- Category Rankings -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px;">
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 20px; border-radius: 12px; border: 1px solid #3a3a5a;">
-                            <h4 style="color: #00d4ff; margin: 0 0 18px 0; font-size: 0.95rem; padding-bottom: 12px; border-bottom: 1px solid rgba(0,212,255,0.2);">HITTING CATEGORIES</h4>
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
+                            <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">HITTING CATEGORIES</h4>
                             ${cats.HR ? renderCategoryBar('HR', cats.HR.value, cats.HR.rank, numTeams) : ''}
                             ${cats.RBI ? renderCategoryBar('RBI', cats.RBI.value, cats.RBI.rank, numTeams) : ''}
                             ${cats.R ? renderCategoryBar('R', cats.R.value, cats.R.rank, numTeams) : ''}
@@ -1626,11 +1133,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             ${cats.AVG ? renderCategoryBar('AVG', cats.AVG.value, cats.AVG.rank, numTeams) : ''}
                             ${cats.OPS ? renderCategoryBar('OPS', cats.OPS.value, cats.OPS.rank, numTeams) : ''}
                             ${cats.SO ? renderCategoryBar('SO', cats.SO.value, cats.SO.rank, numTeams, true) : ''}
-                            </div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 20px; border-radius: 12px; border: 1px solid #3a3a5a;">
-                            <h4 style="color: #00d4ff; margin: 0 0 18px 0; font-size: 0.95rem; padding-bottom: 12px; border-bottom: 1px solid rgba(0,212,255,0.2);">PITCHING CATEGORIES</h4>
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
+                            <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">PITCHING CATEGORIES</h4>
                             ${cats.K ? renderCategoryBar('K', cats.K.value, cats.K.rank, numTeams) : ''}
                             ${cats.QS ? renderCategoryBar('QS', cats.QS.value, cats.QS.rank, numTeams) : ''}
                             ${cats.ERA ? renderCategoryBar('ERA', cats.ERA.value, cats.ERA.rank, numTeams, true) : ''}
@@ -1638,29 +1143,28 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             ${cats['K/BB'] ? renderCategoryBar('K/BB', cats['K/BB'].value, cats['K/BB'].rank, numTeams) : ''}
                             ${cats.L ? renderCategoryBar('L', cats.L.value, cats.L.rank, numTeams, true) : ''}
                             ${cats['SV+HLD'] ? renderCategoryBar('SV+HLD', cats['SV+HLD'].value, cats['SV+HLD'].rank, numTeams) : ''}
-                            </div>
                         </div>
                     </div>
 
                     <!-- Strengths & Weaknesses Summary -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px;">
-                        <div style="background: rgba(74, 222, 128, 0.1); padding: 16px; border-radius: 10px; border: 1px solid rgba(74, 222, 128, 0.3);">
-                            <div style="color: #4ade80; font-size: 0.9rem; font-weight: bold; margin-bottom: 10px;">+ STRENGTHS</div>
-                            <div style="color: #e4e4e4; line-height: 1.6;">${[...(data.hitting_strengths || []), ...(data.pitching_strengths || [])].join(', ') || 'None'}</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                        <div style="background: rgba(74, 222, 128, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(74, 222, 128, 0.3);">
+                            <div style="color: #4ade80; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">💪 STRENGTHS</div>
+                            <div style="color: #e4e4e4;">${[...(data.hitting_strengths || []), ...(data.pitching_strengths || [])].join(', ') || 'None'}</div>
                         </div>
-                        <div style="background: rgba(248, 113, 113, 0.1); padding: 16px; border-radius: 10px; border: 1px solid rgba(248, 113, 113, 0.3);">
-                            <div style="color: #f87171; font-size: 0.9rem; font-weight: bold; margin-bottom: 10px;">- WEAKNESSES</div>
-                            <div style="color: #e4e4e4; line-height: 1.6;">${[...(data.hitting_weaknesses || []), ...(data.pitching_weaknesses || [])].join(', ') || 'None'}</div>
+                        <div style="background: rgba(248, 113, 113, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(248, 113, 113, 0.3);">
+                            <div style="color: #f87171; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">📉 WEAKNESSES</div>
+                            <div style="color: #e4e4e4;">${[...(data.hitting_weaknesses || []), ...(data.pitching_weaknesses || [])].join(', ') || 'None'}</div>
                         </div>
                     </div>
 
                     <!-- Analysis -->
-                    ${data.analysis ? `<div style="margin-bottom: 28px; padding: 20px; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 12px; line-height: 1.8; border: 1px solid #3a3a5a; font-size: 0.95rem;">${data.analysis}</div>` : ''}
+                    ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 10px; line-height: 1.7; border: 1px solid #3a3a5a;">${data.analysis}</div>` : ''}
 
                     <!-- Positional Depth -->
-                    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 20px; border-radius: 12px; margin-bottom: 28px; border: 1px solid #3a3a5a;">
-                        <h4 style="color: #00d4ff; margin: 0 0 18px 0; font-size: 0.95rem; padding-bottom: 12px; border-bottom: 1px solid rgba(0,212,255,0.2);">POSITIONAL DEPTH <span style="color: #888; font-size: 0.75rem;">(click to view all)</span></h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+                    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #3a3a5a;">
+                        <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">POSITIONAL DEPTH <span style="color: #888; font-size: 0.75rem;">(click to view all)</span></h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
                             ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
                                 const players = posDepth[pos] || [];
                                 const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
@@ -1711,14 +1215,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 const bgColor = i === 0 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.02)';
                                 const textColor = i === 0 ? '#ffd700' : '#e4e4e4';
                                 const fontWeight = i === 0 ? 'bold' : 'normal';
-                                const safeName = p.name.replace(/"/g, '&quot;').replace(/'/g, "\\'");
-                                html += '<div class="depth-player" data-player="' + p.name.replace(/"/g, '&quot;') + '" data-team="' + data.name.replace(/"/g, '&quot;') + '" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 4px 0; background: ' + bgColor + '; border-radius: 6px; cursor: pointer;">';
-                                html += '<div style="flex: 1;"><span style="color: ' + textColor + '; font-weight: ' + fontWeight + ';">' + p.name + '</span>';
+                                html += '<div class="depth-player" data-player="' + p.name.replace(/"/g, '&quot;') + '" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 4px 0; background: ' + bgColor + '; border-radius: 6px; cursor: pointer;">';
+                                html += '<div><span style="color: ' + textColor + '; font-weight: ' + fontWeight + ';">' + p.name + '</span>';
                                 html += '<span style="color: #888; font-size: 0.8rem; margin-left: 8px;">Age ' + (p.age || '?') + '</span></div>';
-                                html += '<div style="display: flex; align-items: center; gap: 10px;">';
-                                html += '<span style="color: #00d4ff; font-weight: bold;">' + p.value + '</span>';
-                                html += '<button class="find-trade-btn" data-player="' + safeName + '" data-team="' + data.name.replace(/'/g, "\\'") + '" style="background: rgba(0,212,255,0.2); border: none; color: #00d4ff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; transition: all 0.2s;" title="Find Trades">&#128269;</button>';
-                                html += '</div></div>';
+                                html += '<span style="color: #00d4ff; font-weight: bold;">' + p.value + '</span></div>';
                             });
                         } else {
                             html += '<div style="color: #666; font-size: 0.85rem; padding: 8px;">No players</div>';
@@ -1728,30 +1228,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         depthGrid.appendChild(posDiv);
                     });
 
-                    // Add click handlers for depth players (view player)
+                    // Add click handlers for depth players
                     depthGrid.querySelectorAll('.depth-player').forEach(el => {
-                        el.addEventListener('click', (e) => {
-                            // Don't trigger if clicking the find trades button
-                            if (e.target.classList.contains('find-trade-btn')) return;
-                            showPlayerModal(el.dataset.player);
-                        });
-                    });
-
-                    // Add click handlers for find trades buttons
-                    depthGrid.querySelectorAll('.find-trade-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            const playerName = btn.dataset.player;
-                            const teamName = btn.dataset.team;
-                            closeTeamModal();
-                            openTradeFinderForPlayer(playerName, teamName);
-                        });
-                        btn.addEventListener('mouseenter', () => {
-                            btn.style.background = 'rgba(0,212,255,0.4)';
-                        });
-                        btn.addEventListener('mouseleave', () => {
-                            btn.style.background = 'rgba(0,212,255,0.2)';
-                        });
+                        el.addEventListener('click', () => showPlayerModal(el.dataset.player));
                     });
                 }
 
@@ -1933,50 +1412,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <h4>Trade Advice</h4>
                         <p>${data.trade_advice || 'No specific advice available.'}</p>
                     </div>
-
-                    ${data.fantasy_team && data.fantasy_team !== 'Free Agent' ? `
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #3a3a5a;">
-                        <button onclick="openTradeFinderForPlayer('${data.name.replace(/'/g, "\\'")}', '${data.fantasy_team.replace(/'/g, "\\'")}')" style="background: linear-gradient(135deg, #00d4ff, #0099cc); color: #000; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <span style="font-size: 1.1rem;">&#128269;</span> Find Trade Packages for ${data.name}
-                        </button>
-                    </div>
-                    ` : ''}
                 `;
             } catch (e) {
                 content.innerHTML = `<p style="color: #f87171;">Failed to load player details: ${e.message}</p>`;
             }
-        }
-
-        function openTradeFinderForPlayer(playerName, teamName) {
-            // Close the player modal
-            closePlayerModal();
-
-            // Switch to Suggestions panel
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
-            document.getElementById('suggest-panel').classList.add('active');
-
-            // Find and activate the Suggestions tab
-            const tabs = document.querySelectorAll('.tabs .tab');
-            tabs.forEach(t => {
-                if (t.textContent.includes('Suggestions')) t.classList.add('active');
-            });
-
-            // Set the Trade Finder dropdowns
-            const teamSelect = document.getElementById('tradeFinderTeamSelect');
-            const playerSelect = document.getElementById('tradeFinderPlayerSelect');
-
-            teamSelect.value = teamName;
-
-            // Load the players for this team
-            loadTradeFinderPlayers().then(() => {
-                // Set the player
-                setTimeout(() => {
-                    playerSelect.value = playerName;
-                    // Auto-run the search
-                    findTradesForPlayer();
-                }, 200);
-            });
         }
 
         function closeModal(event) {
@@ -1993,115 +1432,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
             document.getElementById('team-modal').classList.remove('active');
         }
 
-        // GM Profile Editor Functions
-        const philosophyDescriptions = {
-            'balanced': 'Evaluates trades purely on value, balancing present and future considerations.',
-            'win_now': 'Aggressive buyer willing to pay premium for proven talent. Prioritizes immediate impact over long-term value.',
-            'dynasty_builder': 'Focuses on building sustainable success through young talent and development.',
-            'value_seeker': 'Opportunistic trader who buys low and sells high. Targets undervalued assets.',
-            'prospect_hoarder': 'Extremely protective of prospects. Only trades young talent for significant overpays.'
-        };
-
-        function openGMProfileEditor(teamName, gmName, philosophy, aggressiveness, positions, categories) {
-            document.getElementById('gm-profile-team-name').value = teamName;
-            document.getElementById('gm-profile-name').value = gmName || '';
-            document.getElementById('gm-profile-philosophy').value = philosophy || 'balanced';
-            document.getElementById('gm-profile-aggressiveness').value = Math.round((aggressiveness || 0.5) * 100);
-            document.getElementById('aggressiveness-value').textContent = Math.round((aggressiveness || 0.5) * 100) + '%';
-
-            // Update philosophy description
-            updatePhilosophyDescription();
-
-            // Clear and set position priorities
-            document.querySelectorAll('.pos-priority').forEach(cb => cb.checked = false);
-            if (positions) {
-                positions.split(',').filter(p => p).forEach(pos => {
-                    const cb = document.querySelector(`.pos-priority[value="${pos}"]`);
-                    if (cb) cb.checked = true;
-                });
-            }
-
-            // Clear and set category priorities
-            document.querySelectorAll('.cat-priority').forEach(cb => cb.checked = false);
-            if (categories) {
-                categories.split(',').filter(c => c).forEach(cat => {
-                    const cb = document.querySelector(`.cat-priority[value="${cat}"]`);
-                    if (cb) cb.checked = true;
-                });
-            }
-
-            document.getElementById('gm-profile-modal').classList.add('active');
-        }
-
-        function closeGMProfileModal(event) {
-            if (event && event.target !== document.getElementById('gm-profile-modal')) return;
-            document.getElementById('gm-profile-modal').classList.remove('active');
-        }
-
-        function updatePhilosophyDescription() {
-            const philosophy = document.getElementById('gm-profile-philosophy').value;
-            document.getElementById('philosophy-description').textContent = philosophyDescriptions[philosophy] || '';
-        }
-
-        // Add event listeners for profile editor
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('gm-profile-philosophy').addEventListener('change', updatePhilosophyDescription);
-            document.getElementById('gm-profile-aggressiveness').addEventListener('input', (e) => {
-                document.getElementById('aggressiveness-value').textContent = e.target.value + '%';
-            });
-
-            // Limit checkboxes to 3
-            ['pos-priority', 'cat-priority'].forEach(className => {
-                document.querySelectorAll('.' + className).forEach(cb => {
-                    cb.addEventListener('change', () => {
-                        const checked = document.querySelectorAll('.' + className + ':checked');
-                        if (checked.length > 3) {
-                            cb.checked = false;
-                        }
-                    });
-                });
-            });
-        });
-
-        async function saveGMProfile() {
-            const teamName = document.getElementById('gm-profile-team-name').value;
-            const gmName = document.getElementById('gm-profile-name').value.trim();
-            const philosophy = document.getElementById('gm-profile-philosophy').value;
-            const aggressiveness = parseInt(document.getElementById('gm-profile-aggressiveness').value) / 100;
-
-            const positionPriorities = Array.from(document.querySelectorAll('.pos-priority:checked')).map(cb => cb.value);
-            const categoryPriorities = Array.from(document.querySelectorAll('.cat-priority:checked')).map(cb => cb.value);
-
-            try {
-                const res = await fetch(`${API_BASE}/team-profile/${encodeURIComponent(teamName)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        gm_name: gmName,
-                        philosophy: philosophy,
-                        trade_aggressiveness: aggressiveness,
-                        position_priorities: positionPriorities,
-                        category_priorities: categoryPriorities
-                    })
-                });
-
-                const data = await res.json();
-
-                if (data.success) {
-                    closeGMProfileModal();
-                    // Refresh the team modal to show updated profile
-                    showTeamDetails(teamName);
-                } else {
-                    alert('Failed to save profile: ' + (data.error || 'Unknown error'));
-                }
-            } catch (e) {
-                console.error('Failed to save profile:', e);
-                alert('Failed to save profile. Please try again.');
-            }
-        }
-
         let searchTimeout = null;
-        async function searchPlayersGlobal() {
+        async function searchPlayers() {
             const query = document.getElementById('playerSearchInput').value.trim();
             const results = document.getElementById('search-results');
 
@@ -3085,29 +2417,15 @@ def load_prospect_rankings():
     # Load rankings and metadata from consensus CSV files
     csv_rankings = {}
     csv_metadata = {}  # name -> {position, age, mlb_team}
-
-    # Support multiple prospect ranking file patterns
-    prospect_files = []
-    prospect_patterns = [
-        'Consensus*Ranks*.csv',      # Consensus Formulated Ranks files
-        'Prospects*Live*.csv',        # Prospects Live rankings
-        '*Prospect*Ranking*.csv',     # Generic prospect ranking files
-    ]
-    for pattern in prospect_patterns:
-        prospect_files.extend(glob.glob(os.path.join(script_dir, pattern)))
-
-    # Remove duplicates while preserving order
-    prospect_files = list(dict.fromkeys(prospect_files))
+    prospect_files = glob.glob(os.path.join(script_dir, 'Consensus*Ranks*.csv'))
 
     for csv_file in prospect_files:
         try:
             with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
-                file_count = 0
                 for row in reader:
-                    # Support multiple column name formats
-                    name = (row.get('Name') or row.get('Name_FG') or row.get('Player') or '').strip()
-                    avg_rank_str = row.get('Avg Rank') or row.get('Rank') or row.get('Overall Rank') or ''
+                    name = row.get('Name', '').strip()
+                    avg_rank_str = row.get('Avg Rank', '')
 
                     if not name or not avg_rank_str:
                         continue
@@ -3117,19 +2435,18 @@ def load_prospect_rankings():
                         # Keep the better (lower) rank if player appears in multiple CSV files
                         if name not in csv_rankings or avg_rank < csv_rankings[name]:
                             csv_rankings[name] = avg_rank
-                            # Store metadata for this prospect (support multiple column name formats)
-                            age_str = str(row.get('Age', ''))
+                            # Store metadata for this prospect
+                            age_str = row.get('Age', '')
                             csv_metadata[name] = {
-                                'position': row.get('Pos') or row.get('Position') or 'UTIL',
+                                'position': row.get('Pos', 'UTIL'),
                                 'age': int(age_str) if age_str.isdigit() else 0,
                                 'mlb_team': row.get('Team', 'N/A'),
-                                'level': row.get('Level') or row.get('ETA') or 'N/A'
+                                'level': row.get('Level', 'N/A')
                             }
-                            file_count += 1
                     except (ValueError, TypeError):
                         continue
 
-            print(f"Loaded {file_count} prospect rankings from {os.path.basename(csv_file)}")
+            print(f"Loaded prospect rankings from {os.path.basename(csv_file)}")
         except Exception as e:
             print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
 
@@ -3825,68 +3142,6 @@ def get_team(team_name):
         "roster_composition": roster_composition,
         "num_teams": num_teams,
         "analysis": analysis
-    })
-
-
-# ============================================================================
-# TEAM PROFILE MANAGEMENT ENDPOINTS
-# ============================================================================
-
-@app.route('/team-profile/<team_name>')
-def get_team_profile_endpoint(team_name):
-    """Get a team's GM profile and philosophy settings."""
-    profile = get_team_profile(team_name)
-    philosophy = GM_PHILOSOPHIES.get(profile.get('philosophy', 'balanced'), GM_PHILOSOPHIES['balanced'])
-
-    return jsonify({
-        "team_name": team_name,
-        "profile": profile,
-        "philosophy_details": philosophy,
-        "available_philosophies": {k: {"name": v["name"], "description": v["description"]} for k, v in GM_PHILOSOPHIES.items()}
-    })
-
-
-@app.route('/team-profile/<team_name>', methods=['POST'])
-def update_team_profile_endpoint(team_name):
-    """Update a team's GM profile settings."""
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    # Validate philosophy if provided
-    if 'philosophy' in data and data['philosophy'] not in GM_PHILOSOPHIES:
-        return jsonify({"error": f"Invalid philosophy. Must be one of: {list(GM_PHILOSOPHIES.keys())}"}), 400
-
-    # Validate trade_aggressiveness and risk_tolerance
-    for field in ['trade_aggressiveness', 'risk_tolerance']:
-        if field in data:
-            try:
-                val = float(data[field])
-                if val < 0 or val > 1:
-                    return jsonify({"error": f"{field} must be between 0 and 1"}), 400
-                data[field] = val
-            except (ValueError, TypeError):
-                return jsonify({"error": f"{field} must be a number"}), 400
-
-    # Update the profile
-    success = update_team_profile(team_name, data)
-
-    if success:
-        return jsonify({
-            "success": True,
-            "message": f"Profile updated for {team_name}",
-            "profile": get_team_profile(team_name)
-        })
-    else:
-        return jsonify({"error": "Failed to save profile"}), 500
-
-
-@app.route('/gm-philosophies')
-def get_gm_philosophies():
-    """Get all available GM philosophies."""
-    return jsonify({
-        "philosophies": {k: {"name": v["name"], "description": v["description"]} for k, v in GM_PHILOSOPHIES.items()}
     })
 
 
@@ -5134,7 +4389,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             window_detail = f"The rebuild is progressing. With {len(prospects)} prospects and {len(young_players)} young players, you're accumulating the talent to compete in 2-3 years. Stay patient, resist the urge to buy win-now pieces. If a contender offers to overpay for a veteran, take the deal. Accumulate draft picks."
         else:
             window = "retooling"
-            window_emoji = "[!]"
+            window_emoji = "⚠️"
             window_desc = f"<span style='color:#fbbf24'><b>STUCK IN THE MIDDLE</b></span> — {team_name} needs to pick a direction"
             window_detail = f"This is the danger zone. Not good enough to compete (#{power_rank}), not young enough to rebuild naturally. You have two options: 1) Go all-in by trading prospects for proven talent, or 2) Commit to rebuild by selling veterans. The worst choice is standing pat. Make a decision and commit."
     else:
@@ -5145,7 +4400,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             window_detail = f"Your young core is developing nicely. With {young_value:.0f} points of value from players 25 and under, you're positioned to rise. Look for undervalued veterans on rebuilding teams who can accelerate your timeline. In 1-2 years, you could be a true contender."
         elif is_old_roster:
             window = "declining"
-            window_emoji = "[v]"
+            window_emoji = "📉"
             window_desc = f"<span style='color:#fb923c'><b>DECLINING ASSET BASE</b></span> — {team_name} is trending the wrong direction"
             window_detail = f"The warning signs are clear: ranked #{power_rank} with an average age of {avg_age:.1f}. Your veteran assets ({vet_value:.0f} points) are depreciating. You're not close enough to contend and your roster is aging out. Start selling veterans now while they still have value."
         else:
@@ -5176,11 +4431,11 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
 
     # Roster assessment
     if hitter_value > pitcher_value * 1.4:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>[!] Offense-heavy roster - consider adding pitching depth</span>"
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Offense-heavy roster — consider adding pitching depth</span>"
     elif pitcher_value > hitter_value * 1.2:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>[!] Pitching-heavy roster - could use more offensive firepower</span>"
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Pitching-heavy roster — could use more offensive firepower</span>"
     else:
-        roster_text += "<br>&nbsp;&nbsp;<span style='color:#4ade80'>[OK] Well-balanced between hitting and pitching</span>"
+        roster_text += "<br>&nbsp;&nbsp;<span style='color:#4ade80'>✓ Well-balanced between hitting and pitching</span>"
 
     analysis_parts.append(roster_text)
 
@@ -5245,7 +4500,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         elif elite_count >= 2 and is_competitive:
             core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>👑 Elite talent: {elite_count} superstars but ranked #{power_rank} - depth issues?</span>"
         elif elite_count >= 2:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>[!] Top-heavy: {elite_count} elite stars but ranked #{power_rank} - need supporting cast</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>⚠️ Top-heavy: {elite_count} elite stars but ranked #{power_rank} - need supporting cast</span>"
         elif elite_count == 1 and star_count >= 3 and is_contender:
             core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Superstar-led: 1 elite + {star_count - 1} stars - title contender</span>"
         elif elite_count == 1 and star_count >= 3:
@@ -5255,15 +4510,15 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         elif star_count >= 4:
             core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>⭐ Stars without depth: {star_count} stars but ranked #{power_rank} - fill the gaps</span>"
         elif star_count >= 2 and starter_count >= 6:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>[OK] Balanced: {star_count} stars + {starter_count - star_count} starters</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Balanced: {star_count} stars + {starter_count - star_count} starters</span>"
         elif starter_count >= 8:
-            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>[OK] Deep lineup: {starter_count} starters (60+) but no true stars</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Deep lineup: {starter_count} starters (60+) but no true stars</span>"
         elif starter_count >= 5:
             core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Developing: {starter_count} starters, {quality_count - starter_count} quality - building</span>"
         elif quality_count >= 8:
             core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Quantity over quality: {quality_count} serviceable (50+) but no stars</span>"
         elif quality_count >= 4:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fb923c'>[!] Thin roster: Only {quality_count} quality players (50+) - needs upgrades</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#fb923c'>⚠️ Thin roster: Only {quality_count} quality players (50+) - needs upgrades</span>"
         else:
             core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>🔄 Full rebuild: {quality_count} quality, {depth_count} depth - start over</span>"
 
@@ -5476,9 +4731,9 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             risk_factors.append(f"Top-heavy ({top_2_value/total_value*100:.0f}% value in top 2)")
 
     if risk_factors:
-        analysis_parts.append(f"<b>[!] RISK FACTORS:</b> {' | '.join(risk_factors)}.")
+        analysis_parts.append(f"<b>⚠️ RISK FACTORS:</b> {' | '.join(risk_factors)}.")
     else:
-        analysis_parts.append("<b>[OK] RISK FACTORS:</b> Well-balanced roster with no major red flags.")
+        analysis_parts.append("<b>⚠️ RISK FACTORS:</b> Well-balanced roster with no major red flags.")
 
     # Personalized trade strategy with specific recommendations
     strategy = "<b>💼 TRADE STRATEGY:</b><br>"
@@ -5569,7 +4824,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # A position can't be both thin and deep - remove any overlap
     thin_positions = [p for p in thin_positions if p not in deep_positions]
 
-    depth_text = "<b>POSITIONAL DEPTH:</b> "
+    depth_text = "<b>🔍 POSITIONAL DEPTH:</b> "
     if thin_positions:
         depth_text += f"<span style='color:#f87171'>Thin at {', '.join(thin_positions[:3])}</span>. "
     if deep_positions:
@@ -6179,11 +5434,11 @@ def analyze_trade():
     # Trade recommendation
     recommendation = ""
     if value_diff < 5:
-        recommendation = "[OK] Recommended for both teams"
+        recommendation = "✓ Recommended for both teams"
     elif value_diff < 10:
-        recommendation = f"[OK] Acceptable for {winner}, decent for {loser}"
+        recommendation = f"✓ Acceptable for {winner}, decent for {loser}"
     elif value_diff < 20:
-        recommendation = f"[WARN] Good for {winner}, {loser} should seek more"
+        recommendation = f"⚠ Good for {winner}, {loser} should seek more"
     else:
         recommendation = f"✗ {loser} should decline unless addressing urgent need"
 
@@ -6629,7 +5884,7 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
     }
     if (my_window, their_window) in complementary_windows:
         score += 8
-        reasons.append(f"Good trade partners ({my_window} - {their_window})")
+        reasons.append(f"Good trade partners ({my_window} ↔ {their_window})")
 
     # Elite young talent acquisition bonus
     for p in you_receive:
@@ -6672,84 +5927,6 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
                 score += 5
                 reasons.append(f"Positional upgrade at {recv_pos}")
                 break
-
-    # ============================================================================
-    # GM PERSONALITY ADJUSTMENTS
-    # ============================================================================
-    my_profile = get_team_profile(my_team_name)
-    philosophy_key = my_profile.get('philosophy', 'balanced')
-    philosophy = GM_PHILOSOPHIES.get(philosophy_key, GM_PHILOSOPHIES['balanced'])
-
-    # Prospect trade adjustments based on GM philosophy
-    prospects_sent = [p for p in you_send if p.is_prospect]
-    prospects_received = [p for p in you_receive if p.is_prospect]
-
-    if prospects_sent:
-        # Apply prospect trade penalty (negative = reluctant, positive = willing)
-        penalty_factor = philosophy.get('prospect_trade_penalty', 0)
-        for prospect in prospects_sent:
-            p_val = calculator.calculate_player_value(prospect)
-            adjustment = p_val * penalty_factor
-            score += adjustment
-            if penalty_factor < -0.15 and prospect.prospect_rank and prospect.prospect_rank <= 50:
-                reasons.append(f"GM philosophy: reluctant to trade prospects")
-
-    # Proven talent bonus adjustments
-    proven_talent_bonus = philosophy.get('proven_talent_bonus', 0)
-    if proven_talent_bonus != 0:
-        for p in you_receive:
-            if p.age >= 26 and not p.is_prospect:
-                p_val = calculator.calculate_player_value(p)
-                if p_val >= 50:  # Established player
-                    score += p_val * proven_talent_bonus * 0.2
-                    if proven_talent_bonus > 0.1:
-                        reasons.append(f"GM favors proven talent")
-
-    # Age tolerance adjustments
-    age_tolerance = philosophy.get('age_tolerance', 31)
-    for p in you_receive:
-        if p.age > age_tolerance:
-            # Penalty for acquiring players older than preference
-            overage = p.age - age_tolerance
-            score -= overage * 2
-            if overage >= 3:
-                reasons.append(f"GM prefers younger (<{age_tolerance})")
-
-    # Position priority bonus
-    pos_priorities = my_profile.get('position_priorities', [])
-    if pos_priorities:
-        for p in you_receive:
-            pos = p.position.upper() if p.position else ''
-            for priority_pos in pos_priorities:
-                if priority_pos.upper() in pos:
-                    score += 8
-                    reasons.append(f"Fills position priority: {priority_pos}")
-                    break
-
-    # Category priority bonus
-    cat_priorities = my_profile.get('category_priorities', [])
-    if cat_priorities:
-        for p in you_receive:
-            cats = get_player_categories(p)
-            for cat in cat_priorities:
-                if cat in cats and cats[cat] > 0:
-                    cat_val = cats[cat]
-                    if cat in ['HR', 'RBI', 'R'] and cat_val > 15:
-                        score += 5
-                    elif cat in ['SB'] and cat_val > 10:
-                        score += 5
-                    elif cat in ['K'] and cat_val > 100:
-                        score += 5
-
-    # Trade aggressiveness modifier
-    aggressiveness = my_profile.get('trade_aggressiveness', 0.5)
-    if aggressiveness > 0.7:
-        # Aggressive traders get a small bonus on all trades
-        score += 5
-    elif aggressiveness < 0.3:
-        # Passive traders need higher value to consider a trade
-        if value_diff > 5:
-            score -= 10
 
     return score, reasons
 
@@ -6892,193 +6069,6 @@ def get_suggestions():
     except Exception as e:
         print(f"Error in get_suggestions: {e}")
         return jsonify({"error": f"Failed to generate suggestions: {str(e)}", "suggestions": []}), 500
-
-
-@app.route('/find-trades-for-player')
-def find_trades_for_player():
-    """Find trade packages involving a specific player."""
-    try:
-        player_name = request.args.get('player_name')
-        team_name = request.args.get('team_name')
-        direction = request.args.get('direction', 'send')  # 'send' or 'receive'
-        target_team = request.args.get('target_team', '')
-        limit = int(request.args.get('limit', 20))
-
-        if not player_name or not team_name:
-            return jsonify({"error": "player_name and team_name are required"}), 400
-
-        if team_name not in teams:
-            return jsonify({"error": f"Team '{team_name}' not found"}), 404
-
-        # Find the player
-        player = None
-        player_value = 0
-        for p in teams[team_name].players:
-            if p.name == player_name:
-                player = p
-                player_value = calculator.calculate_player_value(p)
-                break
-
-        if not player:
-            return jsonify({"error": f"Player '{player_name}' not found on team '{team_name}'"}), 404
-
-        # Get team needs for scoring
-        my_cats, my_pos, my_window = calculate_team_needs(team_name)
-
-        packages = []
-        target_teams = [target_team] if target_team else [t for t in teams.keys() if t != team_name]
-
-        for other_team in target_teams:
-            if other_team == team_name:
-                continue
-
-            their_players = [(p, calculator.calculate_player_value(p)) for p in teams[other_team].players]
-            their_players.sort(key=lambda x: x[1], reverse=True)
-
-            if direction == 'send':
-                # Find players from other team to receive for our player
-                # 1-for-1: Find players with similar value
-                for their_p, their_val in their_players:
-                    if their_val < 15:
-                        continue
-                    diff = abs(player_value - their_val)
-                    if diff < 20:
-                        fit_score, reasons = score_trade_fit(
-                            team_name, other_team, [player], [their_p], diff
-                        )
-                        packages.append({
-                            "trade_type": "1-for-1",
-                            "partner_team": other_team,
-                            "you_send": [player_name],
-                            "you_receive": [their_p.name],
-                            "send_value": round(player_value, 1),
-                            "receive_value": round(their_val, 1),
-                            "value_diff": round(diff, 1),
-                            "fit_score": round(fit_score, 1),
-                            "reasons": reasons[:3]
-                        })
-
-                # 1-for-2: Player is valuable, get 2 back
-                if player_value >= 50:
-                    for i, (their_p1, their_v1) in enumerate(their_players[:10]):
-                        if their_v1 < 15:
-                            continue
-                        for their_p2, their_v2 in their_players[i+1:12]:
-                            if their_v2 < 10:
-                                continue
-                            combined_val = their_v1 + their_v2
-                            diff = abs(player_value - combined_val)
-                            if diff < 20 and combined_val >= player_value * 0.85:
-                                fit_score, reasons = score_trade_fit(
-                                    team_name, other_team, [player], [their_p1, their_p2], diff
-                                )
-                                packages.append({
-                                    "trade_type": "1-for-2",
-                                    "partner_team": other_team,
-                                    "you_send": [player_name],
-                                    "you_receive": [their_p1.name, their_p2.name],
-                                    "send_value": round(player_value, 1),
-                                    "receive_value": round(combined_val, 1),
-                                    "value_diff": round(diff, 1),
-                                    "fit_score": round(fit_score, 1),
-                                    "reasons": reasons[:3]
-                                })
-
-                # 2-for-1: Add a sweetener to get someone better
-                my_other_players = [(p, calculator.calculate_player_value(p)) for p in teams[team_name].players
-                                    if p.name != player_name and 15 <= calculator.calculate_player_value(p) <= 50]
-                my_other_players.sort(key=lambda x: x[1], reverse=True)
-
-                for my_p2, my_v2 in my_other_players[:6]:
-                    combined_send = player_value + my_v2
-                    for their_p, their_val in their_players[:10]:
-                        if their_val < combined_send * 0.8:
-                            continue
-                        diff = abs(combined_send - their_val)
-                        if diff < 25 and their_val > player_value:
-                            fit_score, reasons = score_trade_fit(
-                                team_name, other_team, [player, my_p2], [their_p], diff
-                            )
-                            packages.append({
-                                "trade_type": "2-for-1",
-                                "partner_team": other_team,
-                                "you_send": [player_name, my_p2.name],
-                                "you_receive": [their_p.name],
-                                "send_value": round(combined_send, 1),
-                                "receive_value": round(their_val, 1),
-                                "value_diff": round(diff, 1),
-                                "fit_score": round(fit_score, 1),
-                                "reasons": reasons[:3]
-                            })
-
-            else:  # direction == 'receive' - we want to acquire this player
-                # Find packages from our team to get this player
-                my_players = [(p, calculator.calculate_player_value(p)) for p in teams[team_name].players]
-                my_players.sort(key=lambda x: x[1], reverse=True)
-                my_tradeable = [(p, v) for p, v in my_players if 15 <= v <= 90]
-
-                # 1-for-1
-                for my_p, my_val in my_tradeable[:15]:
-                    diff = abs(my_val - player_value)
-                    if diff < 20:
-                        fit_score, reasons = score_trade_fit(
-                            team_name, other_team, [my_p], [player], diff
-                        )
-                        packages.append({
-                            "trade_type": "1-for-1",
-                            "partner_team": other_team,
-                            "you_send": [my_p.name],
-                            "you_receive": [player_name],
-                            "send_value": round(my_val, 1),
-                            "receive_value": round(player_value, 1),
-                            "value_diff": round(diff, 1),
-                            "fit_score": round(fit_score, 1),
-                            "reasons": reasons[:3]
-                        })
-
-                # 2-for-1: Send 2 to get the target player
-                for i, (my_p1, my_v1) in enumerate(my_tradeable[:8]):
-                    for my_p2, my_v2 in my_tradeable[i+1:10]:
-                        combined_val = my_v1 + my_v2
-                        diff = abs(combined_val - player_value)
-                        if diff < 25 and player_value > max(my_v1, my_v2) * 0.9:
-                            fit_score, reasons = score_trade_fit(
-                                team_name, other_team, [my_p1, my_p2], [player], diff
-                            )
-                            packages.append({
-                                "trade_type": "2-for-1",
-                                "partner_team": other_team,
-                                "you_send": [my_p1.name, my_p2.name],
-                                "you_receive": [player_name],
-                                "send_value": round(combined_val, 1),
-                                "receive_value": round(player_value, 1),
-                                "value_diff": round(diff, 1),
-                                "fit_score": round(fit_score, 1),
-                                "reasons": reasons[:3]
-                            })
-
-        # Sort by fit score
-        packages.sort(key=lambda x: x['fit_score'], reverse=True)
-        packages = packages[:limit]
-
-        return jsonify({
-            "player": {
-                "name": player_name,
-                "value": round(player_value, 1),
-                "team": team_name,
-                "position": player.position,
-                "age": player.age
-            },
-            "direction": direction,
-            "packages": packages,
-            "total_found": len(packages)
-        })
-
-    except Exception as e:
-        print(f"Error in find_trades_for_player: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/free-agents')
@@ -7357,7 +6347,7 @@ def get_free_agent_suggestions():
                 # Power + speed combo detection
                 if hr_proj >= 15 and sb_proj >= 15:
                     score += 10
-                    reasons.append(f"Power/Speed combo")
+                    reasons.append(f"💪 Power/Speed combo")
 
             if is_sp:
                 k_proj = fa_proj.get('K', 0)
