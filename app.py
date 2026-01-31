@@ -802,17 +802,35 @@ HTML_CONTENT = '''<!DOCTYPE html>
             --color-accent: #ffd700;
             --color-success: #00ff88;
             --color-danger: #ff4d6d;
+            --color-warning: #fbbf24;
+            --color-text: #e8e8e8;
+            --color-text-secondary: #a0a0a0;
             --color-text-muted: #666;
             --bg-darkest: #08080c;
             --bg-dark: #0d0d12;
             --bg-card: #111118;
             --bg-elevated: #16161f;
             --border-subtle: rgba(0, 212, 255, 0.12);
+            --border-accent: rgba(0, 212, 255, 0.25);
+            --space-xs: 4px;
             --space-sm: 8px;
             --space-md: 16px;
             --space-lg: 24px;
+            --space-xl: 32px;
+            --radius-sm: 6px;
             --radius-md: 10px;
+            --radius-lg: 16px;
         }
+        /* Utility Classes */
+        .section-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent); margin: var(--space-lg) 0; }
+        .text-muted { color: var(--color-text-muted); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .text-primary { color: var(--color-primary); }
+        .text-accent { color: var(--color-accent); }
+        .mb-sm { margin-bottom: var(--space-sm); }
+        .mb-md { margin-bottom: var(--space-md); }
+        .mb-lg { margin-bottom: var(--space-lg); }
+        .card-elevated { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-subtle); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -893,25 +911,26 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .player-header { text-align: center; margin-bottom: 30px; }
         .player-header h2 { color: #00d4ff; font-size: 2rem; text-shadow: 0 0 20px rgba(0, 212, 255, 0.25); }
         .player-header .dynasty-value { font-size: 3rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #00a8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .player-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 18px; }
-        .stat-box { background: linear-gradient(145deg, #0a0a10, #0e0e16); padding: 18px; border-radius: 12px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1); }
-        .stat-box .label { color: #666; font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-box .value { font-size: 1.4rem; font-weight: bold; color: #e8e8e8; }
+        .player-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 14px; }
+        .stat-box { background: linear-gradient(145deg, #0a0a10, #0e0e16); padding: 16px 14px; border-radius: 10px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.08); transition: all 0.2s ease; }
+        .stat-box:hover { border-color: rgba(0, 212, 255, 0.2); }
+        .stat-box .label { color: #777; font-size: 0.75rem; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+        .stat-box .value { font-size: 1.3rem; font-weight: bold; color: #e8e8e8; }
         .stat-box .value.ascending { color: #00ff88; }
         .stat-box .value.descending { color: #ff4d6d; }
-        .trade-advice { margin-top: 25px; padding: 20px; background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 12px; border-left: 4px solid #00d4ff; }
-        .trade-advice h4 { color: #00d4ff; margin-bottom: 10px; font-size: 1.1rem; }
+        .trade-advice { margin-top: 28px; padding: 22px; background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 12px; border-left: 4px solid #00d4ff; }
+        .trade-advice h4 { color: #00d4ff; margin-bottom: 12px; font-size: 1.1rem; }
         .loading { text-align: center; padding: 50px; color: #555; font-size: 1.1rem; }
-        .suggestion-card { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 16px; padding: 22px; margin-bottom: 18px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.1); }
-        .suggestion-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0, 212, 255, 0.12); border-color: rgba(0, 212, 255, 0.35); }
-        .suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-        .suggestion-verdict { font-weight: bold; padding: 6px 16px; border-radius: 25px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .suggestion-card { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 16px; padding: 26px; margin-bottom: 20px; cursor: pointer; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.1); }
+        .suggestion-card:hover { transform: translateY(-4px); box-shadow: 0 12px 35px rgba(0, 212, 255, 0.12); border-color: rgba(0, 212, 255, 0.35); }
+        .suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(0, 212, 255, 0.08); }
+        .suggestion-verdict { font-weight: bold; padding: 8px 18px; border-radius: 25px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
         .suggestion-verdict.great { background: linear-gradient(135deg, #00ff88, #00cc6a); color: #050508; }
         .suggestion-verdict.good { background: linear-gradient(135deg, #ffbe0b, #cc9900); color: #050508; }
-        .suggestion-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        .suggestion-side h4 { color: #666; font-size: 0.9rem; margin-bottom: 10px; text-transform: uppercase; }
-        .suggestion-players { font-size: 1rem; color: #ccc; }
-        .suggestion-value { color: #00d4ff; font-weight: 600; margin-top: 8px; font-size: 1.05rem; }
+        .suggestion-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+        .suggestion-side h4 { color: #888; font-size: 0.85rem; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .suggestion-players { font-size: 1rem; color: #ccc; line-height: 1.6; }
+        .suggestion-value { color: #00d4ff; font-weight: 600; margin-top: 12px; font-size: 1.05rem; }
         .player-link { cursor: pointer; color: #00d4ff; transition: all 0.2s; }
         .player-link:hover { color: #00a8cc; text-decoration: underline; }
         @media (max-width: 768px) {
@@ -1639,13 +1658,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
             const color = getRankColor(rank, total);
             const displayVal = typeof value === 'number' && value < 10 ? value.toFixed(3).replace('0.', '.') : Math.round(value);
             return `
-                <div style="margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="color: #e4e4e4; font-weight: 500;">${cat}</span>
-                        <span style="color: ${color}; font-weight: bold;">${displayVal} <span style="color: #888; font-weight: normal;">(#${rank})</span></span>
+                <div style="margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="color: #e4e4e4; font-weight: 600; font-size: 0.9rem;">${cat}</span>
+                        <span style="color: ${color}; font-weight: bold;">${displayVal} <span style="color: #888; font-weight: normal; font-size: 0.85rem;">(#${rank})</span></span>
                     </div>
-                    <div style="background: #12121a; height: 8px; border-radius: 4px; overflow: hidden;">
-                        <div style="background: linear-gradient(90deg, ${color}, ${color}88); width: ${rankPct}%; height: 100%; border-radius: 4px;"></div>
+                    <div style="background: #0a0a12; height: 10px; border-radius: 5px; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, ${color}, ${color}88); width: ${rankPct}%; height: 100%; border-radius: 5px; transition: width 0.3s ease;"></div>
                     </div>
                 </div>
             `;
@@ -1678,22 +1697,22 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div style="font-size: 0.9rem; color: #888; margin-bottom: 15px;">2026 Draft Pick: #${data.draft_pick}</div>
 
                     <!-- Quick Stats -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 25px;">
-                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
-                            <div style="color: #888; font-size: 0.75rem;">Total Value</div>
-                            <div style="color: #ffd700; font-size: 1.3rem; font-weight: bold;">${data.total_value.toFixed(1)}</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 16px; margin-bottom: 28px;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 16px 14px; border-radius: 10px; text-align: center; border: 1px solid rgba(255, 215, 0, 0.15);">
+                            <div style="color: #999; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Total Value</div>
+                            <div style="color: #ffd700; font-size: 1.4rem; font-weight: bold;">${data.total_value.toFixed(1)}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
-                            <div style="color: #888; font-size: 0.75rem;">Avg Age</div>
-                            <div style="color: #e4e4e4; font-size: 1.3rem; font-weight: bold;">${comp.avg_age || 'N/A'}</div>
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 16px 14px; border-radius: 10px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
+                            <div style="color: #999; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Avg Age</div>
+                            <div style="color: #e4e4e4; font-size: 1.4rem; font-weight: bold;">${comp.avg_age || 'N/A'}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
-                            <div style="color: #888; font-size: 0.75rem;">Roster</div>
-                            <div style="color: #e4e4e4; font-size: 1.3rem; font-weight: bold;">${data.player_count}</div>
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 16px 14px; border-radius: 10px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
+                            <div style="color: #999; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Roster</div>
+                            <div style="color: #e4e4e4; font-size: 1.4rem; font-weight: bold;">${data.player_count}</div>
                         </div>
-                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.1);">
-                            <div style="color: #888; font-size: 0.75rem;">Prospects</div>
-                            <div style="color: #4ade80; font-size: 1.3rem; font-weight: bold;">${(data.prospects || []).length}</div>
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 16px 14px; border-radius: 10px; text-align: center; border: 1px solid rgba(74, 222, 128, 0.15);">
+                            <div style="color: #999; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Prospects</div>
+                            <div style="color: #4ade80; font-size: 1.4rem; font-weight: bold;">${(data.prospects || []).length}</div>
                         </div>
                     </div>
 
@@ -1713,9 +1732,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </div>
 
                     <!-- Category Rankings -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
-                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; border: 1px solid rgba(0, 212, 255, 0.1);">
-                            <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">HITTING CATEGORIES</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px;">
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 20px; border-radius: 12px; border: 1px solid rgba(0, 212, 255, 0.1);">
+                            <h4 style="color: #00d4ff; margin: 0 0 20px 0; font-size: 0.95rem; letter-spacing: 0.5px; padding-bottom: 12px; border-bottom: 1px solid rgba(0, 212, 255, 0.1);">HITTING CATEGORIES</h4>
                             ${cats.HR ? renderCategoryBar('HR', cats.HR.value, cats.HR.rank, numTeams) : ''}
                             ${cats.RBI ? renderCategoryBar('RBI', cats.RBI.value, cats.RBI.rank, numTeams) : ''}
                             ${cats.R ? renderCategoryBar('R', cats.R.value, cats.R.rank, numTeams) : ''}
@@ -1724,8 +1743,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             ${cats.OPS ? renderCategoryBar('OPS', cats.OPS.value, cats.OPS.rank, numTeams) : ''}
                             ${cats.SO ? renderCategoryBar('SO', cats.SO.value, cats.SO.rank, numTeams, true) : ''}
                         </div>
-                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; border: 1px solid rgba(0, 212, 255, 0.1);">
-                            <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">PITCHING CATEGORIES</h4>
+                        <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 20px; border-radius: 12px; border: 1px solid rgba(0, 212, 255, 0.1);">
+                            <h4 style="color: #00d4ff; margin: 0 0 20px 0; font-size: 0.95rem; letter-spacing: 0.5px; padding-bottom: 12px; border-bottom: 1px solid rgba(0, 212, 255, 0.1);">PITCHING CATEGORIES</h4>
                             ${cats.K ? renderCategoryBar('K', cats.K.value, cats.K.rank, numTeams) : ''}
                             ${cats.QS ? renderCategoryBar('QS', cats.QS.value, cats.QS.rank, numTeams) : ''}
                             ${cats.ERA ? renderCategoryBar('ERA', cats.ERA.value, cats.ERA.rank, numTeams, true) : ''}
@@ -1737,14 +1756,14 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </div>
 
                     <!-- Strengths & Weaknesses Summary -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
-                        <div style="background: rgba(74, 222, 128, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(74, 222, 128, 0.3);">
-                            <div style="color: #4ade80; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">STRENGTHS</div>
-                            <div style="color: #e4e4e4;">${[...(data.hitting_strengths || []), ...(data.pitching_strengths || [])].join(', ') || 'None'}</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px;">
+                        <div style="background: rgba(74, 222, 128, 0.08); padding: 16px 18px; border-radius: 10px; border: 1px solid rgba(74, 222, 128, 0.25);">
+                            <div style="color: #4ade80; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">STRENGTHS</div>
+                            <div style="color: #e4e4e4; font-size: 0.95rem; line-height: 1.5;">${[...(data.hitting_strengths || []), ...(data.pitching_strengths || [])].join(', ') || 'None'}</div>
                         </div>
-                        <div style="background: rgba(248, 113, 113, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(248, 113, 113, 0.3);">
-                            <div style="color: #f87171; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">WEAKNESSES</div>
-                            <div style="color: #e4e4e4;">${[...(data.hitting_weaknesses || []), ...(data.pitching_weaknesses || [])].join(', ') || 'None'}</div>
+                        <div style="background: rgba(248, 113, 113, 0.08); padding: 16px 18px; border-radius: 10px; border: 1px solid rgba(248, 113, 113, 0.25);">
+                            <div style="color: #f87171; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">WEAKNESSES</div>
+                            <div style="color: #e4e4e4; font-size: 0.95rem; line-height: 1.5;">${[...(data.hitting_weaknesses || []), ...(data.pitching_weaknesses || [])].join(', ') || 'None'}</div>
                         </div>
                     </div>
 
@@ -1752,24 +1771,24 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     ${data.analysis ? `<div style="margin-bottom: 25px; padding: 15px; background: linear-gradient(135deg, #0a0a10, #0e0e16); border-radius: 10px; line-height: 1.7; border: 1px solid rgba(0, 212, 255, 0.1);">${data.analysis}</div>` : ''}
 
                     <!-- Positional Depth -->
-                    <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; margin-bottom: 25px; border: 1px solid rgba(0, 212, 255, 0.1);">
-                        <h4 style="color: #00d4ff; margin: 0 0 15px 0; font-size: 0.9rem;">POSITIONAL DEPTH <span style="color: #888; font-size: 0.75rem;">(click to view all)</span></h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+                    <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 20px; border-radius: 12px; margin-bottom: 28px; border: 1px solid rgba(0, 212, 255, 0.1);">
+                        <h4 style="color: #00d4ff; margin: 0 0 18px 0; font-size: 0.95rem; letter-spacing: 0.5px;">POSITIONAL DEPTH <span style="color: #888; font-size: 0.75rem; font-weight: normal;">(click to view all)</span></h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
                             ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
                                 const players = posDepth[pos] || [];
                                 const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
                                 return `
-                                    <div onclick="showPositionDepth('${pos}')" style="background: #12121a; padding: 10px; border-radius: 6px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 12px rgba(0,212,255,0.2)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='none'">
-                                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                                            <span style="color: #00d4ff; font-weight: bold;">${pos}</span>
-                                            <span style="color: ${depthColor}; font-size: 0.8rem;">${players.length} deep</span>
+                                    <div onclick="showPositionDepth('${pos}')" style="background: linear-gradient(145deg, #0e0e14, #12121a); padding: 14px; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; border: 1px solid rgba(0, 212, 255, 0.08);" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(0,212,255,0.15)';this.style.borderColor='rgba(0,212,255,0.25)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';this.style.borderColor='rgba(0,212,255,0.08)'">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                            <span style="color: #00d4ff; font-weight: bold; font-size: 1rem;">${pos}</span>
+                                            <span style="color: ${depthColor}; font-size: 0.8rem; font-weight: 600;">${players.length} deep</span>
                                         </div>
                                         ${players.slice(0, 3).map((p, i) => `
-                                            <div style="font-size: 0.75rem; color: ${i === 0 ? '#e4e4e4' : '#888'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                                ${p.name} (${p.value})
+                                            <div style="font-size: 0.8rem; color: ${i === 0 ? '#e4e4e4' : '#999'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 2px 0;">
+                                                ${p.name} <span style="color: #00d4ff;">(${p.value})</span>
                                             </div>
                                         `).join('')}
-                                        ${players.length === 0 ? '<div style="font-size: 0.75rem; color: #666;">No depth</div>' : ''}
+                                        ${players.length === 0 ? '<div style="font-size: 0.8rem; color: #555; font-style: italic;">No depth</div>' : ''}
                                     </div>
                                 `;
                             }).join('')}
