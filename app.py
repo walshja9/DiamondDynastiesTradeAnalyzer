@@ -1966,36 +1966,54 @@ def calculate_fa_dynasty_value(fa):
         print(f"  -> preliminary_value={preliminary_value}, applying prospect floor for rank {prospect_rank}")
 
         # Apply prospect value floors using a graduated scale
-        # Scale: Rank 1 = ~100, Rank 50 = ~75, Rank 100 = ~55, Rank 150 = ~32, Rank 200 = ~15
-        # Formula-based approach for smooth curve
+        # IMPORTANT: Prospects should NOT exceed proven MLB players (who are typically 70-85)
+        # Adjusted floors to match rostered prospect values:
+        # Elite (1-10): floor 55-60, cap 68
+        # Top 25 (11-25): floor 48-55, cap 62
+        # Top 50 (26-50): floor 40-48, cap 55
+        # Top 100 (51-100): floor 30-40, cap 48
         if prospect_rank <= 10:
-            # Elite prospects (1-10): 100 to 95
-            floor = 100 - (prospect_rank - 1) * 0.5
+            # Elite prospects (1-10): floor 55-60, cap 68
+            floor = 60 - (prospect_rank - 1) * 0.5  # 60 down to 55.5
+            cap = 68
             value = max(preliminary_value, floor)
+            value = min(value, cap)
         elif prospect_rank <= 25:
-            # Top 25 (11-25): 94 to 80
-            floor = 95 - (prospect_rank - 10) * 1.0
+            # Top 25 (11-25): floor 48-55, cap 62
+            floor = 55 - (prospect_rank - 10) * 0.47  # 55 down to 48
+            cap = 62
             value = max(preliminary_value, floor)
+            value = min(value, cap)
         elif prospect_rank <= 50:
-            # Top 50 (26-50): 79 to 67
-            floor = 80 - (prospect_rank - 25) * 0.5
+            # Top 50 (26-50): floor 40-48, cap 55
+            floor = 48 - (prospect_rank - 25) * 0.32  # 48 down to 40
+            cap = 55
             value = max(preliminary_value, floor)
+            value = min(value, cap)
         elif prospect_rank <= 100:
-            # Top 100 (51-100): 66 to 46
-            floor = 67 - (prospect_rank - 50) * 0.4
+            # Top 100 (51-100): floor 30-40, cap 48
+            floor = 40 - (prospect_rank - 50) * 0.2  # 40 down to 30
+            cap = 48
             value = max(preliminary_value, floor)
+            value = min(value, cap)
         elif prospect_rank <= 150:
-            # Rank 101-150: 45 to 26
-            floor = 46 - (prospect_rank - 100) * 0.4
+            # Rank 101-150: floor 20-30, cap 38
+            floor = 30 - (prospect_rank - 100) * 0.2  # 30 down to 20
+            cap = 38
             value = max(preliminary_value, floor)
+            value = min(value, cap)
         elif prospect_rank <= 200:
-            # Rank 151-200: 25 to 15
-            floor = 26 - (prospect_rank - 150) * 0.22
+            # Rank 151-200: floor 15-20, cap 28
+            floor = 20 - (prospect_rank - 150) * 0.1  # 20 down to 15
+            cap = 28
             value = max(preliminary_value, floor)
+            value = min(value, cap)
         else:
-            # Rank 201+: 14 and below
-            floor = max(10, 15 - (prospect_rank - 200) * 0.1)
+            # Rank 201+: floor 10-15, cap 20
+            floor = max(10, 15 - (prospect_rank - 200) * 0.05)
+            cap = 20
             value = max(preliminary_value, floor)
+            value = min(value, cap)
 
         final_value = round(value, 1)
         print(f"  -> PROSPECT FLOOR APPLIED: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
