@@ -286,7 +286,7 @@ ASSISTANT_GMS = {
         "risk_tolerance": 0.78,
         "preferred_categories": ["K", "SB", "WHIP"]
     },
-    "Akron Rubber Ducks": {
+    "Akron Rubberducks": {
         "owner": "Jon Lanoue",
         "team_identity": "STRATEGIC CONTENDER",
         "identity_analysis": "You're competing smart, not reckless. Balance win-now moves with long-term sustainability. Target trades that improve today without mortgaging tomorrow. Your edge is discipline - don't abandon it for short-term gains.",
@@ -345,7 +345,7 @@ ASSISTANT_GMS = {
         "risk_tolerance": 0.68,
         "preferred_categories": ["HR", "SB", "SV+HLD"]
     },
-    "Hartford Yard GOATS": {
+    "Hartford Yard Goats": {
         "owner": "Matt Person & Daniel Barrientos",
         "team_identity": "BARGAIN HUNTERS",
         "identity_analysis": "Your prospect cupboard is bare, but your creativity isn't. Hunt for undervalued assets others have given up on. Target buy-low candidates, waiver gems, and players with untapped upside. Win trades with smarts, not assets.",
@@ -5284,10 +5284,9 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     is_old_roster = avg_age >= 28 or vet_value > young_value + prime_value
     is_young_roster = avg_age <= 26.5 or len(prospects) >= 6 or young_value > vet_value * 1.5
 
-    # ============ TEAM IDENTITY - FROM GM PROFILE ============
+    # ============ TEAM IDENTITY - FROM GM PROFILE WITH DYNAMIC ANALYSIS ============
     gm = get_assistant_gm(team_name)
     team_identity = gm.get('team_identity', 'COMPETITOR')
-    identity_analysis = gm.get('identity_analysis', '')
     philosophy = gm.get('philosophy', 'balanced')
 
     # Identity color based on philosophy type
@@ -5307,12 +5306,61 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     }
     identity_color = identity_colors.get(philosophy, '#00d4ff')
 
+    # Generate DYNAMIC identity analysis based on current roster data
+    prospect_count = len(prospects)
+    tradeable_vets = [p for p, v in veteran_players if v >= 20]
+
+    if philosophy == 'dynasty_champion':
+        if power_rank <= 2:
+            identity_analysis = f"Dominant position at #{power_rank}. With {total_value:.0f} total value, force others to overpay. Only move for clear upgrades."
+        else:
+            identity_analysis = f"Ranked #{power_rank} - defend your status. Your {prime_value:.0f} points of prime talent forms a strong core."
+    elif philosophy == 'championship_closer':
+        gaps = []
+        if pitcher_value < hitter_value * 0.8:
+            gaps.append("pitching")
+        if len([p for p in prospects if p.prospect_rank and p.prospect_rank <= 100]) >= 2:
+            identity_analysis = f"You have {prospect_count} tradeable prospects. Target proven closers to fill gaps. Championship windows don't wait."
+        else:
+            identity_analysis = f"Ranked #{power_rank} with {vet_value:.0f} in veteran value. Identify the piece that puts you over the top."
+    elif philosophy == 'smart_contender':
+        identity_analysis = f"Balanced at #{power_rank} with {young_value:.0f} in young value and {vet_value:.0f} veteran. Make surgical moves - don't overpay for marginal gains."
+    elif philosophy == 'all_in_buyer':
+        if prospect_count <= 2:
+            identity_analysis = f"Farm is depleted ({prospect_count} prospects). Target affordable veterans and buy-low candidates. Be creative with limited capital."
+        else:
+            identity_analysis = f"With {prospect_count} prospects and {len(tradeable_vets)} tradeable vets, you can still make moves. Go get proven production."
+    elif philosophy == 'loaded_and_ready':
+        identity_analysis = f"Elite position: {prospect_count} prospects AND #{power_rank} ranking. You dictate terms - buy stars or stockpile more. Others wish they had your options."
+    elif philosophy == 'bargain_hunter':
+        identity_analysis = f"Limited ammo ({prospect_count} prospects) but ranked #{power_rank}. Hunt for undervalued assets. Target buy-low veterans and waiver gems."
+    elif philosophy == 'rising_powerhouse':
+        identity_analysis = f"Your {prospect_count} prospects are the foundation. Only trade young talent for elite proven stars at major discounts. Patience builds dynasties."
+    elif philosophy == 'crossroads_decision':
+        if prospect_count <= 3:
+            identity_analysis = f"Decision time: #{power_rank} with only {prospect_count} prospects. Either sell veterans to rebuild OR buy to push for playoffs. Status quo is death."
+        else:
+            identity_analysis = f"At #{power_rank} with {prospect_count} prospects - you have options. Pick a direction and commit. The middle is quicksand."
+    elif philosophy == 'reluctant_dealer':
+        if len(tradeable_vets) >= 3:
+            identity_analysis = f"You have {len(tradeable_vets)} veterans with trade value that's depreciating. Every week you wait, you lose leverage. Start selling NOW."
+        else:
+            identity_analysis = f"Ranked #{power_rank} and stuck. Your hesitation is costing value. Identify sellers and make offers before it's too late."
+    elif philosophy == 'analytical_rebuilder':
+        identity_analysis = f"Data says: sell {len(tradeable_vets)} tradeable veterans at peak value. Target high-upside prospects. Zero emotion, maximum return."
+    elif philosophy == 'desperate_accumulator':
+        identity_analysis = f"Farm at {prospect_count} prospects needs volume. Every veteran is trade bait. Cast wide nets - quantity now, sort for quality later."
+    elif philosophy == 'prospect_rich_rebuilder':
+        identity_analysis = f"Your {prospect_count} prospects ARE the championship plan. Protect them fiercely. Only trade for elite stars at massive discounts."
+    else:
+        identity_analysis = f"Ranked #{power_rank} with {total_value:.0f} total value. Evaluate your position and make strategic moves."
+
     # Build roster-specific context
     roster_context = []
-    if len(prospects) >= 5:
-        roster_context.append(f"deep prospect pool ({len(prospects)} ranked)")
-    elif len(prospects) <= 2:
-        roster_context.append(f"thin farm system ({len(prospects)} ranked)")
+    if prospect_count >= 5:
+        roster_context.append(f"deep prospect pool ({prospect_count} ranked)")
+    elif prospect_count <= 2:
+        roster_context.append(f"thin farm system ({prospect_count} ranked)")
 
     if is_young_roster:
         roster_context.append(f"young core (avg {avg_age:.1f} years)")
