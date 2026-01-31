@@ -312,6 +312,17 @@ HTML_CONTENT = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Diamond Dynasties Trade Analyzer</title>
     <style>
+        :root {
+            --color-primary: #00d4ff;
+            --color-accent: #ffd700;
+            --color-success: #00ff88;
+            --color-danger: #ff4d6d;
+            --color-text-muted: #888;
+            --space-sm: 8px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --radius-md: 10px;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -2414,18 +2425,31 @@ def load_prospect_rankings():
     # Store the original rankings from prospects.json (already loaded)
     json_rankings = dict(PROSPECT_RANKINGS)
 
-    # Load rankings and metadata from consensus CSV files
+    # Load rankings and metadata from CSV files (multiple formats supported)
     csv_rankings = {}
     csv_metadata = {}  # name -> {position, age, mlb_team}
-    prospect_files = glob.glob(os.path.join(script_dir, 'Consensus*Ranks*.csv'))
+
+    # Support multiple file patterns
+    file_patterns = [
+        'Consensus*Ranks*.csv',
+        'Prospects Live*.csv',
+        '*Prospect*Ranking*.csv'
+    ]
+
+    prospect_files = []
+    for pattern in file_patterns:
+        prospect_files.extend(glob.glob(os.path.join(script_dir, pattern)))
+    prospect_files = list(set(prospect_files))  # Remove duplicates
 
     for csv_file in prospect_files:
         try:
             with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
+                count = 0
                 for row in reader:
-                    name = row.get('Name', '').strip()
-                    avg_rank_str = row.get('Avg Rank', '')
+                    # Support multiple column name formats
+                    name = (row.get('Name') or row.get('Name_FG') or row.get('Player') or '').strip()
+                    avg_rank_str = row.get('Avg Rank') or row.get('Rank') or row.get('Overall') or ''
 
                     if not name or not avg_rank_str:
                         continue
@@ -2435,18 +2459,19 @@ def load_prospect_rankings():
                         # Keep the better (lower) rank if player appears in multiple CSV files
                         if name not in csv_rankings or avg_rank < csv_rankings[name]:
                             csv_rankings[name] = avg_rank
-                            # Store metadata for this prospect
+                            # Store metadata for this prospect (support multiple column names)
                             age_str = row.get('Age', '')
                             csv_metadata[name] = {
-                                'position': row.get('Pos', 'UTIL'),
-                                'age': int(age_str) if age_str.isdigit() else 0,
-                                'mlb_team': row.get('Team', 'N/A'),
+                                'position': row.get('Pos') or row.get('Position') or 'UTIL',
+                                'age': int(age_str) if age_str and age_str.isdigit() else 0,
+                                'mlb_team': row.get('Team') or row.get('Org') or 'N/A',
                                 'level': row.get('Level', 'N/A')
                             }
+                            count += 1
                     except (ValueError, TypeError):
                         continue
 
-            print(f"Loaded prospect rankings from {os.path.basename(csv_file)}")
+            print(f"Loaded {count} prospect rankings from {os.path.basename(csv_file)}")
         except Exception as e:
             print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
 
