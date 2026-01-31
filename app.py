@@ -182,6 +182,24 @@ GM_PHILOSOPHIES = {
         "risk_tolerance": 0.35
     },
 
+    # ===== SPECIAL CASE PHILOSOPHIES =====
+    "bargain_hunter": {
+        "name": "Bargain Hunter",
+        "description": "Depleted trade capital. Must find value through creativity and hustle, not assets.",
+        "prospect_trade_penalty": 0.25,
+        "proven_talent_bonus": 0.15,
+        "age_tolerance": 30,
+        "risk_tolerance": 0.75
+    },
+    "reluctant_dealer": {
+        "name": "Reluctant Dealer",
+        "description": "Hesitant to trade. When deals happen, often loses value. Holds too long hoping for turnarounds.",
+        "prospect_trade_penalty": -0.15,
+        "proven_talent_bonus": 0.0,
+        "age_tolerance": 29,
+        "risk_tolerance": 0.25
+    },
+
     # ===== LEGACY (for backwards compatibility) =====
     "win_now": {
         "name": "Win-Now Contender",
@@ -315,17 +333,17 @@ ASSISTANT_GMS = {
     "Hartford Yard GOATS": {
         "name": "Billy Gruff",
         "title": "Assistant GM",
-        "philosophy": "aggressive_buyer",
-        "personality": "Middle-tier team that has already moved prospects for veterans. Committed to competing and willing to continue dealing from the farm.",
+        "philosophy": "bargain_hunter",
+        "personality": "Already traded away the farm chasing a window that hasn't opened yet. Now hunting for value wherever he can find it. Limited ammunition means getting creative.",
         "catchphrases": [
-            "Prospects are currency meant to be spent.",
-            "You can't win championships with potential.",
-            "I'll trade futures for present production.",
-            "Let the rebuilders hoard - we're here to compete."
+            "The cupboard's bare, but the hustle never stops.",
+            "You don't need prospects to find upgrades.",
+            "One man's trash is another man's closer.",
+            "I'll find value where others see nothing."
         ],
-        "trade_style": "Hard bargainer. Extracts maximum value. Willing to part with prospects.",
-        "priorities": ["win_now_upgrades", "veteran_acquisition", "competitive_push"],
-        "risk_tolerance": 0.70,
+        "trade_style": "Resourceful buyer with depleted trade capital. Targets undervalued veterans, waiver gems, and buy-low candidates. Must win trades on smarts, not assets.",
+        "priorities": ["buy_low_targets", "waiver_gems", "creative_acquisitions"],
+        "risk_tolerance": 0.75,
         "preferred_categories": ["K", "WHIP", "SB"]
     },
 
@@ -367,17 +385,17 @@ ASSISTANT_GMS = {
     "Alaskan Bullworms": {
         "name": "Frosty Carlson",
         "title": "Assistant GM",
-        "philosophy": "protective_rebuilder",
-        "personality": "Rebuilding with limited prospect capital. Fiercely protective of young assets. Needs to sell veterans but won't give away the few prospects remaining.",
+        "philosophy": "reluctant_dealer",
+        "personality": "Notoriously hesitant to pull the trigger on trades. Holds onto players too long hoping they'll turn around. When he does deal, the results are... questionable. His reluctance to sell has kept the team stuck in neutral.",
         "catchphrases": [
-            "These prospects are all we have - they're not for sale.",
-            "Patience builds dynasties, panic destroys them.",
-            "You want my young talent? Overpay or go home.",
-            "The coldest no is still a no."
+            "I'm not ready to give up on him yet.",
+            "Let me think about it... for another month.",
+            "That trade looked better on paper, I swear.",
+            "Maybe next year will be different."
         ],
-        "trade_style": "Hard bargainer. Is sometimes reluctant to trade away talent.",
-        "priorities": ["prospect_protection", "veteran_conversion", "draft_pick_accumulation"],
-        "risk_tolerance": 0.30,
+        "trade_style": "Reluctant trader who often holds too long. When deals happen, they tend to favor the other side. Needs to be more aggressive selling, but can't pull the trigger.",
+        "priorities": ["holding_pattern", "hoping_for_breakouts", "avoiding_difficult_decisions"],
+        "risk_tolerance": 0.25,
         "preferred_categories": ["SB", "K", "K/BB"]
     },
     "Sugar Land Space Cowboys": {
