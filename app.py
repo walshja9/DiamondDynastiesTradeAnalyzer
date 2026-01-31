@@ -564,6 +564,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <p>Dynasty Fantasy Baseball Trade Analysis Tool</p>
         </header>
 
+        <div id="debug-status" style="background: #333; color: #0f0; padding: 10px; margin-bottom: 10px; font-family: monospace; border-radius: 5px;">Loading...</div>
+
         <div class="tabs">
             <button class="tab active" onclick="showPanel('analyze')">Analyze Trade</button>
             <button class="tab" onclick="showPanel('teams')">Teams</button>
@@ -875,14 +877,20 @@ HTML_CONTENT = '''<!DOCTYPE html>
         });
 
         async function loadTeams() {
+            const debugEl = document.getElementById('debug-status');
             try {
+                if (debugEl) debugEl.textContent = 'Fetching teams...';
                 const res = await fetch(`${API_BASE}/teams`);
+                if (debugEl) debugEl.textContent = 'Got response, parsing JSON...';
                 const data = await res.json();
+                if (debugEl) debugEl.textContent = `Loaded ${(data.teams || []).length} teams`;
                 teamsData = data.teams || [];
                 populateTeamSelects();
                 renderTeamsGrid();
+                if (debugEl) debugEl.textContent = `Done! ${teamsData.length} teams loaded`;
             } catch (e) {
                 console.error('Failed to load teams:', e);
+                if (debugEl) debugEl.textContent = `ERROR: ${e.message}`;
             }
         }
 
