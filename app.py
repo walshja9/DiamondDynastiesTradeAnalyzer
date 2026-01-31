@@ -798,39 +798,138 @@ HTML_CONTENT = '''<!DOCTYPE html>
     <title>Diamond Dynasties Trade Analyzer</title>
     <style>
         :root {
+            /* ===== COLOR TOKENS ===== */
+            /* Primary */
             --color-primary: #00d4ff;
+            --color-primary-dark: #0099cc;
+            --color-primary-light: #33ddff;
+            --color-primary-rgb: 0, 212, 255;
+
+            /* Accent */
             --color-accent: #ffd700;
-            --color-success: #00ff88;
-            --color-danger: #ff4d6d;
+            --color-accent-dark: #cc9900;
+            --color-accent-rgb: 255, 215, 0;
+
+            /* Semantic */
+            --color-success: #4ade80;
+            --color-success-dark: #22c55e;
+            --color-danger: #f87171;
+            --color-danger-dark: #ef4444;
             --color-warning: #fbbf24;
+            --color-warning-dark: #f59e0b;
+            --color-info: #60a5fa;
+
+            /* Text */
             --color-text: #e8e8e8;
             --color-text-secondary: #a0a0a0;
             --color-text-muted: #666;
+            --color-text-dark: #444;
+
+            /* ===== BACKGROUND TOKENS ===== */
+            --bg-body: #05050a;
             --bg-darkest: #08080c;
-            --bg-dark: #0d0d12;
-            --bg-card: #111118;
-            --bg-elevated: #16161f;
-            --border-subtle: rgba(0, 212, 255, 0.12);
+            --bg-dark: #0a0a10;
+            --bg-card: #0e0e16;
+            --bg-elevated: #12121a;
+            --bg-hover: #16161f;
+
+            /* ===== BORDER TOKENS ===== */
+            --border-subtle: rgba(0, 212, 255, 0.08);
+            --border-default: rgba(0, 212, 255, 0.12);
             --border-accent: rgba(0, 212, 255, 0.25);
+            --border-strong: rgba(0, 212, 255, 0.4);
+            --border-success: rgba(74, 222, 128, 0.25);
+            --border-danger: rgba(248, 113, 113, 0.25);
+            --border-warning: rgba(251, 191, 36, 0.25);
+
+            /* ===== GRADIENT TOKENS ===== */
+            --gradient-card: linear-gradient(145deg, var(--bg-dark), var(--bg-card));
+            --gradient-elevated: linear-gradient(145deg, var(--bg-card), var(--bg-elevated));
+            --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+            --gradient-success: linear-gradient(135deg, var(--color-success), var(--color-success-dark));
+            --gradient-danger: linear-gradient(135deg, var(--color-danger), var(--color-danger-dark));
+            --gradient-accent: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+
+            /* ===== SHADOW TOKENS ===== */
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+            --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.6);
+            --shadow-glow-primary: 0 0 20px rgba(var(--color-primary-rgb), 0.25);
+            --shadow-glow-accent: 0 0 20px rgba(var(--color-accent-rgb), 0.25);
+
+            /* ===== SPACING TOKENS ===== */
             --space-xs: 4px;
             --space-sm: 8px;
             --space-md: 16px;
             --space-lg: 24px;
             --space-xl: 32px;
+            --space-2xl: 48px;
+
+            /* ===== RADIUS TOKENS ===== */
+            --radius-xs: 4px;
             --radius-sm: 6px;
             --radius-md: 10px;
-            --radius-lg: 16px;
+            --radius-lg: 14px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+
+            /* ===== TYPOGRAPHY TOKENS ===== */
+            --text-xs: 0.7rem;
+            --text-sm: 0.85rem;
+            --text-base: 1rem;
+            --text-lg: 1.15rem;
+            --text-xl: 1.4rem;
+            --text-2xl: 1.8rem;
+            --text-3xl: 2.2rem;
+
+            /* ===== TRANSITION TOKENS ===== */
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.25s ease;
+            --transition-slow: 0.4s ease;
         }
-        /* Utility Classes */
-        .section-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent); margin: var(--space-lg) 0; }
+
+        /* ===== UTILITY CLASSES ===== */
+        /* Dividers */
+        .section-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(var(--color-primary-rgb), 0.2), transparent); margin: var(--space-lg) 0; }
+        .divider-vertical { width: 1px; background: var(--border-default); }
+
+        /* Text Colors */
         .text-muted { color: var(--color-text-muted); }
         .text-secondary { color: var(--color-text-secondary); }
         .text-primary { color: var(--color-primary); }
         .text-accent { color: var(--color-accent); }
+        .text-success { color: var(--color-success); }
+        .text-danger { color: var(--color-danger); }
+        .text-warning { color: var(--color-warning); }
+
+        /* Margins */
+        .mb-xs { margin-bottom: var(--space-xs); }
         .mb-sm { margin-bottom: var(--space-sm); }
         .mb-md { margin-bottom: var(--space-md); }
         .mb-lg { margin-bottom: var(--space-lg); }
-        .card-elevated { background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-subtle); }
+        .mb-xl { margin-bottom: var(--space-xl); }
+        .mt-sm { margin-top: var(--space-sm); }
+        .mt-md { margin-top: var(--space-md); }
+        .mt-lg { margin-top: var(--space-lg); }
+
+        /* Padding */
+        .p-sm { padding: var(--space-sm); }
+        .p-md { padding: var(--space-md); }
+        .p-lg { padding: var(--space-lg); }
+
+        /* Cards */
+        .card-base { background: var(--gradient-card); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-subtle); }
+        .card-elevated { background: var(--gradient-elevated); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-default); }
+        .card-interactive { transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal); }
+        .card-interactive:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--border-accent); }
+
+        /* Badges */
+        .badge { display: inline-flex; align-items: center; padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-full); font-size: var(--text-sm); font-weight: 600; }
+        .badge-primary { background: rgba(var(--color-primary-rgb), 0.15); color: var(--color-primary); }
+        .badge-success { background: rgba(74, 222, 128, 0.15); color: var(--color-success); }
+        .badge-danger { background: rgba(248, 113, 113, 0.15); color: var(--color-danger); }
+        .badge-warning { background: rgba(251, 191, 36, 0.15); color: var(--color-warning); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
