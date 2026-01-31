@@ -4295,24 +4295,25 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
                 age_tag = f"<span style='color:#4ade80'>({p.age})</span>" if p.age <= 26 else f"<span style='color:#fbbf24'>({p.age})</span>" if p.age <= 30 else f"<span style='color:#fb923c'>({p.age})</span>"
                 core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• {p.name}: {v:.0f} value, age {age_tag}<br>"
 
-        # Core concentration risk - adjusted thresholds for typical 40-50 player dynasty rosters
-        top_5_value = sum(v for _, v in players_with_value[:5])
-        roster_size = len(players_with_value)
-        concentration = top_5_value / total_value * 100 if total_value > 0 else 0
-
-        # Also check if top player is elite (>70 value indicates true star)
+        # Core quality analysis - count stars instead of concentration %
+        # Star = 55+ value, Elite = 65+ value
+        star_count = len([v for _, v in players_with_value if v >= 55])
+        elite_count = len([v for _, v in players_with_value if v >= 65])
         top_player_value = players_with_value[0][1] if players_with_value else 0
-        has_elite = top_player_value >= 70
 
-        if concentration > 28:
-            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>⚠️ Top-heavy: Top 5 = {concentration:.0f}% of value (injury risk if stars go down)</span>"
-        elif concentration < 15 or (not has_elite and concentration < 20):
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Balanced but lacks star power: Top 5 = {concentration:.0f}% (no elite talent)</span>"
+        # Determine roster profile based on star distribution
+        if elite_count >= 3:
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>⭐ Stacked: {elite_count} elite players (65+ value) - championship caliber</span>"
+        elif elite_count >= 1 and star_count >= 5:
+            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>✓ Strong core: {elite_count} elite + {star_count - elite_count} stars supporting</span>"
+        elif star_count >= 6:
+            core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Deep roster: {star_count} quality contributors (55+ value)</span>"
+        elif star_count >= 4:
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Solid foundation: {star_count} quality pieces, could use another star</span>"
+        elif star_count >= 2:
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Developing: {star_count} quality players - building phase</span>"
         else:
-            if has_elite:
-                core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>✓ Strong core with elite talent: Top 5 = {concentration:.0f}% of value</span>"
-            else:
-                core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Solid depth: Top 5 = {concentration:.0f}% (good balance)</span>"
+            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>⚠️ Rebuilding: Only {star_count} players valued 55+ (need talent)</span>"
 
     analysis_parts.append(core_text.rstrip('<br>'))
 
