@@ -4118,6 +4118,62 @@ def generate_gm_trade_scenarios(team_name, team):
                     'urgency': 'low'
                 })
 
+    # ============ ABSOLUTE FALLBACK - ALWAYS generates something ============
+    if len(scenarios) == 0:
+        # Use the team's best tradeable asset to explore options
+        if len(players_with_value) >= 6:
+            trade_candidate = players_with_value[5]  # 6th best player
+            p, v = trade_candidate
+
+            # Find ANY team that might want this player
+            for other_team_name, other_team in teams.items():
+                if other_team_name == team_name:
+                    continue
+                their_players = [(op, calculator.calculate_player_value(op)) for op in other_team.players]
+                their_players.sort(key=lambda x: x[1], reverse=True)
+                # Find a comparable player
+                for op, ov in their_players:
+                    if abs(ov - v) <= 10 and op.name != p.name:
+                        scenarios.append({
+                            'title': "🔄 Explore Value Swap",
+                            'target': f"{op.name} ({other_team_name})",
+                            'target_value': ov,
+                            'target_stats': f"Age {op.age}, {op.position}",
+                            'offer': f"{p.name} ({v:.0f})",
+                            'offer_value': v,
+                            'reasoning': f"Straight-up swap of similar value players. Sometimes a change of scenery benefits both teams. {op.name} might fit your roster better.",
+                            'trade_type': 'swap',
+                            'urgency': 'low'
+                        })
+                        break
+                if scenarios:
+                    break
+
+        # If STILL nothing, give generic advice based on rank
+        if len(scenarios) == 0:
+            if my_power_rank <= 6:
+                scenarios.append({
+                    'title': "🎯 Stay the Course",
+                    'target': "Minor upgrades only",
+                    'target_value': 0,
+                    'offer': "Depth pieces or late picks",
+                    'offer_value': 0,
+                    'reasoning': f"Ranked #{my_power_rank} with a solid roster. Don't force trades - wait for the right opportunity. Monitor the wire for FA upgrades and be ready if a contender panics.",
+                    'trade_type': 'hold',
+                    'urgency': 'low'
+                })
+            else:
+                scenarios.append({
+                    'title': "📋 Assess Your Assets",
+                    'target': "Build trade value",
+                    'target_value': 0,
+                    'offer': "Identify sellable pieces",
+                    'offer_value': 0,
+                    'reasoning': f"Ranked #{my_power_rank}. Take inventory of your roster - which players have value to contenders? Shop veterans to teams pushing for titles and accumulate young talent or picks.",
+                    'trade_type': 'evaluate',
+                    'urgency': 'medium'
+                })
+
     return scenarios[:4]  # Max 4 scenarios
 
 
