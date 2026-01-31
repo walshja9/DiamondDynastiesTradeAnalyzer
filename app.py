@@ -5023,6 +5023,49 @@ def generate_gm_trade_scenarios(team_name, team):
 
         return package
 
+    # Philosophy-specific scenario title generators
+    def get_buy_title(category, target_name):
+        """Generate philosophy-appropriate title for buy scenarios."""
+        titles = {
+            'dynasty_champion': f"Throne Defense: Upgrade {category}",
+            'championship_closer': f"Hunt Target: {target_name} for {category}",
+            'all_in_buyer': f"Go Get: {target_name}",
+            'smart_contender': f"Calculated Acquisition: {category} Upgrade",
+            'loaded_and_ready': f"Power Move: Add {target_name}",
+            'bargain_hunter': f"Hidden Value: {target_name}",
+            'rising_powerhouse': f"Accelerate: {category} via {target_name}",
+        }
+        return titles.get(philosophy, f"Acquire: {target_name} for {category}")
+
+    def get_sell_title(player_name):
+        """Generate philosophy-appropriate title for sell scenarios."""
+        titles = {
+            'analytical_rebuilder': f"Optimal Exit: {player_name}",
+            'desperate_accumulator': f"Volume Play: Flip {player_name}",
+            'reluctant_dealer': f"Finally Moving: {player_name}",
+            'prospect_rich_rebuilder': f"Convert: {player_name} → Youth",
+            'crossroads_decision': f"Commit to Rebuild: Sell {player_name}",
+        }
+        return titles.get(philosophy, f"Sell High: {player_name}")
+
+    def get_reasoning_prefix():
+        """Get philosophy-specific reasoning prefix."""
+        prefixes = {
+            'dynasty_champion': "From the throne:",
+            'championship_closer': "Championship math:",
+            'all_in_buyer': "Win now or bust:",
+            'smart_contender': "The numbers say:",
+            'loaded_and_ready': "From a position of strength:",
+            'bargain_hunter': "Value hunting:",
+            'rising_powerhouse': "Protecting the future:",
+            'crossroads_decision': "Decision time:",
+            'reluctant_dealer': "No more waiting:",
+            'analytical_rebuilder': "The model shows:",
+            'desperate_accumulator': "Volume acquisition:",
+            'prospect_rich_rebuilder': "Future-first:",
+        }
+        return prefixes.get(philosophy, "Analysis:")
+
     # ============ CONTENDER SCENARIOS ============
     if is_contender:
         # Scenario 1: Push for championship - address biggest weakness with specific target
@@ -5050,14 +5093,14 @@ def generate_gm_trade_scenarios(team_name, team):
                         negotiation_tip = f"\nCounter-offer tip: You're overpaying - try removing one piece or ask for a pick back."
 
                     scenarios.append({
-                        'title': f"Championship Push: Fix {target_cat}",
+                        'title': get_buy_title(target_cat, best['player'].name),
                         'target': f"{best['player'].name} ({best['team']}){seller_note}",
                         'target_value': target_value,
                         'target_stats': f"{best['cat_value']:.0f} {target_cat} projected",
                         'offer': offer_str,
                         'offer_value': package_value,
                         'package_details': [(p.name, round(v, 1), p.is_prospect) for p, v in package],
-                        'reasoning': f"You're #{my_power_rank} but rank #{cat_rank} in {target_cat}. {best['player'].name} projects for {best['cat_value']:.0f} {target_cat}.{negotiation_tip}",
+                        'reasoning': f"{get_reasoning_prefix()} You're #{my_power_rank} but rank #{cat_rank} in {target_cat}. {best['player'].name} projects for {best['cat_value']:.0f} {target_cat}.{negotiation_tip}",
                         'trade_type': 'buy',
                         'urgency': 'high'
                     })
@@ -5121,12 +5164,12 @@ def generate_gm_trade_scenarios(team_name, team):
                             pick_suggestion = " + 3rd Rd pick"
 
                         scenarios.append({
-                            'title': "Rebuild Fuel: Sell Veteran to Contender",
+                            'title': get_sell_title(best_vet[0].name),
                             'target': " + ".join(ask_parts) + pick_suggestion,
                             'target_value': ask_value,
                             'offer': f"{best_vet[0].name} ({best_vet[1]:.0f} value, age {best_vet[0].age})",
                             'offer_value': best_vet[1],
-                            'reasoning': f"{other_team_name} is #{other_rank} and pushing for a title. {best_vet[0].name}'s value peaks NOW - sell before decline.\nNegotiation: Ask for their best prospect + a young player. They're desperate.",
+                            'reasoning': f"{get_reasoning_prefix()} {other_team_name} is #{other_rank} and pushing for a title. {best_vet[0].name}'s value peaks NOW - sell before decline.\nNegotiation: Ask for their best prospect + a young player. They're desperate.",
                             'trade_type': 'sell',
                             'urgency': 'high'
                         })
@@ -5259,13 +5302,13 @@ def generate_gm_trade_scenarios(team_name, team):
                         their_prospects = [p for p in other_team.players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100]
                         if their_prospects:
                             scenarios.append({
-                                'title': f"Sell High: {vet.name} for Youth",
+                                'title': get_sell_title(vet.name),
                                 'target': f"Prospects from {other_team_name}",
                                 'target_value': vet_val * 0.85,
                                 'target_stats': f"Target their prospect depth",
                                 'offer': f"{vet.name} ({vet_val:.0f} value, age {vet.age})",
                                 'offer_value': vet_val,
-                                'reasoning': f"{vet.name} is {vet.age} years old with {vet_val:.0f} value. {other_team_name} (#{other_rank}) is contending and needs veterans. Sell now while value is high.",
+                                'reasoning': f"{get_reasoning_prefix()} {vet.name} is {vet.age} years old with {vet_val:.0f} value. {other_team_name} (#{other_rank}) is contending and needs veterans.",
                                 'trade_type': 'sell',
                                 'urgency': 'high'
                             })
@@ -5304,7 +5347,7 @@ def generate_gm_trade_scenarios(team_name, team):
                         'target_stats': f"{best['cat_value']:.0f} {target_cat}",
                         'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f})",
                         'offer_value': trade_piece[1],
-                        'reasoning': f"You have {pos_counts.get(surplus_pos, 0)} {surplus_pos} but rank #{target_rank} in {target_cat}. {best['player'].name} directly addresses your need.",
+                        'reasoning': f"{get_reasoning_prefix()} You have {pos_counts.get(surplus_pos, 0)} {surplus_pos} but rank #{target_rank} in {target_cat}. {best['player'].name} directly addresses your need.",
                         'trade_type': 'rebalance',
                         'urgency': 'low'
                     })
@@ -5350,7 +5393,7 @@ def generate_gm_trade_scenarios(team_name, team):
                     'target_stats': f"Adds {best['cat_value']:.0f} {weak_cat}",
                     'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f}, {trade_piece[2]:.0f} {strong_cat})",
                     'offer_value': trade_piece[1],
-                    'reasoning': f"You're #{strong_rank} in {strong_cat} (surplus) but #{weak_rank} in {weak_cat}. This is textbook roster optimization.",
+                    'reasoning': f"{get_reasoning_prefix()} You're #{strong_rank} in {strong_cat} (surplus) but #{weak_rank} in {weak_cat}. Textbook optimization.",
                     'trade_type': 'rebalance',
                     'urgency': 'medium'
                 })
@@ -5363,13 +5406,13 @@ def generate_gm_trade_scenarios(team_name, team):
             if sellable:
                 vet = sellable[0]
                 scenarios.append({
-                    'title': f"Liquidate: Sell {vet[0].name}",
+                    'title': get_sell_title(vet[0].name),
                     'target': "Prospects and/or draft picks",
                     'target_value': vet[1] * 0.8,
                     'target_stats': "Youth and future assets",
                     'offer': f"{vet[0].name} ({vet[1]:.0f} value, age {vet[0].age})",
                     'offer_value': vet[1],
-                    'reasoning': f"Philosophy: SELL. {vet[0].name} at age {vet[0].age} doesn't fit your rebuild timeline. Convert to future assets.",
+                    'reasoning': f"{get_reasoning_prefix()} {vet[0].name} at age {vet[0].age} doesn't fit your timeline. Convert to future assets now.",
                     'trade_type': 'sell',
                     'urgency': 'high'
                 })
@@ -6366,7 +6409,79 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     gm_scenarios = generate_gm_trade_scenarios(team_name, team)
     if gm_scenarios:
         scenario_text = f"<b>{gm['name'].upper()}'S TRADE SCENARIOS:</b><br>"
-        scenario_text += f"<i>Here's what I'd explore given our {GM_PHILOSOPHIES.get(gm['philosophy'], {}).get('name', 'balanced')} approach:</i><br><br>"
+
+        # Philosophy-specific intro phrases
+        import random
+        SCENARIO_INTROS = {
+            'dynasty_champion': [
+                "From the throne, here's what catches my attention...",
+                "Few offers deserve our time. These might:",
+                "We don't chase deals. But IF we were to move...",
+            ],
+            'championship_closer': [
+                "Sleep is for rebuilding teams. Here's my hit list:",
+                "The championship gap analysis shows these moves:",
+                "I've been working the phones. Here's where we strike:",
+            ],
+            'all_in_buyer': [
+                "No holding back. These are the plays:",
+                "Futures are for rebuilders. Here's how we win NOW:",
+                "Time to empty the clip. Let's go get 'em:",
+            ],
+            'smart_contender': [
+                "The spreadsheet identified these opportunities:",
+                "After modeling 47 scenarios, here's optimal value:",
+                "The data points to these surgical moves:",
+            ],
+            'loaded_and_ready': [
+                "From a position of strength, here's what I'd entertain:",
+                "We dictate terms. But these deals make sense:",
+                "Options are a luxury. Here's how I'd use ours:",
+            ],
+            'bargain_hunter': [
+                "Empty pockets, full creativity. Here's what I found:",
+                "Hunting value in the margins. These look promising:",
+                "No assets? No problem. Watch this:",
+            ],
+            'rising_powerhouse': [
+                "Protecting the foundation, but I'd consider these:",
+                "The future is bright. Only these deals accelerate it:",
+                "Patience builds dynasties. But for the right price...",
+            ],
+            'crossroads_decision': [
+                "Decision time. Here are the paths forward:",
+                "The fork in the road. Each option leads somewhere:",
+                "Status quo is death. Here's how we escape:",
+            ],
+            'reluctant_dealer': [
+                "I know, I know... we need to move. Here's what makes sense:",
+                "Fine. FINE. Let's look at the options:",
+                "Every week I wait costs us. Here's the reality:",
+            ],
+            'analytical_rebuilder': [
+                "The algorithm identified these optimal transactions:",
+                "Zero emotion. Maximum return. Executing:",
+                "The model says sell. Here's the efficient frontier:",
+            ],
+            'desperate_accumulator': [
+                "EVERYTHING is available. Here's where I'm casting nets:",
+                "Quantity mode engaged. These get us bodies:",
+                "Volume, volume, volume. Here's the shopping list:",
+            ],
+            'prospect_rich_rebuilder': [
+                "Guarding the treasure, but these trades might unlock more:",
+                "The prospects ARE the plan. Only these deals fit:",
+                "Good things come to those who develop. But consider:",
+            ],
+        }
+
+        intro_options = SCENARIO_INTROS.get(philosophy, [
+            "Here's what I'm exploring:",
+            "Based on our roster, consider these moves:",
+            "The trade board shows these opportunities:",
+        ])
+        scenario_text += f"<i>{random.choice(intro_options)}</i><br><br>"
+
         for i, s in enumerate(gm_scenarios, 1):
             scenario_text += f"<b>{s['title']}</b><br>"
             scenario_text += f"&nbsp;&nbsp;Target: {s['target']} (~{s['target_value']:.0f} value)<br>"
