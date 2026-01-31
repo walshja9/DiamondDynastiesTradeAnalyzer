@@ -5095,12 +5095,17 @@ def analyze_trade():
     age_analysis = ""
     if avg_age_a_sends and avg_age_b_sends:
         age_diff = avg_age_a_sends - avg_age_b_sends
+        # If team_a sends OLDER players (age_diff > 0), team_a RECEIVES younger players
+        # If team_a sends YOUNGER players (age_diff < 0), team_b RECEIVES younger players
         if abs(age_diff) >= 3:
-            younger_team = team_b if age_diff > 0 else team_a
-            older_team = team_a if age_diff > 0 else team_b
-            age_analysis = f"{younger_team} gets younger assets (avg age: {min(avg_age_a_sends, avg_age_b_sends):.1f} vs {max(avg_age_a_sends, avg_age_b_sends):.1f}). "
+            team_getting_younger = team_a if age_diff > 0 else team_b
+            team_getting_older = team_b if age_diff > 0 else team_a
+            younger_age = min(avg_age_a_sends, avg_age_b_sends)
+            older_age = max(avg_age_a_sends, avg_age_b_sends)
+            age_analysis = f"{team_getting_younger} gets younger assets (receives avg {younger_age:.1f} yrs, sends {older_age:.1f} yrs). "
         elif abs(age_diff) >= 1:
-            age_analysis = f"Slight age advantage to {team_b if age_diff > 0 else team_a}. "
+            team_getting_younger = team_a if age_diff > 0 else team_b
+            age_analysis = f"Slight age advantage to {team_getting_younger}. "
 
     # Position analysis
     positions_a_sends = [p.position.split('/')[0] if '/' in p.position else p.position for p in found_players_a]
