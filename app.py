@@ -48,10 +48,10 @@ TEAM_RIVALRIES = {
     "Sugar Land Space Cowboys": "Colt 45s",
     "Pawtucket Red Sox": "Danville Dairy Daddies",
     "Danville Dairy Daddies": "Pawtucket Red Sox",
-    "Boston Beaneaters": "Akron Rubberducks",
-    "Akron Rubberducks": "Boston Beaneaters",
-    "Kalamazoo Celery Pickers": "Hartford Yard Goats",
-    "Hartford Yard Goats": "Kalamazoo Celery Pickers",
+    "Boston Beaneaters": "Akron Rubber Ducks",
+    "Akron Rubber Ducks": "Boston Beaneaters",
+    "Kalamazoo Celery Pickers": "Hartford Yard GOATS",
+    "Hartford Yard GOATS": "Kalamazoo Celery Pickers",
     "Hershey Bears": "Modesto Nuts",
     "Modesto Nuts": "Hershey Bears",
 }
@@ -61,13 +61,13 @@ TEAM_RIVALRIES = {
 RIVALRY_HISTORY = {
     "Danville Dairy Daddies": {"record": "14-13-1", "h2h": "1-0-1", "rival_record": "13-14-1", "rival_h2h": "0-1-1"},
     "Pawtucket Red Sox": {"record": "13-14-1", "h2h": "0-1-1", "rival_record": "14-13-1", "rival_h2h": "1-0-1"},
-    "Akron Rubberducks": {"record": "10-16-2", "h2h": "0-2", "rival_record": "16-10-2", "rival_h2h": "2-0"},
+    "Akron Rubber Ducks": {"record": "10-16-2", "h2h": "0-2", "rival_record": "16-10-2", "rival_h2h": "2-0"},
     "Boston Beaneaters": {"record": "16-10-2", "h2h": "2-0", "rival_record": "10-16-2", "rival_h2h": "0-2"},
     "Alaskan Bullworms": {"record": "5-23", "h2h": "0-2", "rival_record": "23-5", "rival_h2h": "2-0"},
     "Rocket City Trash Pandas": {"record": "23-5", "h2h": "2-0", "rival_record": "5-23", "rival_h2h": "0-2"},
     "Colt 45s": {"record": "19-9", "h2h": "2-0", "rival_record": "9-19", "rival_h2h": "0-2"},
     "Sugar Land Space Cowboys": {"record": "9-19", "h2h": "0-2", "rival_record": "19-9", "rival_h2h": "2-0"},
-    "Hartford Yard Goats": {"record": "15-13", "h2h": "2-0", "rival_record": "13-15", "rival_h2h": "0-2"},
+    "Hartford Yard GOATS": {"record": "15-13", "h2h": "2-0", "rival_record": "13-15", "rival_h2h": "0-2"},
     "Kalamazoo Celery Pickers": {"record": "13-15", "h2h": "0-2", "rival_record": "15-13", "rival_h2h": "2-0"},
     "Modesto Nuts": {"record": "16-10-2", "h2h": "1-1", "rival_record": "10-16-2", "rival_h2h": "1-1"},
     "Hershey Bears": {"record": "10-16-2", "h2h": "1-1", "rival_record": "16-10-2", "rival_h2h": "1-1"},
@@ -286,7 +286,7 @@ ASSISTANT_GMS = {
         "risk_tolerance": 0.78,
         "preferred_categories": ["K", "SB", "WHIP"]
     },
-    "Akron Rubberducks": {
+    "Akron Rubber Ducks": {
         "owner": "Jon Lanoue",
         "team_identity": "STRATEGIC CONTENDER",
         "identity_analysis": "You're competing smart, not reckless. Balance win-now moves with long-term sustainability. Target trades that improve today without mortgaging tomorrow. Your edge is discipline - don't abandon it for short-term gains.",
@@ -345,7 +345,7 @@ ASSISTANT_GMS = {
         "risk_tolerance": 0.68,
         "preferred_categories": ["HR", "SB", "SV+HLD"]
     },
-    "Hartford Yard Goats": {
+    "Hartford Yard GOATS": {
         "owner": "Matt Person & Daniel Barrientos",
         "team_identity": "BARGAIN HUNTERS",
         "identity_analysis": "Your prospect cupboard is bare, but your creativity isn't. Hunt for undervalued assets others have given up on. Target buy-low candidates, waiver gems, and players with untapped upside. Win trades with smarts, not assets.",
