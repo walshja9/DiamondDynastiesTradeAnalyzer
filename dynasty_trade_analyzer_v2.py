@@ -727,28 +727,36 @@ class DynastyValueCalculator:
         value = base_value
         bonus_multiplier = 1.0  # Track bonuses to cap stacking
         
-        # Age adjustments
+        # Age adjustments - Dynasty leagues value youth heavily due to years of future production
         if player.age > 0:
             if is_hitter:
-                if player.age <= 24:
-                    bonus_multiplier += 0.10  # Young hitters premium
+                if player.age <= 22:
+                    bonus_multiplier += 0.20  # Elite youth - 10+ prime years ahead
+                elif player.age <= 24:
+                    bonus_multiplier += 0.14  # Young stars - 8+ prime years
                 elif player.age <= 26:
-                    bonus_multiplier += 0.06
+                    bonus_multiplier += 0.08  # Entering prime
                 elif player.age <= 28:
-                    bonus_multiplier += 0.02  # Prime age
+                    bonus_multiplier += 0.02  # Prime age but shorter window
                 elif player.age >= 34:
-                    bonus_multiplier -= 0.12  # Aging decline
+                    bonus_multiplier -= 0.15  # Aging decline
                 elif player.age >= 32:
-                    bonus_multiplier -= 0.06
+                    bonus_multiplier -= 0.08
+                elif player.age >= 30:
+                    bonus_multiplier -= 0.03
             else:  # Pitchers
-                if player.age <= 25:
-                    bonus_multiplier += 0.08
+                if player.age <= 23:
+                    bonus_multiplier += 0.16  # Elite young arm
+                elif player.age <= 25:
+                    bonus_multiplier += 0.10  # Young pitcher premium
                 elif player.age <= 28:
                     bonus_multiplier += 0.03
                 elif player.age >= 34:
-                    bonus_multiplier -= 0.12
+                    bonus_multiplier -= 0.15
                 elif player.age >= 32:
-                    bonus_multiplier -= 0.06
+                    bonus_multiplier -= 0.08
+                elif player.age >= 30:
+                    bonus_multiplier -= 0.03
         
         # Position scarcity (for hitters) - small adjustments
         if is_hitter:
@@ -763,8 +771,8 @@ class DynastyValueCalculator:
                 pos_bonus = -0.02
             bonus_multiplier += pos_bonus
         
-        # Cap the total bonus/penalty at 15%
-        bonus_multiplier = max(0.82, min(bonus_multiplier, 1.15))
+        # Cap the total bonus/penalty - allow higher for elite youth in dynasty
+        bonus_multiplier = max(0.80, min(bonus_multiplier, 1.25))
         value *= bonus_multiplier
         
         # Prospect adjustments - ranking matters but shouldn't exceed proven MLB players
