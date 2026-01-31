@@ -4781,7 +4781,7 @@ def get_buy_low_sell_high_alerts(team_name, team):
 def generate_gm_trade_scenarios(team_name, team):
     """
     Generate personalized, actionable trade scenarios based on YOUR team's specific situation.
-    Scenarios differ based on competitive window, category needs, and roster composition.
+    Scenarios differ based on competitive window, category needs, roster composition, AND GM PHILOSOPHY.
     Now includes specific multi-player packages and counter-offer suggestions.
     """
     scenarios = []
@@ -4789,13 +4789,29 @@ def generate_gm_trade_scenarios(team_name, team):
     players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
     players_with_value.sort(key=lambda x: x[1], reverse=True)
 
+    # Get GM philosophy - this determines what types of trades are appropriate
+    gm = get_assistant_gm(team_name)
+    philosophy = gm.get('philosophy', 'balanced')
+
+    # Define philosophy trade tendencies
+    SELLING_PHILOSOPHIES = ['analytical_rebuilder', 'desperate_accumulator', 'reluctant_dealer', 'prospect_rich_rebuilder']
+    BUYING_PHILOSOPHIES = ['championship_closer', 'all_in_buyer', 'dynasty_champion', 'loaded_and_ready']
+    PATIENT_PHILOSOPHIES = ['rising_powerhouse', 'smart_contender', 'prospect_rich_rebuilder']
+    AGGRESSIVE_PHILOSOPHIES = ['championship_closer', 'all_in_buyer', 'desperate_accumulator']
+
+    # Determine trade behavior based on philosophy
+    should_sell = philosophy in SELLING_PHILOSOPHIES
+    should_buy = philosophy in BUYING_PHILOSOPHIES
+    should_be_patient = philosophy in PATIENT_PHILOSOPHIES
+    should_protect_prospects = philosophy in ['rising_powerhouse', 'prospect_rich_rebuilder', 'smart_contender']
+
     # Get team context
     team_cats, rankings = calculate_league_category_rankings()
     my_ranks = rankings.get(team_name, {})
     _, power_rankings, _ = get_team_rankings()
     my_power_rank = power_rankings.get(team_name, 6)
 
-    # Determine competitive window
+    # Determine competitive window (used as secondary filter, philosophy is primary)
     is_contender = my_power_rank <= 4
     is_middle = 5 <= my_power_rank <= 8
     is_rebuilding = my_power_rank >= 9
@@ -5094,10 +5110,11 @@ def generate_gm_trade_scenarios(team_name, team):
                     'urgency': 'high'
                 })
 
-        elif young_stars:
+        elif young_stars and not should_sell:
+            # Only suggest acceleration for teams NOT in selling mode
             star = young_stars[0]
             # Find what category they help and what we need
-            if weak_cats:
+            if weak_cats and should_buy:
                 target_cat = weak_cats[0][0]
                 targets = find_trade_targets(target_cat, (35, 55), prefer_sellers=False)
                 if targets:
@@ -5114,40 +5131,86 @@ def generate_gm_trade_scenarios(team_name, team):
                         'urgency': 'medium'
                     })
 
-    # ============ UNIVERSAL SCENARIOS ============
-    # Positional surplus trade (works for any team)
-    if surplus_positions and weak_cats and len(scenarios) < 3:
+    # ============ PHILOSOPHY-AWARE SCENARIOS ============
+
+    # For SELLING philosophies: prioritize sell scenarios
+    if should_sell and len(scenarios) < 3:
+        # Find veterans to sell for prospects
+        sellable_vets = [(p, v) for p, v in players_with_value if p.age >= 28 and v >= 30]
+        if sellable_vets:
+            for vet, vet_val in sellable_vets[:2]:
+                # Find rebuilding teams that might have prospects to trade
+                for other_team_name, other_team in teams.items():
+                    if other_team_name == team_name:
+                        continue
+                    other_rank = power_rankings.get(other_team_name, 6)
+                    # Target contenders who need help
+                    if other_rank <= 5:
+                        their_prospects = [p for p in other_team.players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100]
+                        if their_prospects:
+                            scenarios.append({
+                                'title': f"Sell High: {vet.name} for Youth",
+                                'target': f"Prospects from {other_team_name}",
+                                'target_value': vet_val * 0.85,
+                                'target_stats': f"Target their prospect depth",
+                                'offer': f"{vet.name} ({vet_val:.0f} value, age {vet.age})",
+                                'offer_value': vet_val,
+                                'reasoning': f"{vet.name} is {vet.age} years old with {vet_val:.0f} value. {other_team_name} (#{other_rank}) is contending and needs veterans. Sell now while value is high.",
+                                'trade_type': 'sell',
+                                'urgency': 'high'
+                            })
+                            break
+                if len(scenarios) >= 3:
+                    break
+
+    # UNIVERSAL: Positional surplus trade (works for any team, but respects philosophy)
+    if surplus_positions and weak_cats and len(scenarios) < 3 and not should_sell:
+        # Only for non-selling teams - selling teams shouldn't be acquiring to fix categories
         surplus_pos = surplus_positions[0]
         surplus_players = [(p, v) for p, v in players_with_value
                           if surplus_pos in (p.position or '').upper() and v >= 25]
         if len(surplus_players) >= 2:
             trade_piece = surplus_players[1]  # Not your best at position
-            target_cat, target_rank = weak_cats[0]
 
-            # Find specific target
-            targets = find_trade_targets(target_cat, (trade_piece[1] * 0.7, trade_piece[1] * 1.3))
-            if targets:
-                best = targets[0]
-                scenarios.append({
-                    'title': f"Rebalance: {surplus_pos} Depth → {target_cat}",
-                    'target': f"{best['player'].name} ({best['team']})",
-                    'target_value': best['value'],
-                    'target_stats': f"{best['cat_value']:.0f} {target_cat}",
-                    'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f})",
-                    'offer_value': trade_piece[1],
-                    'reasoning': f"You have {pos_counts.get(surplus_pos, 0)} {surplus_pos} but rank #{target_rank} in {target_cat}. {best['player'].name} directly addresses your need.",
-                    'trade_type': 'rebalance',
-                    'urgency': 'low'
-                })
+            # For patient philosophies, only trade veterans from surplus
+            if should_protect_prospects and trade_piece[0].age < 27:
+                # Find an older player to trade instead
+                older_surplus = [(p, v) for p, v in surplus_players if p.age >= 28]
+                if older_surplus:
+                    trade_piece = older_surplus[0]
+                else:
+                    trade_piece = None
 
-    # Category strength trade (leverage what you're good at)
-    if strong_cats and weak_cats and len(scenarios) < 4:
+            if trade_piece:
+                target_cat, target_rank = weak_cats[0]
+                # Find specific target
+                targets = find_trade_targets(target_cat, (trade_piece[1] * 0.7, trade_piece[1] * 1.3))
+                if targets:
+                    best = targets[0]
+                    scenarios.append({
+                        'title': f"Rebalance: {surplus_pos} Depth → {target_cat}",
+                        'target': f"{best['player'].name} ({best['team']})",
+                        'target_value': best['value'],
+                        'target_stats': f"{best['cat_value']:.0f} {target_cat}",
+                        'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f})",
+                        'offer_value': trade_piece[1],
+                        'reasoning': f"You have {pos_counts.get(surplus_pos, 0)} {surplus_pos} but rank #{target_rank} in {target_cat}. {best['player'].name} directly addresses your need.",
+                        'trade_type': 'rebalance',
+                        'urgency': 'low'
+                    })
+
+    # Category strength trade (only for non-selling teams, and respects prospect protection)
+    if strong_cats and weak_cats and len(scenarios) < 4 and not should_sell:
         strong_cat, strong_rank = strong_cats[0]
         weak_cat, weak_rank = weak_cats[0]
 
         # Find a player contributing to your strength that you could trade
         strength_players = []
         for p, v in tradeable:
+            # For prospect-protecting philosophies, only consider veterans
+            if should_protect_prospects and p.age < 27:
+                continue
+
             proj_h = HITTER_PROJECTIONS.get(p.name, {})
             proj_p = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
 
@@ -5184,27 +5247,46 @@ def generate_gm_trade_scenarios(team_name, team):
 
     # ============ FALLBACK SCENARIOS - Ensure every team gets at least one ============
     if len(scenarios) == 0:
-        # Fallback 1: General category improvement
-        if weak_cats:
-            target_cat, target_rank = weak_cats[0]
-            targets = find_trade_targets(target_cat, (25, 60))
-            if targets and tradeable:
-                best = targets[0]
-                trade_piece = tradeable[0]
+        if should_sell:
+            # Fallback for SELLING teams: find any veteran to sell
+            sellable = [(p, v) for p, v in players_with_value if p.age >= 27 and v >= 25]
+            if sellable:
+                vet = sellable[0]
                 scenarios.append({
-                    'title': f"Improve {target_cat}: Target Weakness",
-                    'target': f"{best['player'].name} ({best['team']})",
-                    'target_value': best['value'],
-                    'target_stats': f"{best['cat_value']:.0f} {target_cat} projected",
-                    'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f})",
-                    'offer_value': trade_piece[1],
-                    'reasoning': f"You rank #{target_rank} in {target_cat}. {best['player'].name} would directly address this gap.",
-                    'trade_type': 'improve',
-                    'urgency': 'medium'
+                    'title': f"Liquidate: Sell {vet[0].name}",
+                    'target': "Prospects and/or draft picks",
+                    'target_value': vet[1] * 0.8,
+                    'target_stats': "Youth and future assets",
+                    'offer': f"{vet[0].name} ({vet[1]:.0f} value, age {vet[0].age})",
+                    'offer_value': vet[1],
+                    'reasoning': f"Philosophy: SELL. {vet[0].name} at age {vet[0].age} doesn't fit your rebuild timeline. Convert to future assets.",
+                    'trade_type': 'sell',
+                    'urgency': 'high'
                 })
+        else:
+            # Fallback for NON-SELLING teams: General category improvement
+            if weak_cats:
+                target_cat, target_rank = weak_cats[0]
+                targets = find_trade_targets(target_cat, (25, 60))
+                # Find a veteran trade piece (not young talent)
+                vet_tradeable = [(p, v) for p, v in tradeable if p.age >= 27] if should_protect_prospects else tradeable
+                if targets and vet_tradeable:
+                    best = targets[0]
+                    trade_piece = vet_tradeable[0]
+                    scenarios.append({
+                        'title': f"Improve {target_cat}: Target Weakness",
+                        'target': f"{best['player'].name} ({best['team']})",
+                        'target_value': best['value'],
+                        'target_stats': f"{best['cat_value']:.0f} {target_cat} projected",
+                        'offer': f"{trade_piece[0].name} ({trade_piece[1]:.0f})",
+                        'offer_value': trade_piece[1],
+                        'reasoning': f"You rank #{target_rank} in {target_cat}. {best['player'].name} would directly address this gap.",
+                        'trade_type': 'improve',
+                        'urgency': 'medium'
+                    })
 
-        # Fallback 2: Buy low on underperformer
-        if len(scenarios) < 2:
+        # Fallback 2: Buy low on underperformer (ONLY for buying philosophies)
+        if len(scenarios) < 2 and should_buy:
             for other_team_name, other_team in teams.items():
                 if other_team_name == team_name:
                     continue
