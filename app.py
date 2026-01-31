@@ -1116,32 +1116,34 @@ HTML_CONTENT = '''<!DOCTYPE html>
             document.getElementById('teamBSelect').value = otherTeam;
 
             // Trigger the team loads
-            loadTeamPlayers('A');
-            loadTeamPlayers('B');
+            updateTeamA();
+            updateTeamB();
 
             // Wait for players to load, then select them
             setTimeout(() => {
-                // Clear existing selections
-                selectedPlayersA = [];
-                selectedPlayersB = [];
+                // Clear existing trade players
+                tradePlayersA = [];
+                tradePlayersB = [];
+                tradePicksA = [];
+                tradePicksB = [];
 
-                // Add the send players to team A
+                // Add the send players to team A (my team sends these)
                 pkg.send.forEach(p => {
-                    selectedPlayersA.push(p.name);
+                    tradePlayersA.push({ name: p.name, team: myTeam });
                 });
 
-                // Add the receive players to team B
+                // Add the receive players to team B (other team sends these)
                 pkg.receive.forEach(p => {
-                    selectedPlayersB.push(p.name);
+                    tradePlayersB.push({ name: p.name, team: otherTeam });
                 });
 
                 // Re-render the player lists
-                renderPlayerList('A');
-                renderPlayerList('B');
+                renderTradePlayers('A');
+                renderTradePlayers('B');
 
-                // Switch to Trade tab
-                showPanel('trade');
-                document.querySelector('.tabs .tab').click();
+                // Switch to Analyze Trade tab
+                showPanel('analyze');
+                document.querySelector('.tabs .tab.active').click();
 
                 // Analyze the trade
                 analyzeTrade();
