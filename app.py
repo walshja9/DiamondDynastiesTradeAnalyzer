@@ -1188,45 +1188,64 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                     <!-- Full Roster by Position -->
                     <h4 style="color: #ffd700; margin-bottom: 15px;">Full Roster (${data.players.length} players)</h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 25px;">
-                        ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
-                            const players = posDepth[pos] || [];
-                            const posColor = ['SP', 'RP'].includes(pos) ? '#00d4ff' : '#ffd700';
-                            return `
-                                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #3a3a5a; padding-bottom: 8px;">
-                                        <span style="color: ${posColor}; font-weight: bold; font-size: 1.1rem;">${pos}</span>
-                                        <span style="color: ${players.length >= 3 ? '#4ade80' : players.length >= 2 ? '#ffd700' : '#f87171'}; font-size: 0.85rem;">${players.length} player${players.length !== 1 ? 's' : ''}</span>
-                                    </div>
-                                    ${players.length > 0 ? players.map((p, i) => `
-                                        <div onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 4px 0; background: ${i === 0 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.02)'}; border-radius: 6px; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.background='rgba(0,212,255,0.15)'" onmouseout="this.style.background='${i === 0 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.02)}'">
-                                            <div>
-                                                <span style="color: ${i === 0 ? '#ffd700' : '#e4e4e4'}; font-weight: ${i === 0 ? 'bold' : 'normal'};">${p.name}</span>
-                                                <span style="color: #888; font-size: 0.8rem; margin-left: 8px;">Age ${p.age || '?'}</span>
-                                            </div>
-                                            <span style="color: #00d4ff; font-weight: bold;">${p.value}</span>
-                                        </div>
-                                    `).join('') : '<div style="color: #666; font-size: 0.85rem; padding: 8px;">No players</div>'}
-                                </div>
-                            `;
-                        }).join('')}
+                    <div id="roster-depth-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 25px;">
                     </div>
 
-                    ${(data.prospects && data.prospects.length > 0) ? `
-                        <h4 style="color: #ffd700; margin: 25px 0 15px;">Ranked Prospects (${data.prospects.length})</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
-                        ${data.prospects.map(p => `
-                            <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
-                                <div>
-                                    <div class="name player-link">${p.name}</div>
-                                    <div style="color: #888; font-size: 0.8rem;">${p.position || ''} | Age ${p.age || '?'}</div>
-                                </div>
-                                <div class="value" style="color: #4ade80;">#${p.rank}</div>
-                            </div>
-                        `).join('')}
-                        </div>
-                    ` : ''}
+                    ${(data.prospects && data.prospects.length > 0) ? '<h4 style="color: #ffd700; margin: 25px 0 15px;">Ranked Prospects (' + data.prospects.length + ')</h4><div id="prospects-grid-modal" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;"></div>' : ''}
                 `;
+
+                // Populate roster depth grid
+                const depthGrid = document.getElementById('roster-depth-grid');
+                if (depthGrid) {
+                    ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].forEach(pos => {
+                        const players = posDepth[pos] || [];
+                        const posColor = ['SP', 'RP'].includes(pos) ? '#00d4ff' : '#ffd700';
+                        const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
+
+                        const posDiv = document.createElement('div');
+                        posDiv.style.cssText = 'background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 15px; border-radius: 10px; border: 1px solid #3a3a5a;';
+
+                        let html = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #3a3a5a; padding-bottom: 8px;">';
+                        html += '<span style="color: ' + posColor + '; font-weight: bold; font-size: 1.1rem;">' + pos + '</span>';
+                        html += '<span style="color: ' + depthColor + '; font-size: 0.85rem;">' + players.length + ' player' + (players.length !== 1 ? 's' : '') + '</span>';
+                        html += '</div>';
+
+                        if (players.length > 0) {
+                            players.forEach((p, i) => {
+                                const bgColor = i === 0 ? 'rgba(255,215,0,0.1)' : 'rgba(255,255,255,0.02)';
+                                const textColor = i === 0 ? '#ffd700' : '#e4e4e4';
+                                const fontWeight = i === 0 ? 'bold' : 'normal';
+                                html += '<div class="depth-player" data-player="' + p.name.replace(/"/g, '&quot;') + '" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 4px 0; background: ' + bgColor + '; border-radius: 6px; cursor: pointer;">';
+                                html += '<div><span style="color: ' + textColor + '; font-weight: ' + fontWeight + ';">' + p.name + '</span>';
+                                html += '<span style="color: #888; font-size: 0.8rem; margin-left: 8px;">Age ' + (p.age || '?') + '</span></div>';
+                                html += '<span style="color: #00d4ff; font-weight: bold;">' + p.value + '</span></div>';
+                            });
+                        } else {
+                            html += '<div style="color: #666; font-size: 0.85rem; padding: 8px;">No players</div>';
+                        }
+
+                        posDiv.innerHTML = html;
+                        depthGrid.appendChild(posDiv);
+                    });
+
+                    // Add click handlers for depth players
+                    depthGrid.querySelectorAll('.depth-player').forEach(el => {
+                        el.addEventListener('click', () => showPlayerModal(el.dataset.player));
+                    });
+                }
+
+                // Populate prospects grid
+                const prospectsGrid = document.getElementById('prospects-grid-modal');
+                if (prospectsGrid && data.prospects) {
+                    data.prospects.forEach(p => {
+                        const div = document.createElement('div');
+                        div.className = 'player-card';
+                        div.style.cursor = 'pointer';
+                        div.innerHTML = '<div><div class="name player-link">' + p.name + '</div><div style="color: #888; font-size: 0.8rem;">' + (p.position || '') + ' | Age ' + (p.age || '?') + '</div></div><div class="value" style="color: #4ade80;">#' + p.rank + '</div>';
+                        div.addEventListener('click', () => showPlayerModal(p.name));
+                        prospectsGrid.appendChild(div);
+                    });
+                }
             } catch (e) {
                 content.innerHTML = `<p style="color: #f87171;">Failed to load team details: ${e.message}</p>`;
             }
