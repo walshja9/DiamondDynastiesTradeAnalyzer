@@ -777,51 +777,22 @@ class DynastyValueCalculator:
         bonus_multiplier = max(0.80, min(bonus_multiplier, 1.25))
         value *= bonus_multiplier
         
-        # Prospect adjustments - aligned with industry trade calculators
-        # Prospects are speculative - even elite prospects worth fraction of proven MLB stars
-        # Example: #36 prospect ~5% of Acuña's value per industry calculators
+        # Prospect adjustments - smooth linear scale from rank 1 to 300
+        # Rank 1 = 68 value, Rank 300 = 1 value
+        # Formula: value = 1 + (67 * (300 - rank) / 299)
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
-            if rank <= 5:
-                # Elite top 5 prospects: floor 25, cap 32
-                value = min(value, 32)
-                value = max(value, 25)
-            elif rank <= 10:
-                # Top 10 prospects: floor 20, cap 30
-                value = min(value, 30)
-                value = max(value, 20)
-            elif rank <= 25:
-                # Top 25: floor 15, cap 22
-                value = min(value, 22)
-                value = max(value, 15)
-            elif rank <= 50:
-                # Top 50: floor 10, cap 18
-                value = min(value, 18)
-                value = max(value, 10)
-            elif rank <= 100:
-                # Top 100: floor 6, cap 12
-                value = min(value, 12)
-                value = max(value, 6)
-            elif rank <= 150:
-                # Rank 101-150: floor 4, cap 8
-                value = min(value, 8)
-                value = max(value, 4)
-            elif rank <= 200:
-                # Rank 151-200: floor 3, cap 6
-                value = min(value, 6)
-                value = max(value, 3)
-            elif rank <= 300:
-                # Rank 201-300: floor 2, cap 4
-                value = min(value, 4)
-                value = max(value, 2)
-            elif rank <= 500:
-                # Rank 301-500: floor 1, cap 3
-                value = min(value, 3)
-                value = max(value, 1)
+
+            # Cap rank at 300 for the formula (anything beyond gets minimum)
+            if rank <= 300:
+                # Linear scale: Rank 1 = 68, Rank 300 = 1
+                prospect_value = 1 + (67 * (300 - rank) / 299)
             else:
-                # Rank 501+: floor 0.5, cap 2
-                value = min(value, 2)
-                value = max(value, 0.5)
+                # Beyond rank 300: minimal value, decaying further
+                prospect_value = max(0.5, 1 - ((rank - 300) * 0.01))
+
+            # Use prospect value directly - rank determines value for prospects
+            value = prospect_value
 
         return value
     
