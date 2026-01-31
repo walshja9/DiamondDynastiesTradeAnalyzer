@@ -4778,6 +4778,116 @@ def get_buy_low_sell_high_alerts(team_name, team):
     return alerts
 
 
+def get_gm_trade_partner_intelligence(team_name):
+    """
+    Analyze which opposing GMs are ideal trade partners based on philosophy matchups.
+    Returns tailored insights about who to approach and how to negotiate.
+    """
+    my_gm = get_assistant_gm(team_name)
+    my_philosophy = my_gm.get('philosophy', 'balanced')
+
+    # Philosophy compatibility matrix
+    # Key: your philosophy -> Value: list of ideal partner philosophies
+    IDEAL_PARTNERS = {
+        # Buyers want to target sellers
+        'dynasty_champion': ['desperate_accumulator', 'analytical_rebuilder', 'reluctant_dealer'],
+        'championship_closer': ['desperate_accumulator', 'analytical_rebuilder', 'prospect_rich_rebuilder', 'reluctant_dealer'],
+        'all_in_buyer': ['analytical_rebuilder', 'desperate_accumulator', 'reluctant_dealer', 'crossroads_decision'],
+        'smart_contender': ['desperate_accumulator', 'analytical_rebuilder', 'crossroads_decision'],
+        'loaded_and_ready': ['desperate_accumulator', 'analytical_rebuilder', 'reluctant_dealer', 'crossroads_decision'],
+
+        # Sellers want to target buyers
+        'analytical_rebuilder': ['championship_closer', 'all_in_buyer', 'loaded_and_ready', 'dynasty_champion'],
+        'desperate_accumulator': ['championship_closer', 'all_in_buyer', 'loaded_and_ready', 'smart_contender'],
+        'reluctant_dealer': ['championship_closer', 'all_in_buyer', 'dynasty_champion'],
+        'prospect_rich_rebuilder': ['championship_closer', 'all_in_buyer', 'dynasty_champion'],
+
+        # Middle teams can go either way
+        'rising_powerhouse': ['desperate_accumulator', 'all_in_buyer', 'championship_closer'],
+        'crossroads_decision': ['desperate_accumulator', 'analytical_rebuilder', 'championship_closer', 'all_in_buyer'],
+        'bargain_hunter': ['desperate_accumulator', 'analytical_rebuilder', 'reluctant_dealer'],
+    }
+
+    # Negotiation styles based on opposing philosophy
+    NEGOTIATION_APPROACH = {
+        'dynasty_champion': "They dictate terms. Come with premium offers or don't waste their time.",
+        'championship_closer': "They're hungry. Appeal to their win-now urgency - they'll overpay for the right piece.",
+        'all_in_buyer': "Everything is on the table for them. Ask for their best prospects.",
+        'smart_contender': "They analyze every angle. Bring data-backed proposals with clear value.",
+        'loaded_and_ready': "They have leverage and know it. Find creative angles they haven't considered.",
+        'bargain_hunter': "They hunt value. Position your offer as 'hidden upside' they're discovering.",
+        'rising_powerhouse': "They protect prospects fiercely. Only elite proven talent moves the needle.",
+        'crossroads_decision': "They're conflicted. Help them decide by making the choice obvious.",
+        'reluctant_dealer': "They hesitate. Apply gentle pressure - remind them value depreciates weekly.",
+        'analytical_rebuilder': "Pure value talk. No emotion, just numbers. Show clear ROI.",
+        'desperate_accumulator': "They want volume. Bundle multiple pieces - quantity excites them.",
+        'prospect_rich_rebuilder': "They hoard prospects. Only offer if you have elite MLB talent to dangle.",
+    }
+
+    ideal_partners = IDEAL_PARTNERS.get(my_philosophy, [])
+
+    # Find teams with matching philosophies
+    partners = []
+    for other_team, other_gm in ASSISTANT_GMS.items():
+        if other_team == team_name:
+            continue
+        other_philosophy = other_gm.get('philosophy', 'balanced')
+
+        if other_philosophy in ideal_partners:
+            # Get team info
+            other_team_obj = teams.get(other_team)
+            if not other_team_obj:
+                continue
+
+            _, power_rankings, _ = get_team_rankings()
+            other_rank = power_rankings.get(other_team, 6)
+
+            # Get top tradeable assets
+            other_players = [(p, calculator.calculate_player_value(p)) for p in other_team_obj.players]
+            other_players.sort(key=lambda x: x[1], reverse=True)
+            tradeable = [(p.name, v, p.age) for p, v in other_players[:5] if v >= 30]
+
+            partners.append({
+                'team': other_team,
+                'gm_name': other_gm.get('name', 'Unknown'),
+                'philosophy': other_philosophy,
+                'philosophy_name': GM_PHILOSOPHIES.get(other_philosophy, {}).get('name', 'Unknown'),
+                'approach': NEGOTIATION_APPROACH.get(other_philosophy, "Standard value-based negotiation."),
+                'power_rank': other_rank,
+                'top_assets': tradeable[:3],
+                'priority': ideal_partners.index(other_philosophy) if other_philosophy in ideal_partners else 99
+            })
+
+    # Sort by priority (first in ideal_partners list = most compatible)
+    partners.sort(key=lambda x: (x['priority'], x['power_rank']))
+
+    return {
+        'my_philosophy': my_philosophy,
+        'my_philosophy_name': GM_PHILOSOPHIES.get(my_philosophy, {}).get('name', 'Balanced'),
+        'ideal_partners': partners[:4],  # Top 4 trade partners
+        'approach_summary': get_philosophy_trade_summary(my_philosophy)
+    }
+
+
+def get_philosophy_trade_summary(philosophy):
+    """Return a brief summary of how this philosophy should approach trades."""
+    summaries = {
+        'dynasty_champion': "Force others to overpay. Only entertain premium offers that clearly upgrade your dynasty.",
+        'championship_closer': "Hunt aggressively. Prospects are currency to acquire proven winners. Close the gaps NOW.",
+        'all_in_buyer': "Everything is tradeable. Target proven production - development timelines are for rebuilders.",
+        'smart_contender': "Calculate every angle. Never pay 100% for 80% production. Find market inefficiencies.",
+        'loaded_and_ready': "Play from strength. You have assets AND position - dictate terms in every negotiation.",
+        'bargain_hunter': "Creativity beats capital. Target buy-low candidates and overlooked value.",
+        'rising_powerhouse': "Protect the foundation. Only move prospects for elite proven stars at significant discounts.",
+        'crossroads_decision': "Pick a direction and commit HARD. The middle is quicksand.",
+        'reluctant_dealer': "Stop hesitating. Every week you wait, your assets depreciate. Start selling NOW.",
+        'analytical_rebuilder': "Zero emotion, maximum return. Sell veterans at peak value, target high-upside youth.",
+        'desperate_accumulator': "Cast wide nets. Quantity of prospects now, sort for quality later.",
+        'prospect_rich_rebuilder': "Guard the treasure. These prospects ARE the championship plan. Only elite returns move them.",
+    }
+    return summaries.get(philosophy, "Evaluate opportunities based on roster fit and value.")
+
+
 def generate_gm_trade_scenarios(team_name, team):
     """
     Generate personalized, actionable trade scenarios based on YOUR team's specific situation.
@@ -5680,20 +5790,56 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # ============ CORE ASSETS - IN-DEPTH ANALYSIS ============
     core_text = "<b>CORE ASSETS:</b><br>"
 
-    # Franchise player analysis
+    # Franchise player analysis - PHILOSOPHY-AWARE
     if players_with_value:
         mvp = players_with_value[0]
         mvp_proj = HITTER_PROJECTIONS.get(mvp[0].name) or PITCHER_PROJECTIONS.get(mvp[0].name) or RELIEVER_PROJECTIONS.get(mvp[0].name) or {}
 
-        # Detailed MVP analysis
-        if mvp[0].age <= 25:
-            mvp_outlook = "<span style='color:#4ade80'>ELITE LONG-TERM</span> — Franchise cornerstone with 8+ years of prime production ahead"
-        elif mvp[0].age <= 28:
-            mvp_outlook = "<span style='color:#34d399'>PRIME YEARS</span> — Peak performance window, maximize value now"
-        elif mvp[0].age <= 31:
-            mvp_outlook = "<span style='color:#fbbf24'>LATE PRIME</span> — Still elite but approaching the back end of his window"
+        # Philosophy-aware MVP outlook
+        SELLING_PHILOSOPHIES = ['analytical_rebuilder', 'desperate_accumulator', 'reluctant_dealer']
+        BUYING_PHILOSOPHIES = ['championship_closer', 'all_in_buyer', 'dynasty_champion', 'loaded_and_ready']
+        PATIENT_PHILOSOPHIES = ['rising_powerhouse', 'prospect_rich_rebuilder', 'smart_contender']
+
+        if philosophy in SELLING_PHILOSOPHIES:
+            # Rebuilding teams see stars as trade assets
+            if mvp[0].age <= 25:
+                mvp_outlook = "<span style='color:#ffd700'>CROWN JEWEL</span> — Too valuable to sell unless you get a king's ransom. Build around him."
+            elif mvp[0].age <= 28:
+                mvp_outlook = "<span style='color:#fbbf24'>PEAK VALUE WINDOW</span> — Prime asset. Sell now for maximum return or keep as cornerstone of next contender."
+            elif mvp[0].age <= 31:
+                mvp_outlook = "<span style='color:#fb923c'>SELL HIGH NOW</span> — Value will only decrease. Shop aggressively for young talent."
+            else:
+                mvp_outlook = "<span style='color:#f87171'>URGENT SALE</span> — Depreciating asset. Move immediately before value craters further."
+        elif philosophy in BUYING_PHILOSOPHIES:
+            # Contending teams see stars as win-now weapons
+            if mvp[0].age <= 25:
+                mvp_outlook = "<span style='color:#4ade80'>DYNASTY CORNERSTONE</span> — Untouchable. Build the championship around him."
+            elif mvp[0].age <= 28:
+                mvp_outlook = "<span style='color:#34d399'>CHAMPIONSHIP WEAPON</span> — Maximize NOW. Surround with talent to win it all."
+            elif mvp[0].age <= 31:
+                mvp_outlook = "<span style='color:#fbbf24'>WIN-NOW PRODUCER</span> — Still delivering. Keep pushing for the title while he's elite."
+            else:
+                mvp_outlook = "<span style='color:#fb923c'>VETERAN PRODUCER</span> — Ride the production wave. Upgrade around him, not instead of him."
+        elif philosophy in PATIENT_PHILOSOPHIES:
+            # Patient teams protect young talent
+            if mvp[0].age <= 25:
+                mvp_outlook = "<span style='color:#4ade80'>UNTOUCHABLE FOUNDATION</span> — The dynasty starts here. Only move for elite proven star at massive discount."
+            elif mvp[0].age <= 28:
+                mvp_outlook = "<span style='color:#34d399'>CORE PIECE</span> — Keep unless overwhelming return. Perfect age for sustainable contention."
+            elif mvp[0].age <= 31:
+                mvp_outlook = "<span style='color:#fbbf24'>EVALUATE CAREFULLY</span> — Still valuable but monitor decline risk. Consider sell-high if right offer comes."
+            else:
+                mvp_outlook = "<span style='color:#fb923c'>TRADE CANDIDATE</span> — Doesn't align with long-term vision. Seek young talent in return."
         else:
-            mvp_outlook = "<span style='color:#fb923c'>AGING STAR</span> — Producing now but decline is imminent, consider selling high"
+            # Default balanced view
+            if mvp[0].age <= 25:
+                mvp_outlook = "<span style='color:#4ade80'>ELITE LONG-TERM</span> — Franchise cornerstone with 8+ years of prime production ahead"
+            elif mvp[0].age <= 28:
+                mvp_outlook = "<span style='color:#34d399'>PRIME YEARS</span> — Peak performance window, maximize value now"
+            elif mvp[0].age <= 31:
+                mvp_outlook = "<span style='color:#fbbf24'>LATE PRIME</span> — Still elite but approaching the back end of his window"
+            else:
+                mvp_outlook = "<span style='color:#fb923c'>AGING STAR</span> — Producing now but decline is imminent, consider selling high"
 
         core_text += f"&nbsp;&nbsp;<b>Franchise Player:</b> {mvp[0].name}<br>"
         core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• Value: {mvp[1]:.0f} | Age: {mvp[0].age} | Position: {mvp[0].position}<br>"
@@ -5943,7 +6089,30 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         cat_text += f"&nbsp;&nbsp;<span style='color:#4ade80'><b>Strengths:</b> {strength_list}</span><br>"
     if cat_weaknesses:
         weakness_list = ", ".join([f"{cat} (#{rank})" for cat, rank in cat_weaknesses[:3]])
-        cat_text += f"&nbsp;&nbsp;<span style='color:#f87171'><b>Weaknesses:</b> {weakness_list}</span>"
+        cat_text += f"&nbsp;&nbsp;<span style='color:#f87171'><b>Weaknesses:</b> {weakness_list}</span><br>"
+
+    # GM Priority Categories Analysis
+    preferred_cats = gm.get('preferred_categories', [])
+    if preferred_cats:
+        # Check how priority categories align with actual performance
+        priority_status = []
+        for pcat in preferred_cats:
+            prank = my_ranks.get(pcat, 12)
+            if prank <= 4:
+                priority_status.append(f"<span style='color:#4ade80'>{pcat} (#{prank}) ✓</span>")
+            elif prank <= 8:
+                priority_status.append(f"<span style='color:#fbbf24'>{pcat} (#{prank}) ⚠</span>")
+            else:
+                priority_status.append(f"<span style='color:#f87171'>{pcat} (#{prank}) ✗</span>")
+
+        cat_text += f"&nbsp;&nbsp;<b>{gm['name']}'s Priority Cats:</b> {', '.join(priority_status)}<br>"
+
+        # Identify priority category gaps
+        priority_gaps = [pcat for pcat in preferred_cats if my_ranks.get(pcat, 12) >= 8]
+        if priority_gaps:
+            cat_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'><i>Priority gap: {', '.join(priority_gaps)} needs attention</i></span>"
+        else:
+            cat_text += f"&nbsp;&nbsp;<span style='color:#4ade80'><i>All priority categories performing well</i></span>"
 
     analysis_parts.append(cat_text.rstrip('<br>'))
 
@@ -6206,6 +6375,35 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
             if i < len(gm_scenarios):
                 scenario_text += "<br>"
         analysis_parts.append(scenario_text)
+
+    # === GM TRADE PARTNER INTELLIGENCE ===
+    partner_intel = get_gm_trade_partner_intelligence(team_name)
+    if partner_intel and partner_intel['ideal_partners']:
+        intel_text = f"<b>{gm['name'].upper()}'S TRADE PARTNER INTEL:</b><br>"
+        intel_text += f"<i style='color:#888'>{partner_intel['approach_summary']}</i><br><br>"
+
+        for partner in partner_intel['ideal_partners'][:3]:
+            # Color code by partner philosophy type
+            if partner['philosophy'] in ['desperate_accumulator', 'analytical_rebuilder', 'reluctant_dealer']:
+                partner_color = '#fbbf24'  # Sellers - yellow
+                partner_type = 'SELLER'
+            elif partner['philosophy'] in ['championship_closer', 'all_in_buyer', 'dynasty_champion']:
+                partner_color = '#4ade80'  # Buyers - green
+                partner_type = 'BUYER'
+            else:
+                partner_color = '#60a5fa'  # Flexible - blue
+                partner_type = 'FLEXIBLE'
+
+            intel_text += f"<b><span style='color:{partner_color}'>{partner['team']}</span></b> "
+            intel_text += f"<span style='color:#666'>({partner['gm_name']} - {partner_type})</span><br>"
+            intel_text += f"&nbsp;&nbsp;<i>Philosophy:</i> {partner['philosophy_name']}<br>"
+            intel_text += f"&nbsp;&nbsp;<i>Approach:</i> {partner['approach']}<br>"
+            if partner['top_assets']:
+                assets = ", ".join([f"{n} ({v:.0f})" for n, v, a in partner['top_assets'][:2]])
+                intel_text += f"&nbsp;&nbsp;<i>Key assets:</i> {assets}<br>"
+            intel_text += "<br>"
+
+        analysis_parts.append(intel_text.rstrip('<br>'))
 
     # === LEAGUE TRADE MARKET SCAN ===
     league_scan = scan_league_for_opportunities(team_name)
