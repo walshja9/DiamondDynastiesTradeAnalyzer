@@ -73,6 +73,97 @@ RIVALRY_HISTORY = {
     "Hershey Bears": {"record": "10-16-2", "h2h": "1-1", "rival_record": "16-10-2", "rival_h2h": "1-1"},
 }
 
+# ============================================================================
+# GM PHILOSOPHY & TEAM PERSONALITY SYSTEM
+# ============================================================================
+
+GM_PHILOSOPHIES = {
+    "win_now": {
+        "name": "Win-Now Contender",
+        "description": "Aggressive buyer willing to pay premium for proven talent.",
+        "prospect_trade_penalty": 0.15,
+        "proven_talent_bonus": 0.20,
+        "age_tolerance": 34,
+        "risk_tolerance": 0.7
+    },
+    "dynasty_builder": {
+        "name": "Dynasty Builder",
+        "description": "Focuses on building sustainable success through young talent.",
+        "prospect_trade_penalty": -0.25,
+        "proven_talent_bonus": -0.10,
+        "age_tolerance": 28,
+        "risk_tolerance": 0.4
+    },
+    "balanced": {
+        "name": "Balanced Approach",
+        "description": "Evaluates trades purely on value, balancing present and future.",
+        "prospect_trade_penalty": 0.0,
+        "proven_talent_bonus": 0.0,
+        "age_tolerance": 31,
+        "risk_tolerance": 0.5
+    },
+    "value_seeker": {
+        "name": "Value Seeker",
+        "description": "Opportunistic trader who buys low and sells high.",
+        "prospect_trade_penalty": 0.05,
+        "proven_talent_bonus": -0.05,
+        "age_tolerance": 30,
+        "risk_tolerance": 0.6
+    },
+    "prospect_hoarder": {
+        "name": "Prospect Hoarder",
+        "description": "Extremely protective of prospects. Only trades young talent for overpays.",
+        "prospect_trade_penalty": -0.35,
+        "proven_talent_bonus": -0.15,
+        "age_tolerance": 26,
+        "risk_tolerance": 0.3
+    }
+}
+
+DEFAULT_TEAM_PROFILE = {
+    "gm_name": "",
+    "philosophy": "balanced",
+    "trade_aggressiveness": 0.5,
+    "risk_tolerance": 0.5,
+    "position_priorities": [],
+    "category_priorities": [],
+    "custom_notes": ""
+}
+
+TEAM_PROFILES_FILE = os.path.join(os.path.dirname(__file__), "team_profiles.json")
+
+def load_team_profiles():
+    if os.path.exists(TEAM_PROFILES_FILE):
+        try:
+            with open(TEAM_PROFILES_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {}
+    return {}
+
+def save_team_profiles(profiles):
+    try:
+        with open(TEAM_PROFILES_FILE, 'w') as f:
+            json.dump(profiles, f, indent=2)
+        return True
+    except IOError:
+        return False
+
+def get_team_profile(team_name):
+    profiles = load_team_profiles()
+    if team_name in profiles:
+        profile = DEFAULT_TEAM_PROFILE.copy()
+        profile.update(profiles[team_name])
+        return profile
+    return DEFAULT_TEAM_PROFILE.copy()
+
+def update_team_profile(team_name, updates):
+    profiles = load_team_profiles()
+    if team_name not in profiles:
+        profiles[team_name] = DEFAULT_TEAM_PROFILE.copy()
+    profiles[team_name].update(updates)
+    return save_team_profiles(profiles)
+
 app = Flask(__name__)
 
 # Name aliases: Fantrax name -> Fangraphs/projection name
@@ -3168,6 +3259,28 @@ def get_team(team_name):
         "num_teams": num_teams,
         "analysis": analysis
     })
+
+
+@app.route('/team-profile/<team_name>', methods=['GET'])
+def get_team_profile_route(team_name):
+    profile = get_team_profile(team_name)
+    philosophy = GM_PHILOSOPHIES.get(profile.get('philosophy', 'balanced'), GM_PHILOSOPHIES['balanced'])
+    return jsonify({
+        "profile": profile,
+        "philosophy_details": philosophy
+    })
+
+
+@app.route('/team-profile/<team_name>', methods=['POST'])
+def update_team_profile_route(team_name):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    success = update_team_profile(team_name, data)
+    if success:
+        return jsonify({"success": True, "message": "Profile updated"})
+    return jsonify({"error": "Failed to save profile"}), 500
 
 
 # ============================================================================
