@@ -1002,6 +1002,59 @@ HTML_CONTENT = '''<!DOCTYPE html>
             }
         }
 
+        function buildTradeFinderResults(packages, playerName, playerValue) {
+            let html = '<div style="margin-bottom: 15px; padding: 12px; background: rgba(255,215,0,0.1); border-radius: 8px; border-left: 3px solid #ffd700;">';
+            html += '<span style="color: #ffd700; font-weight: bold;">' + packages.length + '</span>';
+            html += '<span style="color: #ccc;"> trade packages found for </span>';
+            html += '<span style="color: #00d4ff; font-weight: bold;">' + playerName + '</span>';
+            html += '<span style="color: #ccc;"> (' + playerValue.toFixed(1) + ' pts)</span></div>';
+            html += '<div style="display: flex; flex-direction: column; gap: 15px;">';
+
+            packages.forEach((pkg, idx) => {
+                const fitLabel = pkg.fit_score >= 110 ? 'Excellent' : (pkg.fit_score >= 95 ? 'Great' : (pkg.fit_score >= 80 ? 'Good' : 'Fair'));
+                const fitColor = pkg.fit_score >= 110 ? '#4ade80' : (pkg.fit_score >= 95 ? '#ffd700' : (pkg.fit_score >= 80 ? '#60a5fa' : '#888'));
+                const valueDiff = pkg.value_diff;
+                const valueDiffColor = Math.abs(valueDiff) <= 5 ? '#4ade80' : (Math.abs(valueDiff) <= 15 ? '#ffd700' : '#f87171');
+                const valueDiffText = valueDiff >= 0 ? '+' + valueDiff.toFixed(1) : valueDiff.toFixed(1);
+
+                html += '<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 12px; padding: 18px; border: 1px solid #3a3a5a; cursor: pointer; transition: all 0.2s;" onclick="applyTradeFinderPackage(' + idx + ')" onmouseover="this.style.borderColor=\'#00d4ff\';this.style.transform=\'translateY(-2px)\';" onmouseout="this.style.borderColor=\'#3a3a5a\';this.style.transform=\'translateY(0)\';">';
+                html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">';
+                html += '<div style="display: flex; gap: 10px; align-items: center;">';
+                html += '<span style="color: #ccc;">Trade with</span>';
+                html += '<span style="color: #00d4ff; font-weight: bold;">' + pkg.other_team + '</span>';
+                html += '<span style="background: #3a3a5a; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; color: #ccc;">' + pkg.trade_type + '</span>';
+                html += '</div>';
+                html += '<div style="display: flex; gap: 10px; align-items: center;">';
+                html += '<span style="background: rgba(255,215,0,0.15); color: ' + fitColor + '; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">' + fitLabel + ' Fit</span>';
+                html += '<span style="color: ' + valueDiffColor + '; font-size: 0.85rem;">' + valueDiffText + '</span>';
+                html += '</div></div>';
+                html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">';
+                html += '<div style="background: rgba(248,113,113,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #f87171;">';
+                html += '<div style="color: #f87171; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">Send (' + pkg.send_total.toFixed(1) + ' pts)</div>';
+                pkg.send.forEach(p => {
+                    html += '<div style="color: #e0e0e0; font-size: 0.9rem; padding: 3px 0;">' + p.name + ' <span style="color: #888;">(' + p.position + ') - ' + p.value.toFixed(1) + '</span></div>';
+                });
+                html += '</div>';
+                html += '<div style="background: rgba(74,222,128,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #4ade80;">';
+                html += '<div style="color: #4ade80; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">Receive (' + pkg.receive_total.toFixed(1) + ' pts)</div>';
+                pkg.receive.forEach(p => {
+                    html += '<div style="color: #e0e0e0; font-size: 0.9rem; padding: 3px 0;">' + p.name + ' <span style="color: #888;">(' + p.position + ') - ' + p.value.toFixed(1) + '</span></div>';
+                });
+                html += '</div></div>';
+                if (pkg.reasons && pkg.reasons.length > 0) {
+                    html += '<div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">';
+                    pkg.reasons.forEach(r => {
+                        html += '<span style="background: rgba(74,222,128,0.15); color: #4ade80; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem;">' + r + '</span>';
+                    });
+                    html += '</div>';
+                }
+                html += '</div>';
+            });
+
+            html += '</div>';
+            return html;
+        }
+
         async function findTradesForPlayer() {
             const teamSelect = document.getElementById('tradeFinderTeamSelect');
             const playerSelect = document.getElementById('tradeFinderPlayerSelect');
@@ -1038,55 +1091,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     return;
                 }
 
-                // Display results
-                results.innerHTML = `
-                    <div style="margin-bottom: 15px; padding: 12px; background: rgba(255,215,0,0.1); border-radius: 8px; border-left: 3px solid #ffd700;">
-                        <span style="color: #ffd700; font-weight: bold;">${data.packages.length}</span>
-                        <span style="color: #ccc;"> trade packages found for </span>
-                        <span style="color: #00d4ff; font-weight: bold;">${playerName}</span>
-                        <span style="color: #ccc;"> (${data.player_value.toFixed(1)} pts)</span>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 15px;">
-                        ${data.packages.map((pkg, idx) => {
-                            const fitLabel = pkg.fit_score >= 110 ? 'Excellent' : (pkg.fit_score >= 95 ? 'Great' : (pkg.fit_score >= 80 ? 'Good' : 'Fair'));
-                            const fitColor = pkg.fit_score >= 110 ? '#4ade80' : (pkg.fit_score >= 95 ? '#ffd700' : (pkg.fit_score >= 80 ? '#60a5fa' : '#888'));
-                            const valueDiff = pkg.value_diff;
-                            const valueDiffColor = Math.abs(valueDiff) <= 5 ? '#4ade80' : (Math.abs(valueDiff) <= 15 ? '#ffd700' : '#f87171');
-                            const valueDiffText = valueDiff >= 0 ? `+${valueDiff.toFixed(1)}` : valueDiff.toFixed(1);
-
-                            return \`
-                            <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 12px; padding: 18px; border: 1px solid #3a3a5a; cursor: pointer; transition: all 0.2s;" onclick="applyTradeFinderPackage(\${idx})" onmouseover="this.style.borderColor='#00d4ff';this.style.transform='translateY(-2px)';" onmouseout="this.style.borderColor='#3a3a5a';this.style.transform='translateY(0)';">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                    <div style="display: flex; gap: 10px; align-items: center;">
-                                        <span style="color: #ccc;">Trade with</span>
-                                        <span style="color: #00d4ff; font-weight: bold;">\${pkg.other_team}</span>
-                                        <span style="background: #3a3a5a; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; color: #ccc;">\${pkg.trade_type}</span>
-                                    </div>
-                                    <div style="display: flex; gap: 10px; align-items: center;">
-                                        <span style="background: rgba(255,215,0,0.15); color: \${fitColor}; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">\${fitLabel} Fit</span>
-                                        <span style="color: \${valueDiffColor}; font-size: 0.85rem;">\${valueDiffText}</span>
-                                    </div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                    <div style="background: rgba(248,113,113,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #f87171;">
-                                        <div style="color: #f87171; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">Send (\${pkg.send_total.toFixed(1)} pts)</div>
-                                        \${pkg.send.map(p => \`<div style="color: #e0e0e0; font-size: 0.9rem; padding: 3px 0;">\${p.name} <span style="color: #888;">(\${p.position}) - \${p.value.toFixed(1)}</span></div>\`).join('')}
-                                    </div>
-                                    <div style="background: rgba(74,222,128,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #4ade80;">
-                                        <div style="color: #4ade80; font-size: 0.85rem; margin-bottom: 8px; font-weight: 600;">Receive (\${pkg.receive_total.toFixed(1)} pts)</div>
-                                        \${pkg.receive.map(p => \`<div style="color: #e0e0e0; font-size: 0.9rem; padding: 3px 0;">\${p.name} <span style="color: #888;">(\${p.position}) - \${p.value.toFixed(1)}</span></div>\`).join('')}
-                                    </div>
-                                </div>
-                                \${pkg.reasons && pkg.reasons.length > 0 ? \`
-                                    <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-                                        \${pkg.reasons.map(r => \`<span style="background: rgba(74,222,128,0.15); color: #4ade80; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem;">\${r}</span>\`).join('')}
-                                    </div>
-                                \` : ''}
-                            </div>
-                            \`;
-                        }).join('')}
-                    </div>
-                `;
+                // Display results using helper function to avoid template literal issues
+                results.innerHTML = buildTradeFinderResults(data.packages, playerName, data.player_value);
 
                 // Store packages for applying
                 window.tradeFinderPackages = data.packages;
