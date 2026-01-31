@@ -249,6 +249,7 @@ GM_PHILOSOPHIES = {
 ASSISTANT_GMS = {
     # ===== CONTENDERS (Pick 10-12) =====
     "Danville Dairy Daddies": {
+        "owner": "Kevin Pereira",
         "name": "The Milkman",
         "title": "Head of Baseball Operations",
         "philosophy": "dynasty_champion",
@@ -265,6 +266,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["R", "RBI", "ERA"]
     },
     "Pawtucket Red Sox": {
+        "owner": "Alexander Walsh",
         "name": "Sully 'The Shark' Sullivan",
         "title": "Assistant GM",
         "philosophy": "championship_closer",
@@ -281,6 +283,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["K", "SB", "WHIP"]
     },
     "Akron Rubber Ducks": {
+        "owner": "Jon Lanoue",
         "name": "Professor Flex",
         "title": "Director of Strategic Planning",
         "philosophy": "smart_contender",
@@ -299,6 +302,7 @@ ASSISTANT_GMS = {
 
     # ===== COMPETITIVE MIDDLE (Pick 7-9) =====
     "Boston Beaneaters": {
+        "owner": "Kyle Petit",
         "name": "Sarge McAllister",
         "title": "Assistant GM",
         "philosophy": "all_in_buyer",
@@ -315,6 +319,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["HR", "RBI", "QS"]
     },
     "Colt 45s": {
+        "owner": "Chris Attardo",
         "name": "Ace Holliday",
         "title": "General Manager",
         "philosophy": "loaded_and_ready",
@@ -331,6 +336,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["HR", "SB", "SV+HLD"]
     },
     "Hartford Yard GOATS": {
+        "owner": "Matt Person & Daniel Barrientos",
         "name": "Billy Gruff",
         "title": "Assistant GM",
         "philosophy": "bargain_hunter",
@@ -349,6 +355,7 @@ ASSISTANT_GMS = {
 
     # ===== MIDDLE PACK (Pick 5-6) =====
     "Rocket City Trash Pandas": {
+        "owner": "Zack Collins",
         "name": "Commander Nova",
         "title": "Director of Player Development",
         "philosophy": "rising_powerhouse",
@@ -365,6 +372,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["HR", "RBI", "QS"]
     },
     "Kalamazoo Celery Pickers": {
+        "owner": "Zach Fitts & Sean Griffin",
         "name": "Crunch Wellington",
         "title": "Assistant GM",
         "philosophy": "crossroads_decision",
@@ -383,6 +391,7 @@ ASSISTANT_GMS = {
 
     # ===== REBUILDERS (Pick 1-4) =====
     "Alaskan Bullworms": {
+        "owner": "Walter Girczyc",
         "name": "Frosty Carlson",
         "title": "Assistant GM",
         "philosophy": "reluctant_dealer",
@@ -399,6 +408,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["SB", "K", "K/BB"]
     },
     "Sugar Land Space Cowboys": {
+        "owner": "Sean McCabe",
         "name": "Doc Orbital",
         "title": "Chief Analytics Officer",
         "philosophy": "analytical_rebuilder",
@@ -415,6 +425,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["K/BB", "ERA", "R"]
     },
     "Modesto Nuts": {
+        "owner": "Mason Palmieri",
         "name": "Wild Card Walters",
         "title": "Assistant GM",
         "philosophy": "desperate_accumulator",
@@ -431,6 +442,7 @@ ASSISTANT_GMS = {
         "preferred_categories": ["HR", "SV+HLD", "SO"]
     },
     "Hershey Bears": {
+        "owner": "Lauren McCue-Walsh & Ray Catena",
         "name": "Sweet Lou Pemberton",
         "title": "Director of Player Development",
         "philosophy": "prospect_rich_rebuilder",
