@@ -5243,6 +5243,8 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     gm_header += f"<div>"
     gm_header += f"<div style='font-size: 18px; font-weight: bold; color: #00d4ff;'>{gm['name']}</div>"
     gm_header += f"<div style='font-size: 12px; color: #888;'>{gm['title']} - {team_name}</div>"
+    owner_name = gm.get('owner', 'Unknown')
+    gm_header += f"<div style='font-size: 11px; color: #a0a0a0; margin-top: 2px;'>Owner: <span style='color: #c0c0c0;'>{owner_name}</span></div>"
     gm_header += f"</div></div>"
     gm_header += f"<div style='margin-top: 12px; font-style: italic; color: #ccc;'>\"{catchphrase}\"</div>"
     gm_header += f"<div style='margin-top: 8px; font-size: 12px; color: #888;'>Philosophy: <span style='color: #ffd700;'>{GM_PHILOSOPHIES.get(gm['philosophy'], {}).get('name', 'Balanced')}</span> | Risk Tolerance: <span style='color: #ffd700;'>{int(gm['risk_tolerance'] * 100)}%</span></div>"
