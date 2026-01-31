@@ -4295,15 +4295,24 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
                 age_tag = f"<span style='color:#4ade80'>({p.age})</span>" if p.age <= 26 else f"<span style='color:#fbbf24'>({p.age})</span>" if p.age <= 30 else f"<span style='color:#fb923c'>({p.age})</span>"
                 core_text += f"&nbsp;&nbsp;&nbsp;&nbsp;• {p.name}: {v:.0f} value, age {age_tag}<br>"
 
-        # Core concentration risk
+        # Core concentration risk - adjusted thresholds for typical 40-50 player dynasty rosters
         top_5_value = sum(v for _, v in players_with_value[:5])
+        roster_size = len(players_with_value)
         concentration = top_5_value / total_value * 100 if total_value > 0 else 0
-        if concentration > 55:
-            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>⚠️ High concentration: Top 5 players = {concentration:.0f}% of value (injury risk)</span>"
-        elif concentration < 35:
-            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Distributed roster: Top 5 = {concentration:.0f}% (lacks elite talent?)</span>"
+
+        # Also check if top player is elite (>70 value indicates true star)
+        top_player_value = players_with_value[0][1] if players_with_value else 0
+        has_elite = top_player_value >= 70
+
+        if concentration > 28:
+            core_text += f"&nbsp;&nbsp;<span style='color:#f87171'>⚠️ Top-heavy: Top 5 = {concentration:.0f}% of value (injury risk if stars go down)</span>"
+        elif concentration < 15 or (not has_elite and concentration < 20):
+            core_text += f"&nbsp;&nbsp;<span style='color:#fbbf24'>📊 Balanced but lacks star power: Top 5 = {concentration:.0f}% (no elite talent)</span>"
         else:
-            core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>✓ Healthy concentration: Top 5 = {concentration:.0f}% of total value</span>"
+            if has_elite:
+                core_text += f"&nbsp;&nbsp;<span style='color:#4ade80'>✓ Strong core with elite talent: Top 5 = {concentration:.0f}% of value</span>"
+            else:
+                core_text += f"&nbsp;&nbsp;<span style='color:#60a5fa'>✓ Solid depth: Top 5 = {concentration:.0f}% (good balance)</span>"
 
     analysis_parts.append(core_text.rstrip('<br>'))
 
