@@ -1,0 +1,50 @@
+Updating Application:
+
+Go to Fantrax → Players → Export to CSV
+Export hitter stats (name it something like hitter_stats.csv)
+Export pitcher stats (name it something like pitcher_stats.csv)
+Place CSVs in the same folder as data_exporter.py
+Run python data_exporter.py
+Push updated league_data.json to GitHub
+
+
+Diamond Dynasties Trade Analyzer - Season Maintenance Guide
+When to Update
+After the draft (to capture all drafted players)
+After major FA periods (weekly waivers, etc.)
+After trades (so values reflect new rosters)
+Weekly (recommended) or whenever you want fresh stats
+Step 1: Update Rosters & Standings
+Open a terminal/command prompt
+Navigate to your project folder:
+
+cd C:\Users\Alex\DiamondDynastiesTradeAnalyzer
+Run the data exporter:
+
+python data_exporter.py
+A browser will open - log into Fantrax if prompted
+Wait for it to finish (exports rosters, standings, matchups, transactions)
+Step 2: Add Actual Stats (Optional - Once Season Starts)
+Go to Fantrax → Players → Stats
+Filter to Hitters, then click Export (CSV)
+Save as hitter_stats.csv in the project folder
+Filter to Pitchers, then click Export (CSV)
+Save as pitcher_stats.csv in the project folder
+Run the data exporter again:
+
+python data_exporter.py
+It will automatically pick up the stats CSVs
+Step 3: Push to GitHub
+Stage and commit the updated data:
+
+git add league_data.json
+git commit -m "Update league data"
+git push
+Render will auto-redeploy (takes ~1-2 minutes)
+Quick Reference (Copy/Paste Commands)
+
+cd C:\Users\Alex\DiamondDynastiesTradeAnalyzer
+python data_exporter.py
+git add league_data.json
+git commit -m "Update league data"
+git push

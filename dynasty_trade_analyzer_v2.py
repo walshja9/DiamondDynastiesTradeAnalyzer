@@ -418,6 +418,11 @@ PLAYER_AGES = {
     "Daulton Varsho": 29, "Lawrence Butler": 25, "Austin Wells": 25, "Chandler Simpson": 25,
     "Victor Scott II": 25, "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29,
     "Ryan O'Hearn": 31, "Jose Caballero": 28, "Jordan Lawlar": 23,
+    # Young stars missing ages
+    "Roman Anthony": 21, "Jackson Chourio": 21, "Jackson Merrill": 21, "Colt Keith": 23,
+    "Wilyer Abreu": 25, "Junior Caminero": 22, "James Wood": 22, "Jasson Dominguez": 22,
+    "Colton Cowser": 25, "Wyatt Langford": 24, "Pete Crow-Armstrong": 23, "Brooks Lee": 24,
+    "Masyn Winn": 23, "Jordan Walker": 23, "Michael Toglia": 26, "Nolan Schanuel": 24,
     # Elite Pitchers
     "Tarik Skubal": 29, "Paul Skenes": 24, "Garrett Crochet": 26, "Cristopher Sanchez": 29,
     "Logan Webb": 29, "Logan Gilbert": 29, "Bryan Woo": 26, "Hunter Brown": 27,
