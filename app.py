@@ -4939,8 +4939,18 @@ def generate_gm_trade_scenarios(team_name, team):
     young_stars = [(p, v) for p, v in players_with_value if p.age <= 26 and v >= 45]
     declining_vets = [(p, v) for p, v in players_with_value if p.age >= 32 and v >= 30]
 
-    # Find tradeable assets
-    tradeable = [(p, v) for i, (p, v) in enumerate(players_with_value) if i >= 4 and v >= 20]
+    # Find tradeable assets - EXPANDED to include more players
+    tradeable = [(p, v) for i, (p, v) in enumerate(players_with_value) if i >= 3 and v >= 15]
+
+    # Mid-tier trade chips (40-60 value) - prime trade candidates like Robby Snelling
+    mid_tier_assets = [(p, v) for p, v in players_with_value if 35 <= v <= 65]
+
+    # High-value prospects that could be sold at peak hype
+    peak_hype_prospects = [(p, v) for p, v in players_with_value
+                          if p.is_prospect and p.prospect_rank and p.prospect_rank <= 50 and v >= 40]
+
+    # Consolidation candidates - multiple mid-tier players that could be packaged
+    consolidation_pool = [(p, v) for p, v in tradeable if 25 <= v <= 50]
 
     # Find positions of strength/weakness
     pos_counts = {}
@@ -5539,6 +5549,215 @@ def generate_gm_trade_scenarios(team_name, team):
                     'trade_type': 'evaluate',
                     'urgency': 'medium'
                 })
+
+    # ============ NEW SCENARIO TYPES ============
+
+    # 1. PROSPECT AT PEAK HYPE - Sell prospects before MLB risk
+    if peak_hype_prospects and should_sell:
+        for prospect, pval in peak_hype_prospects[:2]:
+            # Find contending teams who might overpay
+            for other_team_name, other_team in teams.items():
+                if other_team_name == team_name:
+                    continue
+                other_rank = power_rankings.get(other_team_name, 6)
+                if other_rank <= 5:  # Contending team
+                    other_gm = get_assistant_gm(other_team_name)
+                    other_phil = other_gm.get('philosophy', '')
+                    if other_phil in ['championship_closer', 'all_in_buyer', 'loaded_and_ready']:
+                        # They might overpay for proven talent
+                        their_vets = sorted(
+                            [(p, calculator.calculate_player_value(p)) for p in other_team.players if p.age >= 27 and not p.is_prospect],
+                            key=lambda x: x[1], reverse=True
+                        )
+                        if their_vets and their_vets[0][1] >= pval * 0.8:
+                            target_vet = their_vets[0]
+                            scenarios.append({
+                                'title': f"Sell Prospect Hype: #{prospect.prospect_rank}",
+                                'target': f"{target_vet[0].name} ({other_team_name})",
+                                'target_value': target_vet[1],
+                                'offer': f"{prospect.name} (#{prospect.prospect_rank})",
+                                'offer_value': pval,
+                                'reasoning': f"Prospect hype peaks before MLB exposure. {other_team_name} is win-now and may overpay for {prospect.name}'s ceiling. Lock in proven production.",
+                                'trade_type': 'sell',
+                                'urgency': 'medium'
+                            })
+                            break
+
+    # 2. CONSOLIDATE 2-FOR-1 - Package mid-tier into elite
+    if len(consolidation_pool) >= 3:
+        # Find two mid-tier players we can package
+        package_candidates = consolidation_pool[:4]
+        combined_value = sum(v for p, v in package_candidates[:2])
+
+        # Find elite player on another team worth ~80-90% of package
+        for other_team_name, other_team in teams.items():
+            if other_team_name == team_name:
+                continue
+            their_players = sorted(
+                [(p, calculator.calculate_player_value(p)) for p in other_team.players],
+                key=lambda x: x[1], reverse=True
+            )
+            for tp, tv in their_players:
+                if combined_value * 0.75 <= tv <= combined_value * 1.1 and tv >= 55:
+                    offer_str = f"{package_candidates[0][0].name} + {package_candidates[1][0].name}"
+                    scenarios.append({
+                        'title': "Consolidate: 2-for-1 Upgrade",
+                        'target': f"{tp.name} ({other_team_name})",
+                        'target_value': tv,
+                        'offer': offer_str,
+                        'offer_value': combined_value,
+                        'reasoning': f"Package depth for star power. {tp.name} is worth the consolidation - fewer roster spots, more impact.",
+                        'trade_type': 'consolidate',
+                        'urgency': 'medium'
+                    })
+                    break
+            if len([s for s in scenarios if s.get('trade_type') == 'consolidate']) >= 1:
+                break
+
+    # 3. MID-TIER VALUE SWAP - Players in 40-60 range are prime trade chips
+    if mid_tier_assets:
+        for player, pval in mid_tier_assets[:3]:
+            # Skip if player is already in scenarios
+            if any(player.name in s.get('offer', '') for s in scenarios):
+                continue
+
+            # Find similar-value players on other teams who fill different needs
+            for other_team_name, other_team in teams.items():
+                if other_team_name == team_name:
+                    continue
+
+                their_cats, their_pos, _ = calculate_team_needs(other_team_name)
+                their_weaknesses = [cat for cat, score in their_cats.items() if score < 0]
+
+                # Check if our player helps their weakness
+                player_proj = HITTER_PROJECTIONS.get(player.name, {}) or PITCHER_PROJECTIONS.get(player.name, {})
+                helps_them = False
+                for wcat in their_weaknesses:
+                    if wcat in ['HR', 'RBI', 'SB'] and player_proj.get(wcat, 0) > 15:
+                        helps_them = True
+                        break
+                    if wcat in ['K', 'QS'] and player_proj.get(wcat, 0) > 80:
+                        helps_them = True
+                        break
+
+                if helps_them:
+                    # Find their player who helps us
+                    their_players = [(p, calculator.calculate_player_value(p)) for p in other_team.players]
+                    for tp, tv in their_players:
+                        if abs(tv - pval) <= 15:  # Similar value
+                            tp_proj = HITTER_PROJECTIONS.get(tp.name, {}) or PITCHER_PROJECTIONS.get(tp.name, {})
+                            helps_us = False
+                            for our_weak in weak_cats:
+                                wcat = our_weak[0] if isinstance(our_weak, tuple) else our_weak
+                                if wcat in ['HR', 'RBI', 'SB'] and tp_proj.get(wcat, 0) > 15:
+                                    helps_us = True
+                                    break
+                                if wcat in ['K', 'QS'] and tp_proj.get(wcat, 0) > 80:
+                                    helps_us = True
+                                    break
+
+                            if helps_us:
+                                scenarios.append({
+                                    'title': f"Value Swap: Mutual Fit",
+                                    'target': f"{tp.name} ({other_team_name})",
+                                    'target_value': tv,
+                                    'offer': f"{player.name}",
+                                    'offer_value': pval,
+                                    'reasoning': f"Both teams improve - you get help where you need it, they get help where they need it. Clean 1-for-1 value match.",
+                                    'trade_type': 'swap',
+                                    'urgency': 'medium'
+                                })
+                                break
+                    break
+
+    # 4. EXPANDED REBALANCE - More comprehensive position/category trades
+    # Rebalance: Youth → Production (for contenders)
+    if should_buy and young_stars and len([s for s in scenarios if 'Rebalance' in s.get('title', '')]) < 2:
+        for young_p, young_v in young_stars[:2]:
+            if young_p.age <= 24:  # Very young star
+                for other_team_name, other_team in teams.items():
+                    if other_team_name == team_name:
+                        continue
+                    other_rank = power_rankings.get(other_team_name, 6)
+                    if other_rank >= 8:  # Rebuilding team wants youth
+                        their_vets = sorted(
+                            [(p, calculator.calculate_player_value(p)) for p in other_team.players if p.age >= 28 and p.age <= 32],
+                            key=lambda x: x[1], reverse=True
+                        )
+                        if their_vets:
+                            for vet, vet_v in their_vets:
+                                if abs(vet_v - young_v) <= 15:
+                                    scenarios.append({
+                                        'title': f"Rebalance: Youth → Production",
+                                        'target': f"{vet.name} ({other_team_name})",
+                                        'target_value': vet_v,
+                                        'offer': f"{young_p.name}",
+                                        'offer_value': young_v,
+                                        'reasoning': f"Trade future upside for prime production. {vet.name} produces NOW while {young_p.name}'s value to rebuilders is at its peak.",
+                                        'trade_type': 'rebalance',
+                                        'urgency': 'medium'
+                                    })
+                                    break
+                        break
+
+    # Rebalance: Arm Depth → Bat (or vice versa)
+    pitcher_value = sum(v for p, v in players_with_value if 'SP' in (p.position or '').upper() or 'RP' in (p.position or '').upper())
+    hitter_value = sum(v for p, v in players_with_value if 'SP' not in (p.position or '').upper() and 'RP' not in (p.position or '').upper())
+
+    if pitcher_value > hitter_value * 1.3:  # Arm heavy
+        # Find a pitcher to trade for a hitter
+        tradeable_pitchers = [(p, v) for p, v in tradeable if 'SP' in (p.position or '').upper() and v >= 35]
+        if tradeable_pitchers:
+            best_arm = tradeable_pitchers[0]
+            for other_team_name, other_team in teams.items():
+                if other_team_name == team_name:
+                    continue
+                their_hitters = sorted(
+                    [(p, calculator.calculate_player_value(p)) for p in other_team.players
+                     if 'SP' not in (p.position or '').upper() and 'RP' not in (p.position or '').upper()],
+                    key=lambda x: x[1], reverse=True
+                )
+                for th, thv in their_hitters:
+                    if abs(thv - best_arm[1]) <= 15:
+                        scenarios.append({
+                            'title': "Rebalance: Pitching → Hitting",
+                            'target': f"{th.name} ({other_team_name})",
+                            'target_value': thv,
+                            'offer': f"{best_arm[0].name}",
+                            'offer_value': best_arm[1],
+                            'reasoning': f"You're pitching-heavy. Convert excess arm value into bat production for better roster balance.",
+                            'trade_type': 'rebalance',
+                            'urgency': 'low'
+                        })
+                        break
+                break
+
+    elif hitter_value > pitcher_value * 1.3:  # Bat heavy
+        tradeable_hitters = [(p, v) for p, v in tradeable if 'SP' not in (p.position or '').upper() and 'RP' not in (p.position or '').upper() and v >= 35]
+        if tradeable_hitters:
+            best_bat = tradeable_hitters[0]
+            for other_team_name, other_team in teams.items():
+                if other_team_name == team_name:
+                    continue
+                their_pitchers = sorted(
+                    [(p, calculator.calculate_player_value(p)) for p in other_team.players
+                     if 'SP' in (p.position or '').upper()],
+                    key=lambda x: x[1], reverse=True
+                )
+                for tp, tpv in their_pitchers:
+                    if abs(tpv - best_bat[1]) <= 15:
+                        scenarios.append({
+                            'title': "Rebalance: Hitting → Pitching",
+                            'target': f"{tp.name} ({other_team_name})",
+                            'target_value': tpv,
+                            'offer': f"{best_bat[0].name}",
+                            'offer_value': best_bat[1],
+                            'reasoning': f"You're bat-heavy. Convert excess hitting value into pitching for better roster balance.",
+                            'trade_type': 'rebalance',
+                            'urgency': 'low'
+                        })
+                        break
+                break
 
     # ============ SMART SCENARIO RANKING ============
     # Score and filter scenarios before returning
@@ -7204,6 +7423,16 @@ def get_free_agent_suggestions():
         weaknesses = [cat for cat, score in team_cats.items() if score < 0]
         strengths = [cat for cat, score in team_cats.items() if score > 0]
 
+        # Get GM philosophy for philosophy-aware recommendations
+        gm = get_assistant_gm(team_name)
+        philosophy = gm.get('philosophy', 'balanced')
+        gm_preferred_cats = gm.get('preferred_categories', [])
+
+        # Philosophy-based tendencies
+        YOUTH_PHILOSOPHIES = ['rising_powerhouse', 'prospect_rich_rebuilder', 'analytical_rebuilder', 'dynasty_champion']
+        PRODUCTION_PHILOSOPHIES = ['championship_closer', 'all_in_buyer', 'loaded_and_ready', 'win_now']
+        VALUE_PHILOSOPHIES = ['bargain_hunter', 'smart_contender', 'value_seeker']
+
         # Get league-wide category rankings for this team
         all_team_cats, league_rankings = calculate_league_category_rankings()
         my_ranks = league_rankings.get(team_name, {})
@@ -7476,6 +7705,47 @@ def get_free_agent_suggestions():
                 score += 5 * len(special_tags)
                 reasons.extend(special_tags)
 
+            # ============ GM PHILOSOPHY-BASED ADJUSTMENTS ============
+            # Youth-focused GMs get bonus for young players
+            if philosophy in YOUTH_PHILOSOPHIES:
+                if age <= 24:
+                    score += 15
+                    if "Young asset" not in str(reasons):
+                        reasons.append("Aligns with youth focus")
+                elif age <= 26:
+                    score += 8
+                elif age >= 30:
+                    score -= 10  # Penalty for older players
+
+            # Production-focused GMs want proven contributors
+            if philosophy in PRODUCTION_PHILOSOPHIES:
+                if fa['roster_pct'] >= 50 and age >= 26:
+                    score += 12
+                    if "proven" not in str(reasons).lower():
+                        reasons.append("Proven producer")
+                # Prospects are less valuable to win-now GMs
+                if fa.get('is_prospect') and age <= 22:
+                    score -= 8
+
+            # Value-focused GMs look for inefficiencies
+            if philosophy in VALUE_PHILOSOPHIES:
+                # Low roster % but high value = inefficiency
+                if fa['roster_pct'] <= 40 and base_score >= 40:
+                    score += 15
+                    reasons.append("Underowned value")
+                # Breakout candidates
+                if age <= 27 and base_score >= 35 and fa['roster_pct'] <= 50:
+                    score += 8
+                    if "breakout" not in str(reasons).lower():
+                        reasons.append("Breakout candidate")
+
+            # GM's preferred categories get bonus
+            for pref_cat in gm_preferred_cats:
+                if pref_cat in str(cats_addressed):
+                    score += 10
+                    reasons.append(f"Fits {pref_cat} priority")
+                    break
+
             # Don't recommend players that don't fit at all
             if score < base_score - 5:  # Allow slightly negative if strong in other areas
                 continue
@@ -7498,14 +7768,37 @@ def get_free_agent_suggestions():
 
         scored_fas.sort(key=lambda x: x['fit_score'], reverse=True)
 
-        # Build AI summary for the team
-        ai_summary = f"Based on your {team_window} window"
+        # Build AI summary for the team with philosophy awareness
+        philosophy_names = {
+            'dynasty_champion': 'dynasty champion',
+            'championship_closer': 'championship closer',
+            'all_in_buyer': 'all-in buyer',
+            'smart_contender': 'smart contender',
+            'loaded_and_ready': 'loaded contender',
+            'bargain_hunter': 'value hunter',
+            'rising_powerhouse': 'rising powerhouse',
+            'crossroads_decision': 'crossroads team',
+            'reluctant_dealer': 'reluctant dealer',
+            'analytical_rebuilder': 'analytical rebuilder',
+            'desperate_accumulator': 'aggressive accumulator',
+            'prospect_rich_rebuilder': 'prospect-focused rebuilder',
+        }
+        phil_name = philosophy_names.get(philosophy, team_window)
+
+        ai_summary = f"As a {phil_name}"
+        if philosophy in YOUTH_PHILOSOPHIES:
+            ai_summary += ", prioritize young talent with upside"
+        elif philosophy in PRODUCTION_PHILOSOPHIES:
+            ai_summary += ", target proven producers who contribute now"
+        elif philosophy in VALUE_PHILOSOPHIES:
+            ai_summary += ", look for undervalued assets and inefficiencies"
+
         if worst_cats:
-            ai_summary += f", priority targets should address {', '.join(worst_cats[:2])}"
+            ai_summary += f". Address {', '.join(worst_cats[:2])}"
         if critical_needs:
-            ai_summary += f". You need depth at {', '.join(critical_needs)}"
-        if aging_positions and team_window in ['dynasty', 'rebuilding']:
-            ai_summary += f". Consider replacing aging players at {', '.join(aging_positions)}"
+            ai_summary += f". Fill {', '.join(critical_needs)} depth"
+        if aging_positions and philosophy in YOUTH_PHILOSOPHIES:
+            ai_summary += f". Replace aging {', '.join(aging_positions)}"
 
         return jsonify({
             "suggestions": scored_fas[:30],
