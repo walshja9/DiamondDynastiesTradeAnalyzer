@@ -250,6 +250,8 @@ ASSISTANT_GMS = {
     # ===== CONTENDERS (Pick 10-12) =====
     "Danville Dairy Daddies": {
         "owner": "Kevin Pereira",
+        "team_identity": "REIGNING DYNASTY",
+        "identity_analysis": "As the league's top team, focus on defending your crown. Identify any roster weaknesses before rivals exploit them. Only consider trades that clearly upgrade your championship core - you have the luxury of patience.",
         "name": "The Milkman",
         "title": "Head of Baseball Operations",
         "philosophy": "dynasty_champion",
@@ -267,6 +269,8 @@ ASSISTANT_GMS = {
     },
     "Pawtucket Red Sox": {
         "owner": "Alexander Walsh",
+        "team_identity": "CHAMPIONSHIP HUNTER",
+        "identity_analysis": "You're built to win NOW. Every roster spot should be evaluated for championship impact. Identify the gaps between you and the title - then aggressively pursue trades to fill them. Prospects are currency, not keepsakes.",
         "name": "Sully 'The Shark' Sullivan",
         "title": "Assistant GM",
         "philosophy": "championship_closer",
@@ -284,6 +288,8 @@ ASSISTANT_GMS = {
     },
     "Akron Rubber Ducks": {
         "owner": "Jon Lanoue",
+        "team_identity": "STRATEGIC CONTENDER",
+        "identity_analysis": "You're competing smart, not reckless. Balance win-now moves with long-term sustainability. Target trades that improve today without mortgaging tomorrow. Your edge is discipline - don't abandon it for short-term gains.",
         "name": "Professor Flex",
         "title": "Director of Strategic Planning",
         "philosophy": "smart_contender",
@@ -303,6 +309,8 @@ ASSISTANT_GMS = {
     # ===== COMPETITIVE MIDDLE (Pick 7-9) =====
     "Boston Beaneaters": {
         "owner": "Kyle Petit",
+        "team_identity": "ALL-IN MODE",
+        "identity_analysis": "You've already traded the farm - no turning back now. Every move must maximize your current window. Target proven veterans who produce immediately. Development timelines are irrelevant; production today is everything.",
         "name": "Sarge McAllister",
         "title": "Assistant GM",
         "philosophy": "all_in_buyer",
@@ -320,6 +328,8 @@ ASSISTANT_GMS = {
     },
     "Colt 45s": {
         "owner": "Chris Attardo",
+        "team_identity": "LOADED & DANGEROUS",
+        "identity_analysis": "You have the ultimate luxury: a competitive roster AND deep prospects. Use this leverage ruthlessly. You can buy stars or sell veterans - dictate terms to desperate teams. Strike opportunistically when others overpay.",
         "name": "Ace Holliday",
         "title": "General Manager",
         "philosophy": "loaded_and_ready",
@@ -337,6 +347,8 @@ ASSISTANT_GMS = {
     },
     "Hartford Yard GOATS": {
         "owner": "Matt Person & Daniel Barrientos",
+        "team_identity": "BARGAIN HUNTERS",
+        "identity_analysis": "Your prospect cupboard is bare, but your creativity isn't. Hunt for undervalued assets others have given up on. Target buy-low candidates, waiver gems, and players with untapped upside. Win trades with smarts, not assets.",
         "name": "Billy Gruff",
         "title": "Assistant GM",
         "philosophy": "bargain_hunter",
@@ -356,6 +368,8 @@ ASSISTANT_GMS = {
     # ===== MIDDLE PACK (Pick 5-6) =====
     "Rocket City Trash Pandas": {
         "owner": "Zack Collins",
+        "team_identity": "RISING POWERHOUSE",
+        "identity_analysis": "Your prospect capital is your superpower. Protect it fiercely. Only move young talent for elite proven players at major discounts. The dynasty is coming - don't trade away the future for mediocre present gains.",
         "name": "Commander Nova",
         "title": "Director of Player Development",
         "philosophy": "rising_powerhouse",
@@ -373,6 +387,8 @@ ASSISTANT_GMS = {
     },
     "Kalamazoo Celery Pickers": {
         "owner": "Zach Fitts & Sean Griffin",
+        "team_identity": "AT THE CROSSROADS",
+        "identity_analysis": "Decision time is NOW. The middle is where teams go to die slowly. Evaluate your roster honestly - can you compete for a title, or should you sell and rebuild? Either path beats purgatory. Make a choice and commit.",
         "name": "Crunch Wellington",
         "title": "Assistant GM",
         "philosophy": "crossroads_decision",
@@ -392,6 +408,8 @@ ASSISTANT_GMS = {
     # ===== REBUILDERS (Pick 1-4) =====
     "Alaskan Bullworms": {
         "owner": "Walter Girczyc",
+        "team_identity": "STUCK IN NEUTRAL",
+        "identity_analysis": "Your reluctance to sell is costing you value every week. Veterans are depreciating assets - trade them NOW before their value craters further. Stop waiting for bounce-backs that aren't coming. Action beats hope.",
         "name": "Frosty Carlson",
         "title": "Assistant GM",
         "philosophy": "reluctant_dealer",
@@ -409,6 +427,8 @@ ASSISTANT_GMS = {
     },
     "Sugar Land Space Cowboys": {
         "owner": "Sean McCabe",
+        "team_identity": "CALCULATED REBUILD",
+        "identity_analysis": "Your rebuild is data-driven and methodical. Sell veterans at peak value with zero emotional attachment. Target high-upside prospects in every deal. The model dictates moves - trust the projections, not the feelings.",
         "name": "Doc Orbital",
         "title": "Chief Analytics Officer",
         "philosophy": "analytical_rebuilder",
@@ -426,6 +446,8 @@ ASSISTANT_GMS = {
     },
     "Modesto Nuts": {
         "owner": "Mason Palmieri",
+        "team_identity": "FIRE SALE MODE",
+        "identity_analysis": "Your farm is barren - fixing that is priority one. Every veteran is trade bait. Seek maximum prospect volume in every deal. Quantity now, quality sorting later. Be aggressive, be available, be dealing constantly.",
         "name": "Wild Card Walters",
         "title": "Assistant GM",
         "philosophy": "desperate_accumulator",
@@ -443,6 +465,8 @@ ASSISTANT_GMS = {
     },
     "Hershey Bears": {
         "owner": "Lauren McCue-Walsh & Ray Catena",
+        "team_identity": "PROSPECT FACTORY",
+        "identity_analysis": "You have the league's deepest farm system. Protect it fiercely - these prospects ARE your championship plan. Only trade young talent for elite stars at massive discounts. Patience is your superpower. Let the talent develop.",
         "name": "Sweet Lou Pemberton",
         "title": "Director of Player Development",
         "philosophy": "prospect_rich_rebuilder",
@@ -5260,49 +5284,51 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     is_old_roster = avg_age >= 28 or vet_value > young_value + prime_value
     is_young_roster = avg_age <= 26.5 or len(prospects) >= 6 or young_value > vet_value * 1.5
 
-    # ============ TEAM IDENTITY - DEEP ANALYSIS ============
-    if power_rank <= top_third:
-        if is_young_roster:
-            window = "dynasty"
-            window_desc = f"<span style='color:#ffd700'><b>DYNASTY POWERHOUSE</b></span> - {team_name} has it all: elite talent AND youth"
-            window_detail = f"This is the rarest combination in dynasty fantasy. You have {len(young_players)} players 25 or younger contributing {young_value:.0f} points of value. Your window isn't just open - it's bolted open for years. Play from a position of strength: don't overpay to fill gaps, let others come to you."
-        elif is_old_roster:
-            window = "win-now"
-            window_desc = f"<span style='color:#f59e0b'><b>WIN-NOW MODE</b></span> - {team_name} is built for immediate contention but time is the enemy"
-            window_detail = f"Your roster averages {avg_age:.1f} years old with {len(veteran_players)} veterans contributing {vet_value:.0f} points. This is a championship-caliber roster TODAY, but every month you wait, asset values decline. Be aggressive in trades - overpay for the final pieces if needed. You can't take prospects to the championship."
-        else:
-            window = "contender"
-            window_desc = f"<span style='color:#4ade80'><b>LEGITIMATE CONTENDER</b></span> - {team_name} has the roster to compete now"
-            window_detail = f"Balanced across age groups with a strong core. Your {prime_value:.0f} points of prime-age value gives you a 2-3 year window of contention. Target surgical upgrades that address category weaknesses without mortgaging the future."
-    elif power_rank >= bottom_third:
-        if is_old_roster:
-            window = "teardown"
-            window_desc = f"<span style='color:#f87171'><b>TEARDOWN REQUIRED</b></span> - {team_name} has an aging roster with no path to contention"
-            window_detail = f"Hard truth: averaging {avg_age:.1f} years old with {len(veteran_players)} veterans while ranked #{power_rank} means you're not close AND getting older. Every week you delay selling, your veteran assets lose value. Identify your 3-4 tradeable veterans and start shopping them to contenders NOW. Accept prospects and youth - quantity over quality is fine at this stage."
-        elif is_young_roster:
-            window = "rebuilding"
-            window_desc = f"<span style='color:#60a5fa'><b>REBUILDING (On Track)</b></span> - {team_name} is stockpiling future assets"
-            window_detail = f"The rebuild is progressing. With {len(prospects)} prospects and {len(young_players)} young players, you're accumulating the talent to compete in 2-3 years. Stay patient, resist the urge to buy win-now pieces. If a contender offers to overpay for a veteran, take the deal. Accumulate draft picks."
-        else:
-            window = "retooling"
-            window_desc = f"<span style='color:#fbbf24'><b>STUCK IN THE MIDDLE</b></span> - {team_name} needs to pick a direction"
-            window_detail = f"This is the danger zone. Not good enough to compete (#{power_rank}), not young enough to rebuild naturally. You have two options: 1) Go all-in by trading prospects for proven talent, or 2) Commit to rebuild by selling veterans. The worst choice is standing pat. Make a decision and commit."
-    else:
-        if is_young_roster:
-            window = "rising"
-            window_desc = f"<span style='color:#34d399'><b>RISING CONTENDER</b></span> - {team_name} is building toward a breakthrough"
-            window_detail = f"Your young core is developing nicely. With {young_value:.0f} points of value from players 25 and under, you're positioned to rise. Look for undervalued veterans on rebuilding teams who can accelerate your timeline. In 1-2 years, you could be a true contender."
-        elif is_old_roster:
-            window = "declining"
-            window_desc = f"<span style='color:#fb923c'><b>DECLINING ASSET BASE</b></span> - {team_name} is trending the wrong direction"
-            window_detail = f"The warning signs are clear: ranked #{power_rank} with an average age of {avg_age:.1f}. Your veteran assets ({vet_value:.0f} points) are depreciating. You're not close enough to contend and your roster is aging out. Start selling veterans now while they still have value."
-        else:
-            window = "competitive"
-            window_desc = f"<span style='color:#a78bfa'><b>COMPETITIVE BUT NOT ELITE</b></span> - {team_name} is in the pack but not leading it"
-            window_detail = f"You're competitive but need a spark. Ranked #{power_rank} with a balanced roster, you're one or two moves away from breaking into the top tier. Identify your biggest category weakness and target an upgrade. A single elite addition could vault you into contention."
+    # ============ TEAM IDENTITY - FROM GM PROFILE ============
+    gm = get_assistant_gm(team_name)
+    team_identity = gm.get('team_identity', 'COMPETITOR')
+    identity_analysis = gm.get('identity_analysis', '')
+    philosophy = gm.get('philosophy', 'balanced')
 
-    identity_text = f"<b>TEAM IDENTITY:</b> {window_desc}<br>"
-    identity_text += f"&nbsp;&nbsp;{window_detail}<br>"
+    # Identity color based on philosophy type
+    identity_colors = {
+        'dynasty_champion': '#ffd700',
+        'championship_closer': '#ff6b6b',
+        'smart_contender': '#4ade80',
+        'all_in_buyer': '#f59e0b',
+        'loaded_and_ready': '#00d4ff',
+        'bargain_hunter': '#a78bfa',
+        'rising_powerhouse': '#34d399',
+        'crossroads_decision': '#fbbf24',
+        'reluctant_dealer': '#fb923c',
+        'analytical_rebuilder': '#60a5fa',
+        'desperate_accumulator': '#f87171',
+        'prospect_rich_rebuilder': '#22d3ee'
+    }
+    identity_color = identity_colors.get(philosophy, '#00d4ff')
+
+    # Build roster-specific context
+    roster_context = []
+    if len(prospects) >= 5:
+        roster_context.append(f"deep prospect pool ({len(prospects)} ranked)")
+    elif len(prospects) <= 2:
+        roster_context.append(f"thin farm system ({len(prospects)} ranked)")
+
+    if is_young_roster:
+        roster_context.append(f"young core (avg {avg_age:.1f} years)")
+    elif is_old_roster:
+        roster_context.append(f"veteran-heavy (avg {avg_age:.1f} years)")
+
+    if hitter_value > pitcher_value * 1.3:
+        roster_context.append("offense-heavy")
+    elif pitcher_value > hitter_value * 1.2:
+        roster_context.append("pitching-rich")
+
+    roster_note = " | ".join(roster_context) if roster_context else "balanced construction"
+
+    identity_text = f"<b>TEAM IDENTITY:</b> <span style='color:{identity_color}'><b>{team_identity}</b></span><br>"
+    identity_text += f"&nbsp;&nbsp;{identity_analysis}<br>"
+    identity_text += f"&nbsp;&nbsp;<b>Roster Profile:</b> {roster_note}<br>"
     identity_text += f"&nbsp;&nbsp;<b>Power Ranking:</b> <span style='color:#ffd700'>#{power_rank}</span> of {total_teams} | <b>Total Value:</b> {total_value:.0f} points"
     analysis_parts.append(identity_text)
 
