@@ -78,6 +78,111 @@ RIVALRY_HISTORY = {
 # ============================================================================
 
 GM_PHILOSOPHIES = {
+    # ===== CONTENDER PHILOSOPHIES =====
+    "dynasty_champion": {
+        "name": "Dynasty Champion",
+        "description": "#1 team - plays from strength. Only makes moves that clearly improve the roster.",
+        "prospect_trade_penalty": 0.0,
+        "proven_talent_bonus": 0.10,
+        "age_tolerance": 32,
+        "risk_tolerance": 0.45
+    },
+    "championship_closer": {
+        "name": "Championship Closer",
+        "description": "Elite contender focused on closing the gap. Prospects are trade chips.",
+        "prospect_trade_penalty": 0.20,
+        "proven_talent_bonus": 0.25,
+        "age_tolerance": 33,
+        "risk_tolerance": 0.75
+    },
+    "smart_contender": {
+        "name": "Smart Contender",
+        "description": "Top contender who maintains flexibility. Sustainable success over flash.",
+        "prospect_trade_penalty": 0.05,
+        "proven_talent_bonus": 0.10,
+        "age_tolerance": 31,
+        "risk_tolerance": 0.60
+    },
+
+    # ===== COMPETITIVE MIDDLE PHILOSOPHIES =====
+    "all_in_buyer": {
+        "name": "All-In Buyer",
+        "description": "Traded the farm already. Committed to winning now - no looking back.",
+        "prospect_trade_penalty": 0.30,
+        "proven_talent_bonus": 0.30,
+        "age_tolerance": 34,
+        "risk_tolerance": 0.80
+    },
+    "loaded_and_ready": {
+        "name": "Loaded & Ready",
+        "description": "Competitive roster AND deep prospects. Maximum flexibility to dictate terms.",
+        "prospect_trade_penalty": 0.0,
+        "proven_talent_bonus": 0.05,
+        "age_tolerance": 30,
+        "risk_tolerance": 0.70
+    },
+    "aggressive_buyer": {
+        "name": "Aggressive Buyer",
+        "description": "Willing to part with prospects to compete now. Hard bargainer.",
+        "prospect_trade_penalty": 0.15,
+        "proven_talent_bonus": 0.20,
+        "age_tolerance": 32,
+        "risk_tolerance": 0.70
+    },
+
+    # ===== MIDDLE PACK PHILOSOPHIES =====
+    "crossroads_decision": {
+        "name": "At The Crossroads",
+        "description": "Stuck in the middle. Needs to commit to a direction - buy or sell.",
+        "prospect_trade_penalty": -0.10,
+        "proven_talent_bonus": 0.0,
+        "age_tolerance": 29,
+        "risk_tolerance": 0.55
+    },
+    "rising_powerhouse": {
+        "name": "Rising Powerhouse",
+        "description": "Mid-pack with massive farm. Patiently developing future dynasty.",
+        "prospect_trade_penalty": -0.30,
+        "proven_talent_bonus": -0.10,
+        "age_tolerance": 27,
+        "risk_tolerance": 0.40
+    },
+
+    # ===== REBUILDER PHILOSOPHIES =====
+    "protective_rebuilder": {
+        "name": "Protective Rebuilder",
+        "description": "Rebuilding with limited prospects. Fiercely protective of young assets.",
+        "prospect_trade_penalty": -0.35,
+        "proven_talent_bonus": -0.20,
+        "age_tolerance": 26,
+        "risk_tolerance": 0.30
+    },
+    "analytical_rebuilder": {
+        "name": "Analytical Rebuilder",
+        "description": "Data-driven rebuild. Methodical seller seeking maximum prospect returns.",
+        "prospect_trade_penalty": -0.20,
+        "proven_talent_bonus": -0.15,
+        "age_tolerance": 27,
+        "risk_tolerance": 0.45
+    },
+    "desperate_accumulator": {
+        "name": "Desperate Accumulator",
+        "description": "Bare farm system. Aggressively acquiring prospects through any means.",
+        "prospect_trade_penalty": -0.15,
+        "proven_talent_bonus": -0.25,
+        "age_tolerance": 28,
+        "risk_tolerance": 0.85
+    },
+    "prospect_rich_rebuilder": {
+        "name": "Prospect-Rich Rebuilder",
+        "description": "Deep farm system. Patiently developing talent into future stars.",
+        "prospect_trade_penalty": -0.40,
+        "proven_talent_bonus": -0.15,
+        "age_tolerance": 26,
+        "risk_tolerance": 0.35
+    },
+
+    # ===== LEGACY (for backwards compatibility) =====
     "win_now": {
         "name": "Win-Now Contender",
         "description": "Aggressive buyer willing to pay premium for proven talent.",
@@ -121,199 +226,207 @@ GM_PHILOSOPHIES = {
 }
 
 # ASSISTANT GM PERSONALITIES - Unique AI advisor for each team
+# Each GM has a philosophy tailored to their team's actual roster construction
 # ============================================================================
 ASSISTANT_GMS = {
+    # ===== CONTENDERS (Pick 10-12) =====
     "Akron Rubber Ducks": {
         "name": "Stretch McGee",
         "title": "Assistant GM",
-        "philosophy": "value_seeker",
-        "personality": "Resilient and opportunistic. Bounces back from setbacks and always finds value where others don't see it.",
+        "philosophy": "smart_contender",
+        "personality": "A top-3 contender who maintains flexibility. Knows when to push chips in and when to hold back. Values sustainable success over flash-in-the-pan runs.",
         "catchphrases": [
-            "Flexibility wins championships.",
-            "Every setback is a setup for a comeback.",
-            "The market always overcorrects - be ready.",
-            "Patience is just aggression waiting for the right moment."
+            "We're built to win now AND later.",
+            "Flexibility is the ultimate competitive advantage.",
+            "Smart teams don't mortgage the future for the present.",
+            "Championship windows stay open when you build them right."
         ],
-        "trade_style": "Buy low, sell high. Loves targeting slumping players and selling hot streaks.",
-        "priorities": ["value_arbitrage", "buy_low_candidates", "sell_high_windows"],
-        "risk_tolerance": 0.65,
+        "trade_style": "Calculated aggression. Willing to buy for the right price, but never overpays. Maintains prospect depth while competing.",
+        "priorities": ["targeted_upgrades", "value_retention", "sustainable_contention"],
+        "risk_tolerance": 0.60,
         "preferred_categories": ["R", "RBI", "QS"]
     },
-    "Alaskan Bullworms": {
-        "name": "Frosty Carlson",
+    "Pawtucket Red Sox": {
+        "name": "Paw Patterson",
         "title": "Assistant GM",
-        "philosophy": "dynasty_builder",
-        "personality": "Cold, calculating, and endlessly patient. Plays the long game while others chase quick wins.",
+        "philosophy": "championship_closer",
+        "personality": "Elite contender on the cusp of a title. Every move is about closing the gap to a championship. Farm system is a tool, not a treasure.",
         "catchphrases": [
-            "Winter is coming for everyone else's roster.",
-            "Prospects are like permafrost - valuable when preserved.",
-            "Let them overpay now. We'll own the future.",
-            "The coldest take is usually the right one."
+            "We're one piece away - let's find it.",
+            "Prospects don't hang banners.",
+            "This is our year. Act like it.",
+            "Second place is just first loser."
         ],
-        "trade_style": "Accumulate young assets. Never panic. Let desperation come to you.",
-        "priorities": ["prospect_acquisition", "young_talent", "draft_picks"],
-        "risk_tolerance": 0.35,
-        "preferred_categories": ["SB", "K", "K/BB"]
+        "trade_style": "Aggressive buyer focused on championship-caliber upgrades. Prospects are trade chips, not untouchables.",
+        "priorities": ["championship_pieces", "proven_performers", "category_gaps"],
+        "risk_tolerance": 0.75,
+        "preferred_categories": ["K", "SB", "WHIP"]
     },
+    "Danville Dairy Daddies": {
+        "name": "The Milkman Morrison",
+        "title": "Assistant GM",
+        "philosophy": "dynasty_champion",
+        "personality": "The #1 team in the league. Already arrived at the top - now it's about staying there. Plays from a position of strength with nothing to prove.",
+        "catchphrases": [
+            "When you're at the top, let others chase you.",
+            "We don't rebuild - we reload.",
+            "The cream has risen. Now we stay fresh.",
+            "Championship culture doesn't take days off."
+        ],
+        "trade_style": "Selective and patient. Only makes moves that clearly improve the roster. Others must overpay to pry talent loose.",
+        "priorities": ["roster_optimization", "defending_title", "depth_maintenance"],
+        "risk_tolerance": 0.45,
+        "preferred_categories": ["R", "RBI", "ERA"]
+    },
+
+    # ===== COMPETITIVE MIDDLE (Pick 7-9) =====
     "Boston Beaneaters": {
         "name": "Old School O'Brien",
         "title": "Assistant GM",
-        "philosophy": "win_now",
-        "personality": "Traditional baseball man who values proven track records over projections. Championship or bust.",
+        "philosophy": "all_in_buyer",
+        "personality": "Contender who's traded away the farm and is fully committed to winning now. No looking back - it's championship or bust.",
         "catchphrases": [
-            "Prospects are just lottery tickets with good PR.",
-            "Give me the guy who's done it, not the guy who might.",
-            "You can't win with potential.",
-            "Championships aren't won in the future."
+            "We already sold the farm. Time to reap what we sowed.",
+            "Prospects are for teams afraid to compete.",
+            "Give me proven production over potential every time.",
+            "We're not rebuilding. We're winning."
         ],
-        "trade_style": "Aggressive acquirer of established talent. Will pay premium for proven winners.",
-        "priorities": ["proven_production", "veteran_leadership", "playoff_experience"],
-        "risk_tolerance": 0.75,
+        "trade_style": "Aggressive buyer with limited prospect capital. Must find creative ways to add talent without premium trade chips.",
+        "priorities": ["proven_production", "veteran_value", "cheap_upgrades"],
+        "risk_tolerance": 0.80,
         "preferred_categories": ["HR", "RBI", "QS"]
     },
     "Colt 45s": {
         "name": "Trigger Thompson",
         "title": "Assistant GM",
-        "philosophy": "win_now",
-        "personality": "Shoot first, ask questions later. Bold, aggressive, and unafraid to make the big move.",
+        "philosophy": "loaded_and_ready",
+        "personality": "Best of both worlds - competitive roster AND deep prospect pool. Can make any kind of deal. The most dangerous GM in the league.",
         "catchphrases": [
-            "Fortune favors the bold.",
-            "You miss 100% of the trades you don't make.",
-            "While they're thinking, we're winning.",
-            "The best defense is a overwhelming offense."
+            "We've got the ammo AND the firepower.",
+            "Other GMs wish they had our options.",
+            "Ready to buy, ready to sell, ready to dominate.",
+            "This is what roster construction looks like."
         ],
-        "trade_style": "Fast, decisive moves. First to market on emerging opportunities.",
-        "priorities": ["impact_bats", "elite_arms", "championship_windows"],
-        "risk_tolerance": 0.85,
+        "trade_style": "Maximum flexibility. Can acquire stars using prospect capital OR flip veterans for more prospects. Dictates terms.",
+        "priorities": ["best_available_moves", "win_now_or_later", "leverage_position"],
+        "risk_tolerance": 0.70,
         "preferred_categories": ["HR", "SB", "SV+HLD"]
-    },
-    "Danville Dairy Daddies": {
-        "name": "The Milkman Morrison",
-        "title": "Assistant GM",
-        "philosophy": "balanced",
-        "personality": "Reliable, consistent, delivers value day in and day out. No flashy moves, just steady excellence.",
-        "catchphrases": [
-            "Consistency is the secret ingredient.",
-            "We deliver value, rain or shine.",
-            "No need to be fancy when fundamentals work.",
-            "Trust the process, enjoy the cream rising to the top."
-        ],
-        "trade_style": "Methodical evaluation. Fair deals that make sense for both sides.",
-        "priorities": ["roster_balance", "category_coverage", "sustainable_value"],
-        "risk_tolerance": 0.50,
-        "preferred_categories": ["R", "RBI", "ERA"]
     },
     "Hartford Yard GOATS": {
         "name": "Billy Gruff",
         "title": "Assistant GM",
-        "philosophy": "prospect_hoarder",
-        "personality": "Stubborn protector of the farm system. Won't be pushed around in negotiations.",
+        "philosophy": "aggressive_buyer",
+        "personality": "Middle-tier team that has already moved prospects for veterans. Committed to competing and willing to continue dealing from the farm.",
         "catchphrases": [
-            "Nobody crosses this bridge without paying toll.",
-            "My prospects aren't for sale... unless you're overpaying.",
-            "I've seen your offer. Now triple it.",
-            "You want my young talent? What's your firstborn worth?"
+            "Prospects are currency meant to be spent.",
+            "You can't win championships with potential.",
+            "I'll trade futures for present production.",
+            "Let the rebuilders hoard - we're here to compete."
         ],
-        "trade_style": "Hard bargainer. Extracts maximum value. Rarely parts with prospects.",
-        "priorities": ["farm_system_protection", "prospect_development", "fair_value_plus"],
-        "risk_tolerance": 0.30,
+        "trade_style": "Hard bargainer. Extracts maximum value. Willing to part with prospects.",
+        "priorities": ["win_now_upgrades", "veteran_acquisition", "competitive_push"],
+        "risk_tolerance": 0.70,
         "preferred_categories": ["K", "WHIP", "SB"]
     },
-    "Hershey Bears": {
-        "name": "Sweet Deal Henderson",
-        "title": "Assistant GM",
-        "philosophy": "value_seeker",
-        "personality": "Makes every trade a little sweeter for both sides. Master of win-win negotiations.",
-        "catchphrases": [
-            "Let me sweeten the pot for you.",
-            "Good trades should taste like victory for everyone.",
-            "The best deals leave both sides smiling.",
-            "A little extra never hurt anybody."
-        ],
-        "trade_style": "Creative dealmaker. Finds hidden value and sweeteners to close deals.",
-        "priorities": ["creative_packages", "mutual_value", "relationship_building"],
-        "risk_tolerance": 0.55,
-        "preferred_categories": ["RBI", "R", "K"]
-    },
+
+    # ===== MIDDLE PACK (Pick 5-6) =====
     "Kalamazoo Celery Pickers": {
         "name": "Fresh Fitzgerald",
         "title": "Assistant GM",
-        "philosophy": "dynasty_builder",
-        "personality": "Loves crunchy young prospects. Believes in organic roster growth over quick fixes.",
+        "philosophy": "crossroads_decision",
+        "personality": "Stuck in the middle with a thin farm. Needs to commit to a direction - either sell veterans and rebuild, or buy prospects and push for playoffs.",
         "catchphrases": [
-            "Fresh talent beats stale veterans every time.",
-            "We're growing something special here.",
-            "Age is more than a number - it's a trajectory.",
-            "Plant seeds now, harvest championships later."
+            "Decision time is now.",
+            "The middle is where dreams go to die.",
+            "Pick a lane and floor it.",
+            "Status quo is the only wrong answer."
         ],
-        "trade_style": "Youth-focused acquisitions. Sell veterans for maximum prospect return.",
-        "priorities": ["young_players", "upside_potential", "age_curves"],
-        "risk_tolerance": 0.40,
+        "trade_style": "Evaluating all options. Could be buyer or seller depending on offers. Desperately needs to add prospect depth.",
+        "priorities": ["direction_decision", "prospect_acquisition", "avoiding_purgatory"],
+        "risk_tolerance": 0.55,
         "preferred_categories": ["SB", "R", "K"]
-    },
-    "Modesto Nuts": {
-        "name": "Nutty Nichols",
-        "title": "Assistant GM",
-        "philosophy": "value_seeker",
-        "personality": "Unpredictable and unconventional. Makes bold moves that seem crazy until they work.",
-        "catchphrases": [
-            "Sanity is overrated in this business.",
-            "The craziest trade is the one you didn't make.",
-            "They called me nuts. Then they called me champion.",
-            "Normal gets you normal results."
-        ],
-        "trade_style": "Outside-the-box thinking. Contrarian moves. High volatility, high reward.",
-        "priorities": ["contrarian_plays", "overlooked_value", "bold_moves"],
-        "risk_tolerance": 0.80,
-        "preferred_categories": ["HR", "SV+HLD", "SO"]
-    },
-    "Pawtucket Red Sox": {
-        "name": "Paw Patterson",
-        "title": "Assistant GM",
-        "philosophy": "dynasty_builder",
-        "personality": "Patient farm system developer. Believes in growing talent from within.",
-        "catchphrases": [
-            "The farm feeds the future.",
-            "Development beats desperation.",
-            "Every prospect tells a story - ours have happy endings.",
-            "Rush the process, ruin the product."
-        ],
-        "trade_style": "Acquire raw talent and develop it. Rarely trades homegrown players.",
-        "priorities": ["player_development", "raw_tools", "system_depth"],
-        "risk_tolerance": 0.35,
-        "preferred_categories": ["K", "SB", "WHIP"]
     },
     "Rocket City Trash Pandas": {
         "name": "Rocket Rodriguez",
         "title": "Assistant GM",
-        "philosophy": "win_now",
-        "personality": "Explosive and ambitious. Launches bold attacks on championship windows.",
+        "philosophy": "rising_powerhouse",
+        "personality": "Mid-pack team sitting on a MASSIVE prospect haul. The future is incredibly bright. Patient approach as the young talent develops into stars.",
         "catchphrases": [
-            "We're going to the moon - championships or bust.",
-            "Light the fuse and watch us fly.",
-            "No mission is impossible with the right roster.",
-            "Count down to glory starts now."
+            "Our prospects ARE the championship plan.",
+            "While others buy, we grow champions.",
+            "The dynasty is under construction.",
+            "Watch us rise while others fade."
         ],
-        "trade_style": "All-in mentality when window opens. Aggressive consolidation of talent.",
-        "priorities": ["championship_runs", "star_acquisition", "roster_optimization"],
-        "risk_tolerance": 0.85,
+        "trade_style": "Patient accumulator. Only trades prospects for proven stars at discount prices. The farm is the foundation, not trade bait.",
+        "priorities": ["prospect_development", "selective_upgrades", "future_dynasty"],
+        "risk_tolerance": 0.40,
         "preferred_categories": ["HR", "RBI", "QS"]
+    },
+
+    # ===== REBUILDERS (Pick 1-4) =====
+    "Alaskan Bullworms": {
+        "name": "Frosty Carlson",
+        "title": "Assistant GM",
+        "philosophy": "protective_rebuilder",
+        "personality": "Rebuilding with limited prospect capital. Fiercely protective of young assets. Needs to sell veterans but won't give away the few prospects remaining.",
+        "catchphrases": [
+            "These prospects are all we have - they're not for sale.",
+            "Patience builds dynasties, panic destroys them.",
+            "You want my young talent? Overpay or go home.",
+            "The coldest no is still a no."
+        ],
+        "trade_style": "Hard bargainer. Is sometimes reluctant to trade away talent.",
+        "priorities": ["prospect_protection", "veteran_conversion", "draft_pick_accumulation"],
+        "risk_tolerance": 0.30,
+        "preferred_categories": ["SB", "K", "K/BB"]
     },
     "Sugar Land Space Cowboys": {
         "name": "Starman Stevens",
         "title": "Assistant GM",
-        "philosophy": "balanced",
-        "personality": "Calculated and analytical. Uses data to navigate the vast trade universe.",
+        "philosophy": "analytical_rebuilder",
+        "personality": "Rebuilding team with solid prospect foundation. Data-driven approach to maximizing value during the rebuild. Every trade must clearly benefit the future.",
         "catchphrases": [
-            "The numbers don't lie - they just whisper.",
-            "In space, nobody hears you overpay.",
-            "Chart your course with data, not emotion.",
-            "The trade frontier rewards the prepared mind."
+            "The numbers say we're building something special.",
+            "Patience plus analytics equals dynasty.",
+            "Every trade is an investment in tomorrow.",
+            "Calculate twice, trade once."
         ],
-        "trade_style": "Data-driven decisions. Analytical approach to value assessment.",
-        "priorities": ["analytical_edge", "market_inefficiency", "projection_accuracy"],
-        "risk_tolerance": 0.50,
+        "trade_style": "Methodical seller of veteran assets. Seeks maximum prospect return. No emotional attachments to aging players.",
+        "priorities": ["veteran_liquidation", "prospect_accumulation", "analytical_value"],
+        "risk_tolerance": 0.45,
         "preferred_categories": ["K/BB", "ERA", "R"]
+    },
+    "Modesto Nuts": {
+        "name": "Nutty Nichols",
+        "title": "Assistant GM",
+        "philosophy": "desperate_accumulator",
+        "personality": "Bottom-tier team with a BARE farm system. Desperately needs to acquire prospects through any means necessary. Will take risks others won't.",
+        "catchphrases": [
+            "We need prospects like we need air.",
+            "Every veteran is trade bait.",
+            "Quantity first, then we sort for quality.",
+            "You call it desperate, I call it motivated."
+        ],
+        "trade_style": "Aggressive seller of any tradeable veteran. Seeks volume in prospect returns. Will take fliers on high-risk, high-reward players.",
+        "priorities": ["prospect_volume", "veteran_fire_sale", "draft_pick_hoarding"],
+        "risk_tolerance": 0.85,
+        "preferred_categories": ["HR", "SV+HLD", "SO"]
+    },
+    "Hershey Bears": {
+        "name": "Sweet Deal Henderson",
+        "title": "Assistant GM",
+        "philosophy": "prospect_rich_rebuilder",
+        "personality": "Bottom team but sitting on the league's deepest farm system. The future is blindingly bright. Protect the prospects and let them develop into stars.",
+        "catchphrases": [
+            "Our prospect list is longer than your roster.",
+            "The sweetest victory is the one you waited for.",
+            "Every prospect is a future star - treat them that way.",
+            "Good things come to those who develop."
+        ],
+        "trade_style": "Patient holder of elite prospect capital. Only trades prospects for proven stars at massive discounts. Prefers to let talent develop.",
+        "priorities": ["prospect_development", "patience", "selective_star_acquisition"],
+        "risk_tolerance": 0.35,
+        "preferred_categories": ["RBI", "R", "K"]
     }
 }
 
