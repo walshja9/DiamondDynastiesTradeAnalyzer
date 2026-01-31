@@ -2819,7 +2819,7 @@ def get_prospects():
     # Get prospects from free agents
     # Use the stored prospect_name which was matched during load_free_agents()
     for fa in FREE_AGENTS:
-        if fa.get('is_prospect') and fa.get('prospect_rank') and fa['prospect_rank'] <= 200:
+        if fa.get('is_prospect') and fa.get('prospect_rank') and fa['prospect_rank'] <= 300:
             # Use the stored prospect_name (matched during FA loading)
             prospect_name = fa.get('prospect_name') or fa['name']
 
@@ -2836,8 +2836,8 @@ def get_prospects():
                     "not_in_league": False
                 }
 
-    # Add any prospects from PROSPECT_RANKINGS (1-300) that weren't found
-    # These are prospects who aren't rostered and aren't in the FA list
+    # Add any prospects from PROSPECT_RANKINGS (1-300) that weren't found in rosters or FA list
+    # These are all available as Free Agents in Fantrax (user confirmed all prospects are in the pool)
     # Skip alias names (keys in PROSPECT_NAME_ALIASES) to avoid duplicates
     for name, rank in PROSPECT_RANKINGS.items():
         # Skip if this is an alias name (the player will be found under their canonical name)
@@ -2867,16 +2867,17 @@ def get_prospects():
             else:
                 est_value = max(8 - (rank - 250) * 0.08, 5)  # Floor of 5 for ranks 251-300
 
+            # All prospects are available in Fantrax pool - show as Free Agent
             found_prospects[name] = {
                 "name": name,
                 "rank": rank,
                 "position": metadata.get('position', 'UTIL'),
                 "age": metadata.get('age', 0),
                 "mlb_team": metadata.get('mlb_team', 'N/A'),
-                "fantasy_team": "Not in League",
+                "fantasy_team": "Free Agent",
                 "value": round(est_value, 1),
-                "is_free_agent": False,
-                "not_in_league": True
+                "is_free_agent": True,
+                "not_in_league": False
             }
 
     # Convert to list and sort by rank
