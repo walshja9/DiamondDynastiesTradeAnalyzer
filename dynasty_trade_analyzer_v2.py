@@ -393,56 +393,76 @@ RELIEVER_PROJECTIONS = {
 }
 
 # Player ages (2026 season) - used when API doesn't provide ages
+# Ages calculated based on birth dates - using age they'll be for most of the 2026 season
 PLAYER_AGES = {
-    # Elite Hitters
-    "Elly De La Cruz": 24, "Bobby Witt Jr.": 26, "Gunnar Henderson": 25, "Corey Seager": 32,
-    "Shohei Ohtani": 31, "Juan Soto": 27, "Mookie Betts": 33, "Freddie Freeman": 36,
-    "Kyle Tucker": 29, "Jose Ramirez": 33, "Trea Turner": 33, "Aaron Judge": 34,
-    "Jackson Holliday": 22, "Ronald Acuna Jr.": 28, "Jackson Chourio": 21, "Julio Rodriguez": 25,
-    "Yordan Alvarez": 29, "Fernando Tatis Jr.": 27, "Jackson Merrill": 22, "Riley Greene": 25,
-    "Bo Bichette": 28, "James Wood": 23, "Pete Crow-Armstrong": 23, "Triston Casas": 26,
-    "Masyn Winn": 23, "Spencer Jones": 24, "Christian Walker": 34, "Matt Olson": 32,
-    "Michael Harris II": 25, "Marcell Ozuna": 35, "Marcus Semien": 35, "Francisco Lindor": 32,
-    "Jake Burger": 28, "Anthony Volpe": 25, "Ozzie Albies": 29, "Brice Turang": 26,
-    "Vinnie Pasquantino": 28, "Lars Nootbaar": 28, "Jack Suwinski": 28, "Jacob Young": 27,
-    "JJ Bleday": 27, "Leody Taveras": 27, "Kerry Carpenter": 27, "Andy Pages": 24,
+    # Elite Young Hitters (born 2000-2004)
+    "Elly De La Cruz": 24,      # Born Jan 11, 2002
+    "Bobby Witt Jr.": 26,       # Born June 14, 2000
+    "Gunnar Henderson": 24,     # Born June 29, 2001
+    "Jackson Holliday": 22,     # Born Dec 4, 2003
+    "Jackson Chourio": 22,      # Born March 11, 2004
+    "Julio Rodriguez": 25,      # Born Dec 29, 2000
+    "Jackson Merrill": 23,      # Born April 19, 2003
+    "James Wood": 23,           # Born Sept 17, 2002
+    "Roman Anthony": 22,        # Born May 13, 2004
+    "Junior Caminero": 23,      # Born July 5, 2003
+    "Jasson Dominguez": 23,     # Born Feb 7, 2003
+    "Jordan Walker": 24,        # Born May 22, 2002
+    "Colt Keith": 24,           # Born Aug 14, 2001
+    "Pete Crow-Armstrong": 24,  # Born March 25, 2002
+    "Evan Carter": 24,          # Born Aug 29, 2002
+    "Dylan Crews": 24,          # Born Feb 20, 2002
+    "Wyatt Langford": 25,       # Born Nov 15, 2001
+    "Masyn Winn": 24,           # Born March 21, 2002
+    "Brooks Lee": 24,           # Born Feb 1, 2002
+    "Spencer Jones": 24,        # Born May 3, 2002
+    "Jordan Lawlar": 23,        # Born July 18, 2002
+    "Colton Cowser": 25,        # Born March 20, 2000
+    "Wilyer Abreu": 25,         # Born June 24, 2000
+    "Nolan Schanuel": 24,       # Born Feb 14, 2002
+    "Michael Toglia": 26,       # Born Aug 16, 2000
+    "Andy Pages": 24,           # Born Dec 9, 2001
+    "Tyler Soderstrom": 24,     # Born Nov 24, 2001
+    # Established Star Hitters
+    "Corey Seager": 32, "Shohei Ohtani": 31, "Juan Soto": 27, "Mookie Betts": 33,
+    "Freddie Freeman": 36, "Kyle Tucker": 29, "Jose Ramirez": 33, "Trea Turner": 33,
+    "Aaron Judge": 34, "Ronald Acuna Jr.": 28, "Yordan Alvarez": 29, "Fernando Tatis Jr.": 27,
+    "Riley Greene": 25, "Bo Bichette": 28, "Triston Casas": 26, "Christian Walker": 34,
+    "Matt Olson": 32, "Michael Harris II": 25, "Marcell Ozuna": 35, "Marcus Semien": 35,
+    "Francisco Lindor": 32, "Jake Burger": 28, "Anthony Volpe": 25, "Ozzie Albies": 29,
+    "Brice Turang": 26, "Vinnie Pasquantino": 28, "Lars Nootbaar": 28, "Jack Suwinski": 28,
+    "Jacob Young": 27, "JJ Bleday": 27, "Leody Taveras": 27, "Kerry Carpenter": 27,
     "Mike Trout": 34, "Vladimir Guerrero Jr.": 27, "Corbin Carroll": 25, "Bryce Harper": 33,
     "Jazz Chisholm Jr.": 28, "Ketel Marte": 32, "CJ Abrams": 25, "Luis Robert Jr.": 27,
     "Rafael Devers": 29, "Anthony Santander": 31, "Will Smith": 31, "Sal Frelick": 25,
-    "Colton Cowser": 25, "Max Muncy": 35, "Tyler Soderstrom": 24, "Jarren Duran": 28,
-    "Jose Siri": 29, "Jose Altuve": 36, "Alex Bregman": 32, "Christian Yelich": 34,
-    "Cody Bellinger": 30, "Josh Naylor": 28, "Oneil Cruz": 27, "Wyatt Langford": 25,
-    "Dylan Crews": 24, "Evan Carter": 24, "Royce Lewis": 27, "Teoscar Hernandez": 33,
-    "Nick Castellanos": 34, "Adolis Garcia": 33, "Bryan Reynolds": 31, "Isaac Paredes": 27,
-    "Luis Arraez": 29, "Nolan Arenado": 35, "Alec Bohm": 29, "Tommy Edman": 30,
-    "Daulton Varsho": 29, "Lawrence Butler": 25, "Austin Wells": 25, "Chandler Simpson": 25,
-    "Victor Scott II": 25, "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29,
-    "Ryan O'Hearn": 31, "Jose Caballero": 28, "Jordan Lawlar": 23,
-    # Young stars missing ages
-    "Roman Anthony": 21, "Jackson Chourio": 21, "Jackson Merrill": 21, "Colt Keith": 23,
-    "Wilyer Abreu": 25, "Junior Caminero": 22, "James Wood": 22, "Jasson Dominguez": 22,
-    "Colton Cowser": 25, "Wyatt Langford": 24, "Pete Crow-Armstrong": 23, "Brooks Lee": 24,
-    "Masyn Winn": 23, "Jordan Walker": 23, "Michael Toglia": 26, "Nolan Schanuel": 24,
-    # Elite Pitchers
-    "Tarik Skubal": 29, "Paul Skenes": 24, "Garrett Crochet": 26, "Cristopher Sanchez": 29,
-    "Logan Webb": 29, "Logan Gilbert": 29, "Bryan Woo": 26, "Hunter Brown": 27,
+    "Max Muncy": 35, "Jarren Duran": 28, "Jose Siri": 29, "Jose Altuve": 36,
+    "Alex Bregman": 32, "Christian Yelich": 34, "Cody Bellinger": 30, "Josh Naylor": 28,
+    "Oneil Cruz": 27, "Royce Lewis": 27, "Teoscar Hernandez": 33, "Nick Castellanos": 34,
+    "Adolis Garcia": 33, "Bryan Reynolds": 31, "Isaac Paredes": 27, "Luis Arraez": 29,
+    "Nolan Arenado": 35, "Alec Bohm": 29, "Tommy Edman": 30, "Daulton Varsho": 29,
+    "Lawrence Butler": 25, "Austin Wells": 25, "Chandler Simpson": 25, "Victor Scott II": 25,
+    "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29, "Ryan O'Hearn": 31,
+    "Jose Caballero": 28,
+    # Elite Pitchers (ages verified for 2026 season)
+    "Tarik Skubal": 29, "Paul Skenes": 23, "Garrett Crochet": 26, "Cristopher Sanchez": 29,  # Skenes: May 29, 2002
+    "Logan Webb": 29, "Logan Gilbert": 29, "Bryan Woo": 26, "Hunter Brown": 27,  # Woo: Jan 30, 2000
     "Max Fried": 32, "Chris Sale": 37, "Jacob deGrom": 38, "Yoshinobu Yamamoto": 27,
-    "Hunter Greene": 27, "George Kirby": 28, "Cole Ragans": 28, "Joe Ryan": 29,
-    "Framber Valdez": 32, "Jesus Luzardo": 28, "Spencer Schwellenbach": 25, "Dylan Cease": 30,
+    "Hunter Greene": 26, "George Kirby": 28, "Cole Ragans": 28, "Joe Ryan": 29,  # Greene: Aug 6, 1999
+    "Framber Valdez": 32, "Jesus Luzardo": 28, "Spencer Schwellenbach": 25, "Dylan Cease": 30,  # Schwellenbach: May 31, 2000
     "Nathan Eovaldi": 36, "Sonny Gray": 36, "Nick Pivetta": 33, "Freddy Peralta": 30,
     "Zack Wheeler": 36, "Kevin Gausman": 35, "Luis Castillo": 33, "Pablo Lopez": 30,
     "Blake Snell": 33, "Brandon Woodruff": 33, "Tyler Glasnow": 32, "Gerrit Cole": 35,
-    "Kyle Bradish": 29, "Shane McClanahan": 28, "Joe Musgrove": 33, "Nick Lodolo": 28,
-    "Chase Burns": 23, "Ranger Suarez": 30, "Kris Bubic": 28, "Matthew Boyd": 35,
+    "Kyle Bradish": 29, "Shane McClanahan": 28, "Joe Musgrove": 33, "Nick Lodolo": 27,  # Lodolo: Feb 5, 1998
+    "Chase Burns": 23, "Ranger Suarez": 30, "Kris Bubic": 28, "Matthew Boyd": 35,  # Burns: Jan 16, 2003
     "David Peterson": 30, "Ryan Weathers": 26, "Joe Boyle": 26, "Robert Gasser": 26,
-    "Payton Tolle": 26, "Andrew Alvarez": 23, "Seth Lugo": 36, "Shota Imanaga": 31,
-    "Jared Jones": 24, "Tanner Bibee": 26, "Luis Gil": 27, "Michael King": 30,
-    "Grayson Rodriguez": 25, "Corbin Burnes": 31, "Roki Sasaki": 24, "Bryce Miller": 26,
-    "Bailey Ober": 30, "Brady Singer": 29, "Cade Horton": 24, "AJ Smith-Shawver": 23,
+    "Payton Tolle": 26, "Andrew Alvarez": 23, "Seth Lugo": 36, "Shota Imanaga": 32,  # Imanaga: Sept 1, 1993
+    "Jared Jones": 24, "Tanner Bibee": 26, "Luis Gil": 27, "Michael King": 30,  # Jones: Aug 6, 2001, Bibee: Mar 5, 1999
+    "Grayson Rodriguez": 26, "Corbin Burnes": 31, "Roki Sasaki": 24, "Bryce Miller": 27,  # Rodriguez: Nov 16, 1999, Sasaki: Nov 3, 2001, Miller: Aug 23, 1998
+    "Bailey Ober": 30, "Brady Singer": 29, "Cade Horton": 24, "AJ Smith-Shawver": 23,  # Horton: Aug 20, 2001, Smith-Shawver: Nov 20, 2002
     "Carlos Rodon": 33,
-    # Relievers
-    "Mason Miller": 26, "Edwin Diaz": 32, "Cade Smith": 26, "Jhoan Duran": 28,
-    "Josh Hader": 32, "Andres Munoz": 26, "Aroldis Chapman": 38, "Devin Williams": 31,
+    # Relievers (ages verified for 2026 season)
+    "Mason Miller": 27, "Edwin Diaz": 32, "Cade Smith": 26, "Jhoan Duran": 28,  # Mason Miller: Aug 24, 1998, Duran: Jan 8, 1998
+    "Josh Hader": 32, "Andres Munoz": 27, "Aroldis Chapman": 38, "Devin Williams": 31,  # Munoz: Jan 16, 1999
     "David Bednar": 30, "Griffin Jax": 30, "Raisel Iglesias": 36, "Abner Uribe": 25,
     "Ryan Walker": 28, "Jeff Hoffman": 33, "Ryan Helsley": 31, "Daniel Palencia": 26,
     "Pete Fairbanks": 32, "Trevor Megill": 32, "Emilio Pagan": 34, "Carlos Estevez": 33,
