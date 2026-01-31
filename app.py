@@ -5759,6 +5759,191 @@ def generate_gm_trade_scenarios(team_name, team):
                         break
                 break
 
+    # 5. BUY LOW - Target underperforming players with high upside
+    buy_low_targets = []
+    for other_team_name, other_team in teams.items():
+        if other_team_name == team_name:
+            continue
+        other_rank = power_rankings.get(other_team_name, 6)
+        # Rebuilding teams more likely to sell underperformers
+        is_seller = other_rank >= 7
+
+        for p in other_team.players:
+            pval = calculator.calculate_player_value(p)
+            proj = HITTER_PROJECTIONS.get(p.name, {}) or PITCHER_PROJECTIONS.get(p.name, {})
+
+            # Look for players whose value might be depressed
+            # Young players with high draft pedigree but low current value
+            if p.age <= 27 and pval >= 30 and pval <= 55:
+                # Check if they have upside indicators
+                has_upside = False
+                if proj.get('HR', 0) >= 20 or proj.get('SB', 0) >= 15:
+                    has_upside = True
+                if proj.get('K', 0) >= 150 or proj.get('QS', 0) >= 12:
+                    has_upside = True
+                if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100:
+                    has_upside = True
+
+                if has_upside:
+                    buy_low_targets.append({
+                        'player': p,
+                        'team': other_team_name,
+                        'value': pval,
+                        'is_seller': is_seller,
+                        'upside_reason': 'Young with projection upside'
+                    })
+
+    # Sort by seller status and value
+    buy_low_targets.sort(key=lambda x: (x['is_seller'], -x['value']), reverse=True)
+
+    if buy_low_targets and should_buy:
+        for target in buy_low_targets[:2]:
+            # Find a package slightly below their value
+            offer_value = target['value'] * 0.85
+            package = [(p, v) for p, v in tradeable if v <= offer_value and v >= offer_value * 0.5]
+            if package:
+                scenarios.append({
+                    'title': "Buy Low Opportunity",
+                    'target': f"{target['player'].name} ({target['team']})",
+                    'target_value': target['value'],
+                    'offer': f"{package[0][0].name}",
+                    'offer_value': package[0][1],
+                    'reasoning': f"Buy low on {target['player'].name} - young player with upside currently valued below potential. {'Seller team likely to deal.' if target['is_seller'] else 'May need to pay fair value.'}",
+                    'trade_type': 'buy_low',
+                    'urgency': 'medium',
+                    'counter_offer': f"If declined, try adding a late pick or swap in a slightly better piece (~{target['value'] * 0.95:.0f} value)."
+                })
+
+    # 6. CATEGORY STACKING - Double down on strengths for category dominance
+    if strong_cats and should_buy:
+        best_cat = strong_cats[0][0] if strong_cats else None
+        if best_cat:
+            # Find players who excel in our best category
+            stack_targets = []
+            for other_team_name, other_team in teams.items():
+                if other_team_name == team_name:
+                    continue
+                for p in other_team.players:
+                    proj = HITTER_PROJECTIONS.get(p.name, {}) or PITCHER_PROJECTIONS.get(p.name, {})
+                    pval = calculator.calculate_player_value(p)
+
+                    cat_value = 0
+                    if best_cat == 'HR':
+                        cat_value = proj.get('HR', 0)
+                    elif best_cat == 'SB':
+                        cat_value = proj.get('SB', 0)
+                    elif best_cat == 'K':
+                        cat_value = proj.get('K', 0)
+                    elif best_cat == 'QS':
+                        cat_value = proj.get('QS', 0)
+                    elif best_cat == 'SV+HLD':
+                        cat_value = proj.get('SV', 0) + proj.get('HD', 0)
+
+                    if cat_value > 0 and pval >= 35:
+                        stack_targets.append({
+                            'player': p,
+                            'team': other_team_name,
+                            'value': pval,
+                            'cat_value': cat_value
+                        })
+
+            stack_targets.sort(key=lambda x: x['cat_value'], reverse=True)
+
+            if stack_targets:
+                best = stack_targets[0]
+                package = build_trade_package(best['value'], prefer_prospects=True)
+                if package:
+                    offer_str = " + ".join([f"{p.name}" for p, v in package[:2]])
+                    scenarios.append({
+                        'title': f"Category Stack: Dominate {best_cat}",
+                        'target': f"{best['player'].name} ({best['team']})",
+                        'target_value': best['value'],
+                        'offer': offer_str,
+                        'offer_value': sum(v for p, v in package[:2]),
+                        'reasoning': f"You're already strong in {best_cat}. Stack more to guarantee winning this category weekly. {best['player'].name} projects for {best['cat_value']:.0f} {best_cat}.",
+                        'trade_type': 'stack',
+                        'urgency': 'low'
+                    })
+
+    # 7. POSITIONAL UPGRADE PATH - Upgrade weak positions to elite
+    for pos in thin_positions[:2]:
+        # Find elite players at this position on other teams
+        pos_upgrades = []
+        for other_team_name, other_team in teams.items():
+            if other_team_name == team_name:
+                continue
+            for p in other_team.players:
+                player_pos = (p.position or '').upper()
+                if pos in player_pos or (pos == 'OF' and any(x in player_pos for x in ['LF', 'CF', 'RF'])):
+                    pval = calculator.calculate_player_value(p)
+                    if pval >= 50:  # Elite level
+                        pos_upgrades.append({
+                            'player': p,
+                            'team': other_team_name,
+                            'value': pval
+                        })
+
+        pos_upgrades.sort(key=lambda x: x['value'], reverse=True)
+
+        if pos_upgrades:
+            best = pos_upgrades[0]
+            package = build_trade_package(best['value'], prefer_prospects=False)
+            if package:
+                offer_str = " + ".join([f"{p.name}" for p, v in package[:2]])
+                scenarios.append({
+                    'title': f"Upgrade {pos}: Elite Tier",
+                    'target': f"{best['player'].name} ({best['team']})",
+                    'target_value': best['value'],
+                    'offer': offer_str,
+                    'offer_value': sum(v for p, v in package[:2]),
+                    'reasoning': f"You're thin at {pos}. {best['player'].name} is an elite option that transforms your roster at this position.",
+                    'trade_type': 'upgrade',
+                    'urgency': 'medium',
+                    'counter_offer': f"If declined, ask what piece they'd need added. Consider including a pick to sweeten."
+                })
+            break  # Only one positional upgrade scenario
+
+    # 8. MULTI-ASSET PACKAGE OPPORTUNITIES - Complex trades for big returns
+    if len(tradeable) >= 4 and should_buy:
+        # Find an elite player we could target with a 3-for-1
+        for other_team_name, other_team in teams.items():
+            if other_team_name == team_name:
+                continue
+            other_rank = power_rankings.get(other_team_name, 6)
+            # Rebuilding teams like getting multiple pieces
+            if other_rank >= 7:
+                their_stars = sorted(
+                    [(p, calculator.calculate_player_value(p)) for p in other_team.players],
+                    key=lambda x: x[1], reverse=True
+                )
+                if their_stars and their_stars[0][1] >= 70:
+                    star = their_stars[0]
+                    # Build a 3-player package
+                    package = []
+                    remaining = star[1] * 1.1  # Slight overpay for star
+                    for p, v in tradeable:
+                        if len(package) >= 3:
+                            break
+                        if v <= remaining * 0.5 and v >= 20:
+                            package.append((p, v))
+                            remaining -= v
+
+                    if len(package) >= 2:
+                        offer_str = " + ".join([f"{p.name}" for p, v in package])
+                        pkg_value = sum(v for p, v in package)
+                        scenarios.append({
+                            'title': "Blockbuster: 3-for-1 Star",
+                            'target': f"{star[0].name} ({other_team_name})",
+                            'target_value': star[1],
+                            'offer': offer_str,
+                            'offer_value': pkg_value,
+                            'reasoning': f"Rebuilding teams love quantity. Package depth for {star[0].name} - a true difference-maker.",
+                            'trade_type': 'blockbuster',
+                            'urgency': 'medium',
+                            'counter_offer': f"If they want more, ask which piece they'd swap. Adding a 2nd Rd pick often closes these."
+                        })
+                        break
+
     # ============ SMART SCENARIO RANKING ============
     # Score and filter scenarios before returning
     scored_scenarios = []
@@ -5866,6 +6051,102 @@ def generate_rivalry_analysis(team_name, rival_name):
     }
 
 
+def calculate_championship_probability(team_name, power_rank, total_teams, players_with_value, my_ranks):
+    """Calculate championship probability based on multiple factors."""
+    # Base probability from power ranking
+    if power_rank <= 2:
+        base_prob = 25
+    elif power_rank <= 4:
+        base_prob = 15
+    elif power_rank <= 6:
+        base_prob = 8
+    elif power_rank <= 8:
+        base_prob = 4
+    else:
+        base_prob = 2
+
+    # Adjust for category balance (teams with no major weaknesses win more)
+    weak_cats = len([r for r in my_ranks.values() if r >= 9])
+    strong_cats = len([r for r in my_ranks.values() if r <= 3])
+    base_prob += (strong_cats * 2) - (weak_cats * 3)
+
+    # Adjust for roster depth and age
+    if players_with_value:
+        top_10_value = sum(v for p, v in players_with_value[:10])
+        avg_top_10_age = sum(p.age for p, v in players_with_value[:10]) / 10 if players_with_value[:10] else 28
+
+        # Young rosters have upside
+        if avg_top_10_age <= 26:
+            base_prob += 3
+        elif avg_top_10_age >= 31:
+            base_prob -= 3
+
+        # Top-heavy rosters with elite talent
+        if players_with_value[0][1] >= 90:
+            base_prob += 5
+
+    # Cap probabilities
+    base_prob = max(1, min(35, base_prob))
+
+    return base_prob
+
+
+def calculate_risk_assessment(players_with_value):
+    """Calculate risk factors for the roster and return risk heat map data."""
+    risks = {
+        'age_cliff': [],      # Players 32+ with significant value
+        'injury_prone': [],   # Players with injury history (approximated)
+        'regression': [],     # Players potentially due for regression
+        'prospect_bust': [],  # High-value prospects that could bust
+    }
+
+    for p, v in players_with_value[:20]:
+        # Age cliff risk
+        if p.age >= 32 and v >= 40:
+            urgency = 'HIGH' if p.age >= 34 else 'MEDIUM'
+            risks['age_cliff'].append({
+                'name': p.name,
+                'age': p.age,
+                'value': v,
+                'urgency': urgency,
+                'note': f"Value will decline - consider selling within 1-2 years"
+            })
+        elif p.age >= 30 and v >= 50:
+            risks['age_cliff'].append({
+                'name': p.name,
+                'age': p.age,
+                'value': v,
+                'urgency': 'LOW',
+                'note': f"Monitor for decline signals"
+            })
+
+        # Prospect bust risk
+        if p.is_prospect and p.prospect_rank:
+            if p.prospect_rank <= 25 and v >= 50:
+                risks['prospect_bust'].append({
+                    'name': p.name,
+                    'rank': p.prospect_rank,
+                    'value': v,
+                    'urgency': 'MEDIUM',
+                    'note': f"Top prospect - high value but MLB unproven"
+                })
+
+    # Calculate overall risk score
+    high_risks = len([r for cat in risks.values() for r in cat if r.get('urgency') == 'HIGH'])
+    medium_risks = len([r for cat in risks.values() for r in cat if r.get('urgency') == 'MEDIUM'])
+    low_risks = len([r for cat in risks.values() for r in cat if r.get('urgency') == 'LOW'])
+
+    risk_score = high_risks * 3 + medium_risks * 2 + low_risks
+    if risk_score >= 8:
+        overall_risk = 'HIGH'
+    elif risk_score >= 4:
+        overall_risk = 'MEDIUM'
+    else:
+        overall_risk = 'LOW'
+
+    return risks, overall_risk, risk_score
+
+
 def generate_team_analysis(team_name, team, players_with_value=None, power_rank=None, total_teams=12):
     """
     Generate consolidated, personalized GM-level analysis for each team.
@@ -5922,6 +6203,12 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     thin_positions = [pos for pos, count in pos_counts.items() if count <= 2 and count > 0]
     deep_positions = [pos for pos, count in pos_counts.items() if count >= 5]
 
+    # Championship probability
+    champ_prob = calculate_championship_probability(team_name, power_rank, total_teams, players_with_value, my_ranks)
+
+    # Risk assessment
+    risks, overall_risk, risk_score = calculate_risk_assessment(players_with_value)
+
     # Identity colors
     identity_colors = {
         'dynasty_champion': '#ffd700', 'championship_closer': '#ff6b6b', 'smart_contender': '#4ade80',
@@ -5948,29 +6235,56 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     overview += f"<div style='font-size: 12px; color: #888;'>{gm['title']} • Owner: {owner_name}</div>"
     overview += f"</div></div>"
 
-    # Identity + Power rank
+    # Identity + Power rank + Championship odds
+    champ_color = '#4ade80' if champ_prob >= 15 else '#fbbf24' if champ_prob >= 8 else '#888'
     overview += f"<div style='font-size: 16px; margin-bottom: 8px;'><span style='color:{identity_color}'><b>{team_identity}</b></span> • "
-    overview += f"<span style='color:#ffd700'>#{power_rank}</span> of {total_teams} • {total_value:.0f} pts</div>"
+    overview += f"<span style='color:#ffd700'>#{power_rank}</span> of {total_teams} • {total_value:.0f} pts • "
+    overview += f"<span style='color:{champ_color}'>🏆 {champ_prob}% title odds</span></div>"
 
-    # Catchphrase
-    overview += f"<div style='font-style: italic; color: #ccc; margin-bottom: 12px;'>\"{catchphrase}\"</div>"
+    # Dynamic catchphrase based on team situation
+    dynamic_catchphrases = []
+    if power_rank == 1:
+        dynamic_catchphrases = ["The throne is ours. Now we defend it.", "At the top, everyone's gunning for us.", "#1 and we're not done building."]
+    elif power_rank <= 3 and champ_prob >= 15:
+        dynamic_catchphrases = ["Title contender. Time to close the deal.", "We're in the hunt. One move away.", "Championship window is WIDE open."]
+    elif power_rank <= 6 and overall_risk == 'HIGH':
+        dynamic_catchphrases = ["Good team, but risks are mounting.", "Need to address the red flags.", "Time to de-risk while staying competitive."]
+    elif power_rank >= 10:
+        dynamic_catchphrases = ["Rebuild mode. Every asset has a price.", "Playing the long game now.", "Stockpiling for the future."]
+    elif len(cat_weaknesses) >= 3:
+        dynamic_catchphrases = ["Too many holes to fill. Focus on 1-2.", "Category balance is killing us.", "Trade strength for weakness coverage."]
+    else:
+        dynamic_catchphrases = gm.get('catchphrases', [catchphrase])
 
-    # Philosophy summary (condensed bottom line)
-    philosophy_summaries = {
-        'dynasty_champion': f"We're the team to beat. Force others to overpay for even a conversation.",
-        'championship_closer': f"The gap to a title? Close it. Every move is about winning NOW.",
-        'all_in_buyer': f"Window is NOW. Every prospect is currency. Make it happen.",
-        'smart_contender': f"Calculate every angle. Find market inefficiencies. Trust the process.",
-        'loaded_and_ready': f"Best of both worlds. We dictate terms in every negotiation.",
-        'bargain_hunter': f"Creativity over capital. Hunt value in the margins.",
-        'rising_powerhouse': f"The future is ours. Protect the foundation, patience builds dynasties.",
-        'crossroads_decision': f"Decision time. The middle is quicksand — pick a direction and commit.",
-        'reluctant_dealer': f"Time to act. Every week we wait costs us value.",
-        'analytical_rebuilder': f"Zero emotion, maximum return. Sell veterans at peak value.",
-        'desperate_accumulator': f"Cast wide nets. Quantity now, sort for quality later.",
-        'prospect_rich_rebuilder': f"These prospects ARE the plan. Guard the treasure fiercely.",
+    dynamic_catchphrase = random.choice(dynamic_catchphrases) if dynamic_catchphrases else catchphrase
+    overview += f"<div style='font-style: italic; color: #ccc; margin-bottom: 12px;'>\"{dynamic_catchphrase}\"</div>"
+
+    # Philosophy summary (condensed bottom line) - also dynamic based on situation
+    base_summaries = {
+        'dynasty_champion': "We're the team to beat. Force others to overpay for even a conversation.",
+        'championship_closer': "The gap to a title? Close it. Every move is about winning NOW.",
+        'all_in_buyer': "Window is NOW. Every prospect is currency. Make it happen.",
+        'smart_contender': "Calculate every angle. Find market inefficiencies. Trust the process.",
+        'loaded_and_ready': "Best of both worlds. We dictate terms in every negotiation.",
+        'bargain_hunter': "Creativity over capital. Hunt value in the margins.",
+        'rising_powerhouse': "The future is ours. Protect the foundation, patience builds dynasties.",
+        'crossroads_decision': "Decision time. The middle is quicksand — pick a direction and commit.",
+        'reluctant_dealer': "Time to act. Every week we wait costs us value.",
+        'analytical_rebuilder': "Zero emotion, maximum return. Sell veterans at peak value.",
+        'desperate_accumulator': "Cast wide nets. Quantity now, sort for quality later.",
+        'prospect_rich_rebuilder': "These prospects ARE the plan. Guard the treasure fiercely.",
     }
-    overview += f"<div style='color: #aaa;'>{philosophy_summaries.get(philosophy, 'Make strategic moves based on roster fit.')}</div>"
+
+    # Add situational context to summary
+    summary = base_summaries.get(philosophy, 'Make strategic moves based on roster fit.')
+    if champ_prob >= 20:
+        summary += f" <span style='color:#4ade80'>Legit title threat.</span>"
+    elif overall_risk == 'HIGH' and power_rank <= 6:
+        summary += f" <span style='color:#fbbf24'>Watch the age cliff.</span>"
+    elif len(risks['age_cliff']) >= 3:
+        summary += f" <span style='color:#fb923c'>Multiple assets declining.</span>"
+
+    overview += f"<div style='color: #aaa;'>{summary}</div>"
     overview += "</div>"
     analysis_parts.append(overview)
 
@@ -6013,9 +6327,19 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     if deep_positions:
         depth_parts.append(f"<span style='color:#4ade80'>{', '.join(deep_positions[:2])} deep</span>")
     if depth_parts:
-        roster += f"<b>Depth:</b> {' | '.join(depth_parts)}"
+        roster += f"<b>Depth:</b> {' | '.join(depth_parts)}<br>"
     else:
-        roster += "<b>Depth:</b> Balanced across positions"
+        roster += "<b>Depth:</b> Balanced across positions<br>"
+
+    # Risk heat map
+    risk_color = '#f87171' if overall_risk == 'HIGH' else '#fbbf24' if overall_risk == 'MEDIUM' else '#4ade80'
+    roster += f"<b>Risk Level:</b> <span style='color:{risk_color}'>{overall_risk}</span>"
+    if risks['age_cliff']:
+        age_cliff_names = [r['name'] for r in risks['age_cliff'][:2]]
+        roster += f" — <span style='color:#fb923c'>Age cliff: {', '.join(age_cliff_names)}</span>"
+    if risks['prospect_bust']:
+        prospect_names = [r['name'] for r in risks['prospect_bust'][:2]]
+        roster += f" — <span style='color:#fbbf24'>Unproven: {', '.join(prospect_names)}</span>"
 
     analysis_parts.append(roster)
 
@@ -6152,12 +6476,15 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         focus_text = " | ".join(draft_focus) if draft_focus else "best available"
         outlook += f"<b>2026 Draft:</b> Pick #{pick_num} — {focus_text}<br>"
 
-    # Rivalry (condensed)
+    # Rivalry (expanded with H2H, records, and category edges)
     rival_name = TEAM_RIVALRIES.get(team_name)
     if rival_name:
         rivalry = generate_rivalry_analysis(team_name, rival_name)
         if rivalry:
             h2h = rivalry.get('my_h2h_record', 'N/A')
+            my_record = rivalry.get('my_2025_record', 'N/A')
+            rival_record = rivalry.get('rival_2025_record', 'N/A')
+
             # Color based on H2H record
             if h2h and h2h != 'N/A' and '-' in h2h:
                 h2h_parts = h2h.split('-')
@@ -6166,7 +6493,20 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
                 h2h_color = "#4ade80" if wins > losses else "#f87171" if losses > wins else "#fbbf24"
             else:
                 h2h_color = "#888"
+
             outlook += f"<b>Rivalry vs {rival_name}:</b> <span style='color:{h2h_color}'>H2H: {h2h}</span>"
+
+            # Add season records if available
+            if my_record != 'N/A' and rival_record != 'N/A':
+                outlook += f" | You: {my_record} vs Them: {rival_record}"
+
+            # Add category advantages/disadvantages
+            advantages = rivalry.get('advantages', [])
+            disadvantages = rivalry.get('disadvantages', [])
+            if advantages:
+                outlook += f"<br>&nbsp;&nbsp;<span style='color:#4ade80'>Cat edges: {', '.join(advantages[:3])}</span>"
+            if disadvantages:
+                outlook += f" | <span style='color:#f87171'>They lead: {', '.join(disadvantages[:3])}</span>"
 
     analysis_parts.append(outlook)
 
@@ -7314,49 +7654,110 @@ def get_free_agent_suggestions():
 
         # Helper function to detect undervalued gems and breakout candidates
         def detect_special_value(fa, fa_proj):
-            """Detect undervalued gems and breakout candidates."""
+            """Detect undervalued gems and breakout candidates with enhanced logic."""
             special_tags = []
             name = fa['name']
             age = fa['age']
             roster_pct = fa['roster_pct']
             dynasty_value = fa['dynasty_value']
 
-            # Breakout candidate: young player with good projections but low ownership
+            if not fa_proj:
+                fa_proj = {}
+
+            hr = fa_proj.get('HR', 0)
+            sb = fa_proj.get('SB', 0)
+            rbi = fa_proj.get('RBI', 0)
+            r = fa_proj.get('R', 0)
+            avg = fa_proj.get('AVG', 0)
+            k = fa_proj.get('K', 0)
+            qs = fa_proj.get('QS', 0)
+            era = fa_proj.get('ERA', 5.0)
+            whip = fa_proj.get('WHIP', 1.5)
+            sv = fa_proj.get('SV', 0)
+            hld = fa_proj.get('HD', 0)
+
+            # 1. BREAKOUT CANDIDATE - young with projections exceeding ownership
             if age <= 26 and roster_pct < 50:
-                if fa_proj:
-                    hr = fa_proj.get('HR', 0)
-                    sb = fa_proj.get('SB', 0)
-                    k = fa_proj.get('K', 0)
-                    if hr >= 20 or sb >= 20 or k >= 150:
-                        special_tags.append("Breakout Candidate")
+                if hr >= 20 or sb >= 20 or k >= 150:
+                    special_tags.append("🚀 Breakout Candidate")
+                elif hr >= 15 and sb >= 10:  # Power/speed developing
+                    special_tags.append("📈 Breakout Watch")
 
-            # Undervalued gem: good projections but low dynasty value
-            if dynasty_value < 40 and fa_proj:
-                hr = fa_proj.get('HR', 0)
-                rbi = fa_proj.get('RBI', 0)
-                k = fa_proj.get('K', 0)
-                era = fa_proj.get('ERA', 5.0)
+            # 2. POWER/SPEED COMBO - rare and valuable
+            if hr >= 15 and sb >= 15:
+                special_tags.append("⚡ Power/Speed")
+            elif hr >= 20 and sb >= 10:
+                special_tags.append("💪 Power+ Speed")
+            elif sb >= 25 and hr >= 8:
+                special_tags.append("🏃 Speed+ Power")
+
+            # 3. UNDERVALUED GEM - projections don't match dynasty value
+            if dynasty_value < 40:
                 if hr >= 25 or rbi >= 80 or k >= 180 or (k >= 100 and era <= 3.50):
-                    special_tags.append("Undervalued Gem")
+                    special_tags.append("💎 Undervalued Gem")
 
-            # Streaming candidate: pitcher with good ratios, low ownership
-            if 'SP' in fa['position'].upper() and roster_pct < 40 and fa_proj:
-                era = fa_proj.get('ERA', 5.0)
-                whip = fa_proj.get('WHIP', 1.5)
+            # 4. RATIO STABILIZER - pitchers with elite ratios
+            is_pitcher = 'SP' in fa['position'].upper() or 'RP' in fa['position'].upper()
+            if is_pitcher:
+                if era <= 3.20 and whip <= 1.10:
+                    special_tags.append("📊 Elite Ratios")
+                elif era <= 3.50 and whip <= 1.15:
+                    special_tags.append("📊 Ratio Stabilizer")
+
+            # 5. MULTI-CATEGORY CONTRIBUTOR - helps in 3+ categories
+            cat_contributions = 0
+            if hr >= 15:
+                cat_contributions += 1
+            if sb >= 12:
+                cat_contributions += 1
+            if rbi >= 70:
+                cat_contributions += 1
+            if r >= 70:
+                cat_contributions += 1
+            if avg >= 0.280:
+                cat_contributions += 1
+            if k >= 120:
+                cat_contributions += 1
+            if sv + hld >= 15:
+                cat_contributions += 1
+
+            if cat_contributions >= 4:
+                special_tags.append("🎯 Multi-Cat Elite")
+            elif cat_contributions >= 3:
+                special_tags.append("📋 Multi-Cat Contributor")
+
+            # 6. STREAMING CANDIDATE - pitcher with solid matchups potential
+            if 'SP' in fa['position'].upper() and roster_pct < 40:
                 if era <= 4.00 and whip <= 1.25:
-                    special_tags.append("Streaming Option")
+                    special_tags.append("📅 Streaming Option")
 
-            # Closer watch: RP who could get saves
-            if 'RP' in fa['position'].upper() and fa_proj:
-                sv = fa_proj.get('SV', 0)
-                if sv >= 10:
-                    special_tags.append("Closer Potential")
+            # 7. CLOSER WATCH - RP who could get saves
+            if 'RP' in fa['position'].upper():
+                if sv >= 20:
+                    special_tags.append("🔒 Established Closer")
+                elif sv >= 10:
+                    special_tags.append("👀 Closer Potential")
+                elif hld >= 20:
+                    special_tags.append("🛡️ Elite Setup")
 
-            # Dynasty sleeper: young with upside
+            # 8. DYNASTY SLEEPER - young with upside, under the radar
             if age <= 24 and dynasty_value >= 30 and roster_pct < 30:
-                special_tags.append("Dynasty Sleeper")
+                special_tags.append("😴 Dynasty Sleeper")
 
-            return special_tags
+            # 9. INJURY COMEBACK - low roster % on formerly good player (approximation)
+            if age >= 27 and age <= 32 and roster_pct < 25 and dynasty_value >= 25:
+                # Likely returning from injury if low ownership on decent value player
+                special_tags.append("🏥 Comeback Watch")
+
+            # 10. WORKHORSE - SP with high innings and QS potential
+            if 'SP' in fa['position'].upper():
+                ip = fa_proj.get('IP', 0)
+                if ip >= 180 and qs >= 18:
+                    special_tags.append("🐴 Workhorse")
+                elif ip >= 160 and qs >= 14:
+                    special_tags.append("📈 Innings Eater")
+
+            return special_tags[:4]  # Limit to 4 tags max
 
         # If no team selected, return top 30 FAs by dynasty value
         if not team_name or team_name not in teams:
