@@ -5023,30 +5023,30 @@ def generate_gm_trade_scenarios(team_name, team):
 
         return package
 
-    # Philosophy-specific scenario title generators
-    def get_buy_title(category, target_name):
+    # Philosophy-specific scenario title generators - no player names, action-focused
+    def get_buy_title(category):
         """Generate philosophy-appropriate title for buy scenarios."""
         titles = {
-            'dynasty_champion': f"Throne Defense: Upgrade {category}",
-            'championship_closer': f"Hunt Target: {target_name} for {category}",
-            'all_in_buyer': f"Go Get: {target_name}",
-            'smart_contender': f"Calculated Acquisition: {category} Upgrade",
-            'loaded_and_ready': f"Power Move: Add {target_name}",
-            'bargain_hunter': f"Hidden Value: {target_name}",
-            'rising_powerhouse': f"Accelerate: {category} via {target_name}",
+            'dynasty_champion': f"Upgrade {category}",
+            'championship_closer': f"Hunt {category}",
+            'all_in_buyer': f"Go Get {category}",
+            'smart_contender': f"Calculated {category} Add",
+            'loaded_and_ready': f"Power Move",
+            'bargain_hunter': f"Value Add",
+            'rising_powerhouse': f"Accelerate {category}",
         }
-        return titles.get(philosophy, f"Acquire: {target_name} for {category}")
+        return titles.get(philosophy, f"Add {category}")
 
-    def get_sell_title(player_name):
+    def get_sell_title():
         """Generate philosophy-appropriate title for sell scenarios."""
         titles = {
-            'analytical_rebuilder': f"Optimal Exit: {player_name}",
-            'desperate_accumulator': f"Volume Play: Flip {player_name}",
-            'reluctant_dealer': f"Finally Moving: {player_name}",
-            'prospect_rich_rebuilder': f"Convert: {player_name} → Youth",
-            'crossroads_decision': f"Commit to Rebuild: Sell {player_name}",
+            'analytical_rebuilder': "Optimal Exit",
+            'desperate_accumulator': "Volume Play",
+            'reluctant_dealer': "Finally Moving",
+            'prospect_rich_rebuilder': "Convert to Youth",
+            'crossroads_decision': "Commit to Rebuild",
         }
-        return titles.get(philosophy, f"Sell High: {player_name}")
+        return titles.get(philosophy, "Sell High")
 
     def get_reasoning_prefix():
         """Get philosophy-specific reasoning prefix."""
@@ -5093,7 +5093,7 @@ def generate_gm_trade_scenarios(team_name, team):
                         negotiation_tip = f"\nCounter-offer tip: You're overpaying - try removing one piece or ask for a pick back."
 
                     scenarios.append({
-                        'title': get_buy_title(target_cat, best['player'].name),
+                        'title': get_buy_title(target_cat),
                         'target': f"{best['player'].name} ({best['team']}){seller_note}",
                         'target_value': target_value,
                         'target_stats': f"{best['cat_value']:.0f} {target_cat} projected",
@@ -5164,7 +5164,7 @@ def generate_gm_trade_scenarios(team_name, team):
                             pick_suggestion = " + 3rd Rd pick"
 
                         scenarios.append({
-                            'title': get_sell_title(best_vet[0].name),
+                            'title': get_sell_title(),
                             'target': " + ".join(ask_parts) + pick_suggestion,
                             'target_value': ask_value,
                             'offer': f"{best_vet[0].name} ({best_vet[1]:.0f} value, age {best_vet[0].age})",
@@ -5302,7 +5302,7 @@ def generate_gm_trade_scenarios(team_name, team):
                         their_prospects = [p for p in other_team.players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100]
                         if their_prospects:
                             scenarios.append({
-                                'title': get_sell_title(vet.name),
+                                'title': get_sell_title(),
                                 'target': f"Prospects from {other_team_name}",
                                 'target_value': vet_val * 0.85,
                                 'target_stats': f"Target their prospect depth",
@@ -5406,7 +5406,7 @@ def generate_gm_trade_scenarios(team_name, team):
             if sellable:
                 vet = sellable[0]
                 scenarios.append({
-                    'title': get_sell_title(vet[0].name),
+                    'title': get_sell_title(),
                     'target': "Prospects and/or draft picks",
                     'target_value': vet[1] * 0.8,
                     'target_stats': "Youth and future assets",
@@ -5540,7 +5540,50 @@ def generate_gm_trade_scenarios(team_name, team):
                     'urgency': 'medium'
                 })
 
-    return scenarios[:4]  # Max 4 scenarios
+    # ============ SMART SCENARIO RANKING ============
+    # Score and filter scenarios before returning
+    scored_scenarios = []
+    for s in scenarios:
+        score = 50  # Base score
+
+        # Value matching bonus/penalty
+        if s['target_value'] > 0 and s['offer_value'] > 0:
+            value_gap = abs(s['target_value'] - s['offer_value'])
+            gap_pct = value_gap / max(s['target_value'], s['offer_value'], 1)
+            if gap_pct <= 0.1:  # Within 10% - excellent match
+                score += 20
+            elif gap_pct <= 0.2:  # Within 20% - good match
+                score += 10
+            elif gap_pct > 0.4:  # Over 40% gap - poor match
+                score -= 20
+
+        # Urgency bonus
+        if s.get('urgency') == 'high':
+            score += 15
+        elif s.get('urgency') == 'medium':
+            score += 5
+
+        # Trade type preferences based on philosophy
+        if should_sell and s.get('trade_type') == 'sell':
+            score += 10
+        elif should_buy and s.get('trade_type') == 'buy':
+            score += 10
+
+        # Prefer actionable trades (with specific targets) over generic advice
+        if s['target_value'] > 0:
+            score += 10
+
+        s['_score'] = score
+        scored_scenarios.append(s)
+
+    # Sort by score descending
+    scored_scenarios.sort(key=lambda x: x.get('_score', 0), reverse=True)
+
+    # Remove score from output and return top 4
+    for s in scored_scenarios:
+        s.pop('_score', None)
+
+    return scored_scenarios[:4]
 
 
 def generate_rivalry_analysis(team_name, rival_name):
@@ -5740,16 +5783,16 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
                 core_names.append(f"{p.name} ({v:.0f}, <span style='color:{age_color}'>{p.age}</span>)")
         roster += " • ".join(core_names) + "<br>"
 
-    # Condensed demographics
+    # Condensed demographics - just counts, no raw values
     balance_note = "balanced" if abs(hitter_value - pitcher_value) < pitcher_value * 0.3 else ("bat-heavy" if hitter_value > pitcher_value else "arm-heavy")
-    roster += f"<b>Build:</b> Avg age {avg_age:.1f} | {len(young_players)} young ({young_value:.0f}), {len(prime_players)} prime ({prime_value:.0f}), {len(veteran_players)} vet ({vet_value:.0f}) | {balance_note}<br>"
+    roster += f"<b>Build:</b> Avg age {avg_age:.1f} | {len(young_players)} young, {len(prime_players)} prime, {len(veteran_players)} vet | {balance_note}<br>"
 
-    # Position depth
+    # Position depth - cleaner format without redundant labels
     depth_parts = []
     if thin_positions:
-        depth_parts.append(f"<span style='color:#f87171'>Thin: {', '.join(thin_positions[:2])}</span>")
+        depth_parts.append(f"<span style='color:#f87171'>{', '.join(thin_positions[:2])} thin</span>")
     if deep_positions:
-        depth_parts.append(f"<span style='color:#4ade80'>Deep: {', '.join(deep_positions[:2])}</span>")
+        depth_parts.append(f"<span style='color:#4ade80'>{', '.join(deep_positions[:2])} deep</span>")
     if depth_parts:
         roster += f"<b>Depth:</b> {' | '.join(depth_parts)}"
     else:
@@ -5817,7 +5860,8 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
         trade += f"<i>{SCENARIO_INTROS.get(philosophy, 'Consider these moves:')}</i><br>"
 
         for s in gm_scenarios[:2]:  # Limit to top 2 scenarios
-            trade += f"<b>{s['title']}</b>: {s['target']} (~{s['target_value']:.0f}) ← {s['offer']} (~{s['offer_value']:.0f})<br>"
+            # Clean format: Title: Target (value) ← Offer
+            trade += f"<b>{s['title']}</b>: {s['target']} ({s['target_value']:.0f}) ← {s['offer']}<br>"
 
     # Trade partner intel (condensed)
     partner_intel = get_gm_trade_partner_intelligence(team_name)
