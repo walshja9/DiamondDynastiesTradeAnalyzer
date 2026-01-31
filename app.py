@@ -3283,6 +3283,92 @@ def update_team_profile_route(team_name):
     return jsonify({"error": "Failed to save profile"}), 500
 
 
+@app.route('/find-trades-for-player')
+def find_trades_for_player():
+    player_name = request.args.get('player_name', '')
+    team_name = request.args.get('team_name', '')
+    direction = request.args.get('direction', 'send')
+    target_team = request.args.get('target_team', '')
+    limit = int(request.args.get('limit', 20))
+
+    if not player_name or not team_name:
+        return jsonify({"error": "Missing player_name or team_name"}), 400
+
+    if team_name not in teams:
+        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+
+    # Find the player
+    team = teams[team_name]
+    player = None
+    for p in team.players:
+        if p.name == player_name:
+            player = p
+            break
+
+    if not player:
+        return jsonify({"error": f"Player '{player_name}' not found on team"}), 404
+
+    player_value = calculator.calculate_player_value(player)
+
+    # Find trade packages
+    packages = []
+
+    other_teams = [t for t in teams.keys() if t != team_name]
+    if target_team and target_team in other_teams:
+        other_teams = [target_team]
+
+    for other_team_name in other_teams:
+        other_team = teams[other_team_name]
+
+        if direction == 'send':
+            # Find players from other team to receive
+            other_players = [(p, calculator.calculate_player_value(p)) for p in other_team.players]
+            other_players.sort(key=lambda x: x[1], reverse=True)
+
+            # 1-for-1 trades
+            for op, ov in other_players[:15]:
+                value_diff = ov - player_value
+                if -20 <= value_diff <= 20:
+                    packages.append({
+                        'other_team': other_team_name,
+                        'trade_type': '1-for-1',
+                        'send': [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}],
+                        'receive': [{'name': op.name, 'position': op.position, 'value': round(ov, 1)}],
+                        'send_total': round(player_value, 1),
+                        'receive_total': round(ov, 1),
+                        'value_diff': round(value_diff, 1),
+                        'fit_score': 100 - abs(value_diff) * 2
+                    })
+
+        else:
+            # direction == 'receive' - find packages to acquire the player
+            my_players = [(p, calculator.calculate_player_value(p)) for p in team.players if p.name != player_name]
+            my_players.sort(key=lambda x: x[1], reverse=True)
+
+            for mp, mv in my_players[:15]:
+                value_diff = player_value - mv
+                if -20 <= value_diff <= 20:
+                    packages.append({
+                        'other_team': other_team_name,
+                        'trade_type': '1-for-1',
+                        'send': [{'name': mp.name, 'position': mp.position, 'value': round(mv, 1)}],
+                        'receive': [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}],
+                        'send_total': round(mv, 1),
+                        'receive_total': round(player_value, 1),
+                        'value_diff': round(value_diff, 1),
+                        'fit_score': 100 - abs(value_diff) * 2
+                    })
+
+    # Sort by fit score
+    packages.sort(key=lambda x: x['fit_score'], reverse=True)
+
+    return jsonify({
+        'player_name': player_name,
+        'player_value': round(player_value, 1),
+        'packages': packages[:limit]
+    })
+
+
 # ============================================================================
 # AI ANALYSIS HELPER FUNCTIONS
 # ============================================================================
