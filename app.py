@@ -2311,13 +2311,62 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             ${s.reasons.map(r => `<span style="background: rgba(74, 222, 128, 0.15); color: #4ade80; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem;">${r}</span>`).join('')}
                            </div>`
                         : '';
+
+                    // Calculate value difference and fairness
+                    const valueDiff = s.you_receive_value - s.you_send_value;
+                    const diffPct = Math.abs(valueDiff) / Math.max(s.you_send_value, s.you_receive_value) * 100;
+                    const fairnessLabel = diffPct <= 10 ? 'Fair Trade' : (diffPct <= 20 ? 'Slight Edge' : (valueDiff > 0 ? 'You Win' : 'You Overpay'));
+                    const fairnessColor = diffPct <= 10 ? '#4ade80' : (diffPct <= 20 ? '#fbbf24' : (valueDiff > 0 ? '#4ade80' : '#f87171'));
+
+                    // Build expanded details section
+                    const expandedDetails = `
+                        <div id="expand-${idx}" class="suggestion-expanded" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;">
+                                    <div style="color: #888; font-size: 0.75rem; margin-bottom: 5px;">VALUE ANALYSIS</div>
+                                    <div style="font-size: 0.9rem;">
+                                        <span style="color: #f87171;">Send: ${s.you_send_value.toFixed(1)}</span> →
+                                        <span style="color: #4ade80;">Get: ${s.you_receive_value.toFixed(1)}</span>
+                                    </div>
+                                    <div style="color: ${fairnessColor}; font-weight: bold; margin-top: 5px;">${fairnessLabel} (${valueDiff >= 0 ? '+' : ''}${valueDiff.toFixed(1)})</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px;">
+                                    <div style="color: #888; font-size: 0.75rem; margin-bottom: 5px;">FIT SCORE BREAKDOWN</div>
+                                    <div style="font-size: 0.9rem; color: ${fitColor};">Score: ${s.fit_score?.toFixed(0) || 'N/A'}</div>
+                                    <div style="color: #aaa; font-size: 0.8rem; margin-top: 3px;">${fitLabel}</div>
+                                </div>
+                            </div>
+                            ${s.reasoning ? `
+                                <div style="background: rgba(255,215,0,0.05); padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid #ffd700;">
+                                    <div style="color: #ffd700; font-size: 0.75rem; margin-bottom: 5px;">💡 TRADE REASONING</div>
+                                    <div style="color: #ccc; font-size: 0.85rem; line-height: 1.4;">${s.reasoning}</div>
+                                </div>
+                            ` : ''}
+                            ${s.counter_offer ? `
+                                <div style="background: rgba(0,212,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 3px solid #00d4ff;">
+                                    <div style="color: #00d4ff; font-size: 0.75rem; margin-bottom: 5px;">🔄 IF DECLINED</div>
+                                    <div style="color: #aaa; font-size: 0.85rem;">${s.counter_offer}</div>
+                                </div>
+                            ` : ''}
+                            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                                <button onclick="event.stopPropagation(); applySuggestion(${idx});" style="flex: 1; background: linear-gradient(135deg, #00d4ff, #0099cc); color: #000; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                                    📊 Load in Trade Analyzer
+                                </button>
+                                <button onclick="event.stopPropagation(); copyTradeText(${idx});" style="background: rgba(255,255,255,0.1); color: #ccc; border: 1px solid rgba(255,255,255,0.2); padding: 10px 16px; border-radius: 8px; cursor: pointer;">
+                                    📋 Copy
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
                     return `
-                    <div class="suggestion-card" onclick="applySuggestion(${idx})">
+                    <div class="suggestion-card" onclick="toggleSuggestionExpand(${idx})" style="cursor: pointer;">
                         <div class="suggestion-header">
                             <span>Trade with ${s.other_team}</span>
                             <div style="display:flex;gap:8px;align-items:center;">
                                 <span style="background:#1a1a24;padding:4px 10px;border-radius:12px;font-size:0.75rem;">${s.trade_type || '1-for-1'}</span>
                                 <span style="background: rgba(255,215,0,0.15); color: ${fitColor}; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">${fitLabel}</span>
+                                <span id="expand-icon-${idx}" style="color: #888; font-size: 0.8rem;">▼</span>
                             </div>
                         </div>
                         <div class="suggestion-sides">
@@ -2333,6 +2382,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             </div>
                         </div>
                         ${reasonsHtml}
+                        ${expandedDetails}
                     </div>
                 `}).join('');
 
@@ -2361,6 +2411,29 @@ HTML_CONTENT = '''<!DOCTYPE html>
             document.getElementById('filterFitScore').value = '0';
             document.getElementById('filterValueDiff').value = '100';
             loadSuggestions(false);
+        }
+
+        function toggleSuggestionExpand(idx) {
+            const expandDiv = document.getElementById(`expand-${idx}`);
+            const expandIcon = document.getElementById(`expand-icon-${idx}`);
+            if (expandDiv) {
+                const isHidden = expandDiv.style.display === 'none';
+                expandDiv.style.display = isHidden ? 'block' : 'none';
+                if (expandIcon) {
+                    expandIcon.textContent = isHidden ? '▲' : '▼';
+                }
+            }
+        }
+
+        function copyTradeText(idx) {
+            const s = allCurrentSuggestions[idx];
+            if (!s) return;
+            const text = `Trade Suggestion:\nSend: ${s.you_send.join(', ')} (${s.you_send_value.toFixed(1)})\nReceive: ${s.you_receive.join(', ')} (${s.you_receive_value.toFixed(1)})\nTrade with: ${s.other_team}`;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Trade copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
         }
 
         async function loadFASuggestions() {
