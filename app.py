@@ -5486,7 +5486,8 @@ def calculate_team_needs(team_name):
         if 'RP' in pos or 'CL' in pos:
             pos_depth['RP'] += 1
 
-    # Determine competitive window
+    # Determine competitive window - USE SAME LOGIC AS TEAM ANALYSIS
+    # to ensure consistency across the app
     ages = [p.age for p in team.players if p.age > 0]
     avg_age = sum(ages) / len(ages) if ages else 27
     prospects = len([p for p in team.players if p.is_prospect])
@@ -5494,17 +5495,39 @@ def calculate_team_needs(team_name):
     players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
     total_value = sum(v for _, v in players_with_value)
 
-    # Determine window based on value and age profile
-    if total_value >= 900 and avg_age <= 27:
-        window = "dynasty"
-    elif total_value >= 800:
-        window = "contender" if avg_age <= 28 else "win-now"
-    elif total_value >= 650:
-        window = "rising" if avg_age <= 27 else "competitive"
-    elif prospects >= 6 or avg_age <= 26:
-        window = "rebuilding"
-    else:
-        window = "retooling"
+    # Get power ranking for consistent window determination
+    _, power_rankings, _ = get_team_rankings()
+    power_rank = power_rankings.get(team_name, 6)
+    total_teams = len(teams)
+    top_third = total_teams // 3
+    bottom_third = total_teams - top_third
+
+    # Age profile flags (same as team analysis)
+    is_young_roster = avg_age <= 26.5
+    is_old_roster = avg_age >= 29.5
+
+    # Window determination - MATCHES generate_team_analysis() logic
+    if power_rank <= top_third:  # Top third of league
+        if is_young_roster:
+            window = "dynasty"
+        elif is_old_roster:
+            window = "win-now"
+        else:
+            window = "contender"
+    elif power_rank >= bottom_third:  # Bottom third
+        if is_old_roster:
+            window = "teardown"
+        elif is_young_roster:
+            window = "rebuilding"
+        else:
+            window = "retooling"
+    else:  # Middle third
+        if is_young_roster:
+            window = "rising"
+        elif is_old_roster:
+            window = "declining"
+        else:
+            window = "competitive"
 
     return category_scores, pos_depth, window
 
