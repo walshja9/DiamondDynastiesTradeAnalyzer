@@ -754,7 +754,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         <div id="search-panel" class="panel">
             <div class="form-group">
                 <label>Search for any player</label>
-                <input type="text" id="playerSearchInput" placeholder="Type player name..." oninput="searchPlayers()" style="max-width: 400px;">
+                <input type="text" id="playerSearchInput" placeholder="Type player name..." oninput="searchPlayersGlobal()" style="max-width: 400px;">
             </div>
             <div id="search-results" style="margin-top: 20px;"></div>
         </div>
@@ -2099,7 +2099,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         }
 
         let searchTimeout = null;
-        async function searchPlayers() {
+        async function searchPlayersGlobal() {
             const query = document.getElementById('playerSearchInput').value.trim();
             const results = document.getElementById('search-results');
 
