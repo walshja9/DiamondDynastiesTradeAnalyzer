@@ -5297,6 +5297,29 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     is_old_roster = avg_age >= 28 or vet_value > young_value + prime_value
     is_young_roster = avg_age <= 26.5 or len(prospects) >= 6 or young_value > vet_value * 1.5
 
+    # Determine competitive window
+    if power_rank <= top_third:
+        if is_young_roster:
+            window = "dynasty"
+        elif is_old_roster:
+            window = "win-now"
+        else:
+            window = "contender"
+    elif power_rank >= bottom_third:
+        if is_old_roster:
+            window = "teardown"
+        elif is_young_roster:
+            window = "rebuilding"
+        else:
+            window = "retooling"
+    else:
+        if is_young_roster:
+            window = "rising"
+        elif is_old_roster:
+            window = "declining"
+        else:
+            window = "competitive"
+
     # ============ TEAM IDENTITY - FROM GM PROFILE WITH DYNAMIC ANALYSIS ============
     gm = get_assistant_gm(team_name)
     team_identity = gm.get('team_identity', 'COMPETITOR')
