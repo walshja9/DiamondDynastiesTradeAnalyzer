@@ -732,6 +732,11 @@ class DynastyValueCalculator:
         value += l_score * sp_weights['l']
 
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
+
+        # Apply unproven pitcher discount
+        # If pitcher is 26+ with very low Fantrax score and high rank, projections are untrustworthy
+        value = DynastyValueCalculator._apply_unproven_pitcher_discount(player, value)
+
         return value  # No cap - show true dynasty value
     
     @staticmethod
@@ -779,6 +784,9 @@ class DynastyValueCalculator:
 
         # Apply dynasty adjustments (age, prospect status) - same as SP and hitters
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
+
+        # Apply unproven pitcher discount
+        value = DynastyValueCalculator._apply_unproven_pitcher_discount(player, value)
 
         return value  # No cap - show true dynasty value
     
@@ -863,7 +871,33 @@ class DynastyValueCalculator:
             value = prospect_value
 
         return value
-    
+
+    @staticmethod
+    def _apply_unproven_pitcher_discount(player: Player, value: float) -> float:
+        """Apply discount to pitchers with high projections but no MLB track record.
+
+        Pitchers aged 26+ with very low Fantrax scores (<=5) and high Fantrax ranks (>1000)
+        are likely unproven arms whose projections are based on minors/potential, not
+        actual MLB performance. These projections are highly unreliable and should be
+        heavily discounted.
+
+        Example: Forrest Whitley (age 28, score 0, rank 7053) - only 10 career IP
+        but ZiPS projects him like a #3 starter based on past prospect hype.
+        """
+        # Get player's Fantrax metrics
+        fantrax_score = getattr(player, 'fantrax_score', 100)  # Default to established
+        fantrax_rank = getattr(player, 'fantrax_rank', 1)  # Default to low rank (good)
+
+        # Unproven pitcher criteria:
+        # - Age 26 or older (should have established themselves by now)
+        # - Fantrax score <= 5 (essentially zero fantasy production)
+        # - Fantrax rank > 1000 (way outside normal fantasy relevance)
+        if player.age >= 26 and fantrax_score <= 5 and fantrax_rank > 1000:
+            # Apply 80% discount - projections for unproven 26+ year olds are unreliable
+            value *= 0.20
+
+        return value
+
     @staticmethod
     def calculate_player_value(player: Player) -> float:
         """Calculate overall player value."""
