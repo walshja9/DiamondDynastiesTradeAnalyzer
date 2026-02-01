@@ -493,7 +493,6 @@ PLAYER_AGES = {
 # These get an 80% discount regardless of fantrax data
 UNPROVEN_PITCHERS = {
     "Forrest Whitley",   # ~10 career IP, former top prospect
-    "Davis Martin",      # Limited MLB innings, injury history
 }
 
 # Pitcher handedness (L = Left, R = Right)
