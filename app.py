@@ -144,7 +144,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.0,
         "proven_talent_bonus": 0.10,
         "age_tolerance": 32,
-        "risk_tolerance": 0.45
+        "risk_tolerance": 0.45,
+        "min_value_threshold": 60,  # Only discusses star-level players
+        "trade_initiation_style": "reactive"  # Waits for offers, plays hard to get
     },
     "championship_closer": {
         "name": "Championship Closer",
@@ -152,7 +154,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.20,
         "proven_talent_bonus": 0.25,
         "age_tolerance": 33,
-        "risk_tolerance": 0.75
+        "risk_tolerance": 0.75,
+        "min_value_threshold": 45,  # Focuses on impact players
+        "trade_initiation_style": "aggressive"  # Actively pursues targets
     },
     "smart_contender": {
         "name": "Smart Contender",
@@ -160,7 +164,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.05,
         "proven_talent_bonus": 0.10,
         "age_tolerance": 31,
-        "risk_tolerance": 0.60
+        "risk_tolerance": 0.60,
+        "min_value_threshold": 50,  # Balanced threshold
+        "trade_initiation_style": "opportunistic"  # Watches for value plays
     },
 
     # ===== COMPETITIVE MIDDLE PHILOSOPHIES =====
@@ -170,7 +176,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.30,
         "proven_talent_bonus": 0.30,
         "age_tolerance": 34,
-        "risk_tolerance": 0.80
+        "risk_tolerance": 0.80,
+        "min_value_threshold": 40,  # Will discuss solid contributors
+        "trade_initiation_style": "aggressive"  # Always looking to deal
     },
     "loaded_and_ready": {
         "name": "Loaded & Ready",
@@ -178,7 +186,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.0,
         "proven_talent_bonus": 0.05,
         "age_tolerance": 30,
-        "risk_tolerance": 0.70
+        "risk_tolerance": 0.70,
+        "min_value_threshold": 50,  # Has luxury of being selective
+        "trade_initiation_style": "opportunistic"  # Strikes when value appears
     },
     "aggressive_buyer": {
         "name": "Aggressive Buyer",
@@ -186,6 +196,8 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.15,
         "proven_talent_bonus": 0.20,
         "age_tolerance": 32,
+        "min_value_threshold": 40,
+        "trade_initiation_style": "aggressive",
         "risk_tolerance": 0.70
     },
 
@@ -196,7 +208,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.10,
         "proven_talent_bonus": 0.0,
         "age_tolerance": 29,
-        "risk_tolerance": 0.55
+        "risk_tolerance": 0.55,
+        "min_value_threshold": 35,  # Open to discussing anyone
+        "trade_initiation_style": "reactive"  # Paralyzed, waits for direction
     },
     "rising_powerhouse": {
         "name": "Rising Powerhouse",
@@ -204,7 +218,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.30,
         "proven_talent_bonus": -0.10,
         "age_tolerance": 27,
-        "risk_tolerance": 0.40
+        "risk_tolerance": 0.40,
+        "min_value_threshold": 55,  # Only discusses quality players
+        "trade_initiation_style": "reactive"  # Lets others come to them
     },
 
     # ===== REBUILDER PHILOSOPHIES =====
@@ -214,7 +230,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.35,
         "proven_talent_bonus": -0.20,
         "age_tolerance": 26,
-        "risk_tolerance": 0.30
+        "risk_tolerance": 0.30,
+        "min_value_threshold": 30,  # Will discuss role players to flip
+        "trade_initiation_style": "reactive"  # Cautious, waits for good offers
     },
     "analytical_rebuilder": {
         "name": "Analytical Rebuilder",
@@ -222,7 +240,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.20,
         "proven_talent_bonus": -0.15,
         "age_tolerance": 27,
-        "risk_tolerance": 0.45
+        "risk_tolerance": 0.45,
+        "min_value_threshold": 35,  # Analyzes all trade possibilities
+        "trade_initiation_style": "opportunistic"  # Strikes when value is right
     },
     "desperate_accumulator": {
         "name": "Desperate Accumulator",
@@ -230,7 +250,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.15,
         "proven_talent_bonus": -0.25,
         "age_tolerance": 28,
-        "risk_tolerance": 0.85
+        "risk_tolerance": 0.85,
+        "min_value_threshold": 20,  # Will deal anyone with value
+        "trade_initiation_style": "aggressive"  # Always calling, always dealing
     },
     "prospect_rich_rebuilder": {
         "name": "Prospect-Rich Rebuilder",
@@ -238,7 +260,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.40,
         "proven_talent_bonus": -0.15,
         "age_tolerance": 26,
-        "risk_tolerance": 0.35
+        "risk_tolerance": 0.35,
+        "min_value_threshold": 60,  # Only trades for elite talent
+        "trade_initiation_style": "reactive"  # Patient, waits for overpays
     },
 
     # ===== SPECIAL CASE PHILOSOPHIES =====
@@ -248,7 +272,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.25,
         "proven_talent_bonus": 0.15,
         "age_tolerance": 30,
-        "risk_tolerance": 0.75
+        "risk_tolerance": 0.75,
+        "min_value_threshold": 25,  # Hunts in the discount bin
+        "trade_initiation_style": "aggressive"  # Always looking for deals
     },
     "reluctant_dealer": {
         "name": "Reluctant Dealer",
@@ -256,7 +282,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.15,
         "proven_talent_bonus": 0.0,
         "age_tolerance": 29,
-        "risk_tolerance": 0.25
+        "risk_tolerance": 0.25,
+        "min_value_threshold": 45,  # Doesn't want to think about trading depth
+        "trade_initiation_style": "reactive"  # Never initiates, waits too long
     },
 
     # ===== LEGACY (for backwards compatibility) =====
@@ -266,7 +294,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.15,
         "proven_talent_bonus": 0.20,
         "age_tolerance": 34,
-        "risk_tolerance": 0.7
+        "risk_tolerance": 0.7,
+        "min_value_threshold": 45,
+        "trade_initiation_style": "aggressive"
     },
     "dynasty_builder": {
         "name": "Dynasty Builder",
@@ -274,7 +304,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.25,
         "proven_talent_bonus": -0.10,
         "age_tolerance": 28,
-        "risk_tolerance": 0.4
+        "risk_tolerance": 0.4,
+        "min_value_threshold": 50,
+        "trade_initiation_style": "opportunistic"
     },
     "balanced": {
         "name": "Balanced Approach",
@@ -282,7 +314,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.0,
         "proven_talent_bonus": 0.0,
         "age_tolerance": 31,
-        "risk_tolerance": 0.5
+        "risk_tolerance": 0.5,
+        "min_value_threshold": 40,
+        "trade_initiation_style": "opportunistic"
     },
     "value_seeker": {
         "name": "Value Seeker",
@@ -290,7 +324,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": 0.05,
         "proven_talent_bonus": -0.05,
         "age_tolerance": 30,
-        "risk_tolerance": 0.6
+        "risk_tolerance": 0.6,
+        "min_value_threshold": 30,
+        "trade_initiation_style": "opportunistic"
     },
     "prospect_hoarder": {
         "name": "Prospect Hoarder",
@@ -298,7 +334,9 @@ GM_PHILOSOPHIES = {
         "prospect_trade_penalty": -0.35,
         "proven_talent_bonus": -0.15,
         "age_tolerance": 26,
-        "risk_tolerance": 0.3
+        "risk_tolerance": 0.3,
+        "min_value_threshold": 55,
+        "trade_initiation_style": "reactive"
     }
 }
 
@@ -5614,6 +5652,7 @@ def build_gm_chat_context(team_name, client_prefs=None):
 
     team = teams[team_name]
     gm = get_assistant_gm(team_name)
+    philosophy = GM_PHILOSOPHIES.get(gm.get('philosophy', 'balanced'), GM_PHILOSOPHIES['balanced'])
 
     # Get player values
     players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
@@ -5689,6 +5728,22 @@ def build_gm_chat_context(team_name, client_prefs=None):
     realistic_targets.sort(key=lambda x: x[1], reverse=True)
     superstar_players.sort(key=lambda x: x[1], reverse=True)
 
+    # Determine category needs (weaknesses ranked 8+ are priorities)
+    category_needs = []
+    for cat, rank in sorted(my_ranks.items(), key=lambda x: -x[1]):
+        if rank >= 8:
+            category_needs.append(f"{cat} (#{rank})")
+    category_needs_str = ', '.join(category_needs[:4]) if category_needs else 'No critical needs'
+
+    # Trade initiation style descriptions
+    initiation_descriptions = {
+        'aggressive': 'ACTIVELY pursue trades - reach out to other teams, make offers, be persistent',
+        'reactive': 'WAIT for offers - play hard to get, let others come to you, be selective',
+        'opportunistic': 'WATCH for value - monitor the market, strike when you see undervalued players'
+    }
+    trade_initiation = philosophy.get('trade_initiation_style', 'opportunistic')
+    min_value = philosophy.get('min_value_threshold', 40)
+
     # Build context string
     context = f"""You are the AI Assistant GM for {team_name} in a dynasty fantasy baseball league.
 
@@ -5700,6 +5755,11 @@ YOUR GM PERSONALITY:
 - Trade Style: {gm['trade_style']}
 - Risk Tolerance: {gm['risk_tolerance']}
 - Priorities: {', '.join(gm['priorities'])}
+
+YOUR TRADE APPROACH:
+- Minimum Value Threshold: {min_value} (only discuss players worth {min_value}+ points)
+- Trade Initiation Style: {trade_initiation.upper()} - {initiation_descriptions.get(trade_initiation, '')}
+- Category Needs (PRIORITY TARGETS): {category_needs_str}
 
 TEAM OVERVIEW:
 - Power Rank: #{power_rank} of {len(teams)} teams
@@ -5808,6 +5868,14 @@ REALISTIC TRADE TARGET GUIDELINES (CRITICAL):
 - If asked for trade targets, suggest players that fill team NEEDS and are realistically acquirable
 - Don't suggest trading your best players (top 3-4 by value) unless specifically asked
 - SHOW YOUR MATH: When suggesting a trade, state the values: "Player A (52) for Player B (48) - fair deal"
+
+TRADE APPROACH GUIDELINES (based on your personality):
+- Your minimum value threshold is {min_value} - don't waste time discussing players below this value
+- Your trade initiation style is {trade_initiation.upper()}:
+  * If AGGRESSIVE: Proactively suggest reaching out to other teams, name specific trade partners, push to make deals happen
+  * If REACTIVE: Be more measured, focus on evaluating offers that come in, recommend patience and letting the market come to you
+  * If OPPORTUNISTIC: Watch for buy-low opportunities, suggest monitoring injured players or struggling teams, strike when value appears
+- PRIORITIZE CATEGORY NEEDS: When suggesting trades, favor players who help the team's weak categories ({category_needs_str})
 
 - IMPORTANT: If the user has learned preferences, use them to personalize your advice!
 {build_client_preferences_context(client_prefs)}
