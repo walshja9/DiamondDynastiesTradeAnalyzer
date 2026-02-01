@@ -6226,29 +6226,51 @@ INSTRUCTIONS:
   * Only suggest trade targets from the "REALISTIC TRADE TARGETS" list above - these are players on OTHER teams
   * If a player is in our ROSTER section, they are OURS - don't suggest acquiring them
 
-TRADE VALUE GUIDELINES (CRITICAL - follow these rules when suggesting trades):
-- Every player has a VALUE number shown in the roster data - USE THESE VALUES when evaluating trades
-- Trades should be roughly equal in total value (within ~10-15 points)
-- NEVER suggest giving up significantly more value than receiving
+TRADE VALUE GUIDELINES (CRITICAL - MUST FOLLOW THESE RULES):
+- Every player has a VALUE number - USE THESE VALUES to validate ALL trade suggestions
+- HARD RULE: Total value given MUST be within 15% of total value received
+  * Maximum overpay: 1.15x the target value (e.g., for a 78-value player, max offer is ~90)
+  * Maximum underpay: 0.85x the target value (e.g., for a 78-value player, min offer is ~66)
 - Value tiers: 90+ = Superstar, 75-89 = Elite, 60-74 = Star, 40-59 = Solid, <40 = Depth
-- For 2-for-1 trades: the 2 players combined should roughly equal the 1 player's value
-- For 3-for-1 trades: ONLY suggest if the single player is a true superstar (90+ value) AND the 3 players combined are close in value
-- Prospects have value too - a #10 prospect (50-60 value) is NOT a throw-in piece
-- Before suggesting any trade, mentally add up the values on each side
-- Example: Trading 3 players worth 40+35+30 (=105) for one player worth 55 is a TERRIBLE deal
-- Example: Trading 2 players worth 45+40 (=85) for one player worth 80 is reasonable
-- When the user asks about acquiring a specific player, first consider what fair value would look like
-- Be realistic - the other team won't accept obvious underpays either
+
+BEFORE SUGGESTING ANY TRADE, DO THIS MATH:
+1. Add up the VALUE of all players you're suggesting to give away
+2. Add up the VALUE of all players you're suggesting to receive
+3. Check: Is the ratio between 0.85 and 1.15? If NO, do NOT suggest the trade!
+
+MULTI-PLAYER TRADE RULES:
+- 2-for-1: The 2 players combined should be 0.85x to 1.15x of the 1 player's value
+- 3-for-1: ONLY valid for 90+ superstars, and even then total must be within 15%
+- NEVER suggest a 3-for-1 where you give 150+ value for a 78-value player - that's insane!
+
+BAD TRADE EXAMPLES (NEVER SUGGEST THESE):
+- Giving 92 + 58 + 49 (=199) for a 78-value player = 2.5x OVERPAY = TERRIBLE
+- Giving 60 + 50 + 40 (=150) for a 70-value player = 2.1x OVERPAY = TERRIBLE
+- Giving 45 + 40 (=85) for a 50-value player = 1.7x OVERPAY = BAD
+
+GOOD TRADE EXAMPLES:
+- Giving 85 for a 78-value player = 1.09x = FAIR (within 15%)
+- Giving 45 + 40 (=85) for an 80-value player = 1.06x = FAIR
+- Giving 55 for a 60-value player = 0.92x = FAIR (slight underpay, may need sweetener)
+
+CRITICAL: If the user asks about acquiring a player, calculate what fair value looks like FIRST.
+- For a 78-value player: Fair offer range is 66-90 in total value
+- If you can't make a fair offer with available pieces, SAY SO instead of suggesting a bad trade
+- Be realistic - other teams won't accept obvious underpays, and YOU shouldn't massively overpay
 
 REALISTIC TRADE TARGET GUIDELINES (CRITICAL):
 - "Realistic targets" means players your team can ACTUALLY acquire without gutting the roster
 - Players valued 90+ (superstars like Ohtani, Acuna, Bobby Witt) are virtually UNTOUCHABLE - don't suggest them as realistic targets
 - Focus on players in the 40-75 value range - these are actually acquirable
 - Look at YOUR roster's tradeable pieces and find targets that match what you can offer
-- A "realistic" target is one where you have enough surplus value to make a fair offer
+- A "realistic" target is one where you have enough surplus value to make a FAIR offer (within 15%!)
 - If asked for trade targets, suggest players that fill team NEEDS and are realistically acquirable
 - Don't suggest trading your best players (top 3-4 by value) unless specifically asked
-- SHOW YOUR MATH: When suggesting a trade, state the values: "Player A (52) for Player B (48) - fair deal"
+
+ALWAYS SHOW YOUR MATH WHEN SUGGESTING TRADES:
+- Format: "Player A (52) + Player B (35) = 87 total → for Player C (80) = 1.09x ratio = FAIR"
+- If ratio is outside 0.85-1.15 range, DO NOT suggest the trade
+- If you can't construct a fair deal, tell the user honestly: "We don't have the pieces to make a fair offer for this player"
 
 TRADE APPROACH GUIDELINES (based on your personality):
 - Your minimum value threshold is {min_value} - don't waste time discussing players below this value
