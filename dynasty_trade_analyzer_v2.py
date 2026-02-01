@@ -509,6 +509,7 @@ ELITE_YOUNG_PLAYERS = {
     "Jackson Chourio": 1.18,      # 22yo OF, 5-tool potential, youngest superstar
     "Jackson Holliday": 1.18,     # 22yo 2B, #1 prospect pedigree, elite bat
     # Tier 2: Established young stars (15% boost)
+    "Junior Caminero": 1.15,      # 22yo 3B, elite power (38 HR/105 RBI), 40+ HR upside
     "CJ Abrams": 1.15,            # 25yo SS, breakout speed/power
     "Anthony Volpe": 1.12,        # 25yo SS, premium position, solid production
     "Michael Harris II": 1.15,    # 25yo OF, elite defense + bat
