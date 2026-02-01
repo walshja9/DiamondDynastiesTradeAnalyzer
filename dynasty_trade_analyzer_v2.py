@@ -578,6 +578,99 @@ PITCHER_HANDEDNESS = {
 
 
 # ============================================================================
+# BLENDED STATS CALCULATOR (Projections + Actual Performance)
+# ============================================================================
+
+def get_blended_hitter_stats(player_name: str, projections: dict, actual_stats: dict = None) -> dict:
+    """
+    Blend pre-season projections with actual in-season stats.
+
+    Early season: Heavily weight projections (small sample size)
+    Mid-season: 50/50 blend
+    Late season: Heavily weight actual pace
+
+    Args:
+        player_name: Player's name
+        projections: Pre-season projection dict (HR, SB, AVG, RBI, etc.)
+        actual_stats: Actual in-season stats dict (G, HR, SB, AVG, RBI, etc.) or None
+
+    Returns:
+        Blended stats dict for use in value calculations
+    """
+    # If no actual stats, return projections as-is
+    if not actual_stats or actual_stats.get('type') != 'hitter':
+        return projections
+
+    games = actual_stats.get('G', 0)
+
+    # Minimum games threshold - don't use actual stats until meaningful sample
+    if games < 20:
+        return projections
+
+    # Calculate projection weight based on games played
+    # More games = more weight on actual performance
+    if games < 40:
+        proj_weight = 0.80  # 80% projections, 20% pace
+    elif games < 60:
+        proj_weight = 0.65  # 65% projections, 35% pace
+    elif games < 90:
+        proj_weight = 0.50  # 50/50 blend
+    elif games < 120:
+        proj_weight = 0.35  # 35% projections, 65% pace
+    else:
+        proj_weight = 0.20  # 20% projections, 80% pace (late season)
+
+    actual_weight = 1.0 - proj_weight
+
+    # Calculate full-season pace from actual stats
+    games_factor = 162.0 / games if games > 0 else 1.0
+
+    blended = {}
+
+    # Counting stats - blend projected with pace
+    for stat in ['HR', 'SB', 'R', 'RBI']:
+        proj_val = projections.get(stat, 0)
+        actual_val = actual_stats.get(stat, 0)
+        pace_val = actual_val * games_factor
+        blended[stat] = (proj_val * proj_weight) + (pace_val * actual_weight)
+
+    # Rate stats - blend directly (already rate-based)
+    # AVG: need to handle string format from Fantrax
+    proj_avg = projections.get('AVG', 0.250)
+    actual_avg_str = actual_stats.get('AVG', '.250')
+    try:
+        actual_avg = float(actual_avg_str.replace('.', '0.')) if isinstance(actual_avg_str, str) else float(actual_avg_str)
+    except:
+        actual_avg = 0.250
+    blended['AVG'] = (proj_avg * proj_weight) + (actual_avg * actual_weight)
+
+    # OPS: same handling
+    proj_ops = projections.get('OPS', 0.750)
+    actual_ops_str = actual_stats.get('OPS', '.750')
+    try:
+        actual_ops = float(actual_ops_str.replace('.', '0.')) if isinstance(actual_ops_str, str) else float(actual_ops_str)
+    except:
+        actual_ops = 0.750
+    blended['OPS'] = (proj_ops * proj_weight) + (actual_ops * actual_weight)
+
+    # SO (strikeouts) - pace
+    proj_so = projections.get('SO', 100)
+    actual_so = actual_stats.get('SO', actual_stats.get('K', 0))  # Some sources use K
+    if actual_so == 0:
+        # Estimate from AB if not available
+        actual_so = actual_stats.get('AB', 0) * 0.22  # ~22% K rate estimate
+    pace_so = actual_so * games_factor
+    blended['SO'] = (proj_so * proj_weight) + (pace_so * actual_weight)
+
+    # Store games played and weights for debugging/display
+    blended['_games'] = games
+    blended['_proj_weight'] = proj_weight
+    blended['_actual_weight'] = actual_weight
+
+    return blended
+
+
+# ============================================================================
 # VALUE CALCULATOR
 # ============================================================================
 
@@ -620,8 +713,13 @@ class DynastyValueCalculator:
     }
     
     @staticmethod
-    def calculate_hitter_value(player: Player) -> float:
-        """Calculate hitting value from projections (0-100 scale)."""
+    def calculate_hitter_value(player: Player, actual_stats: dict = None) -> float:
+        """Calculate hitting value from projections (0-100 scale).
+
+        Args:
+            player: Player object
+            actual_stats: Optional dict of actual in-season stats for blending
+        """
         # Check for projections
         proj = HITTER_PROJECTIONS.get(player.name)
         
@@ -718,36 +816,45 @@ class DynastyValueCalculator:
             # ============ AUTOMATIC ELITE YOUNG HITTER BOOST ============
             # Young players (≤25) with elite single-category production get a boost
             # This compensates for the balanced formula penalizing specialists
+            # Uses BLENDED stats (projections + actual pace) when in-season data available
             if player.age > 0 and player.age <= 25:
                 elite_boost = 1.0
                 elite_categories = 0
 
+                # Get blended stats for elite boost evaluation
+                # This allows breakout seasons to be recognized mid-year
+                blended = get_blended_hitter_stats(player.name, proj, actual_stats)
+                blended_hr = blended.get('HR', proj['HR'])
+                blended_sb = blended.get('SB', proj['SB'])
+                blended_avg = blended.get('AVG', proj['AVG'])
+                blended_rbi = blended.get('RBI', proj['RBI'])
+
                 # Elite power: 35+ HR
-                if proj['HR'] >= 40:
+                if blended_hr >= 40:
                     elite_boost += 0.12  # 40+ HR is exceptional
                     elite_categories += 1
-                elif proj['HR'] >= 35:
+                elif blended_hr >= 35:
                     elite_boost += 0.08
                     elite_categories += 1
 
                 # Elite speed: 35+ SB
-                if proj['SB'] >= 40:
+                if blended_sb >= 40:
                     elite_boost += 0.12  # 40+ SB is exceptional
                     elite_categories += 1
-                elif proj['SB'] >= 35:
+                elif blended_sb >= 35:
                     elite_boost += 0.08
                     elite_categories += 1
 
                 # Elite contact: .300+ AVG
-                if proj['AVG'] >= 0.310:
+                if blended_avg >= 0.310:
                     elite_boost += 0.10  # .310+ is exceptional
                     elite_categories += 1
-                elif proj['AVG'] >= 0.300:
+                elif blended_avg >= 0.300:
                     elite_boost += 0.06
                     elite_categories += 1
 
                 # Elite run production: 110+ RBI
-                if proj['RBI'] >= 110:
+                if blended_rbi >= 110:
                     elite_boost += 0.08
                     elite_categories += 1
 
@@ -1036,22 +1143,27 @@ class DynastyValueCalculator:
         return value
 
     @staticmethod
-    def calculate_player_value(player: Player) -> float:
-        """Calculate overall player value."""
+    def calculate_player_value(player: Player, actual_stats: dict = None) -> float:
+        """Calculate overall player value.
+
+        Args:
+            player: Player object
+            actual_stats: Optional dict of actual in-season stats for blending with projections
+        """
         # Check projections first to handle two-way players (like Ohtani)
         in_hitter_proj = player.name in HITTER_PROJECTIONS
         in_pitcher_proj = player.name in PITCHER_PROJECTIONS or player.name in RELIEVER_PROJECTIONS
 
         # If in hitter projections only, calculate as hitter
         if in_hitter_proj and not in_pitcher_proj:
-            return DynastyValueCalculator.calculate_hitter_value(player)
+            return DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
         # If in pitcher projections only, calculate as pitcher
         elif in_pitcher_proj and not in_hitter_proj:
             return DynastyValueCalculator.calculate_pitcher_value(player)
         # If in both (true two-way player like Ohtani), combine values with premium
         # Two-way players are extraordinarily valuable - they provide dual production in one roster spot
         elif in_hitter_proj and in_pitcher_proj:
-            hitter_val = DynastyValueCalculator.calculate_hitter_value(player)
+            hitter_val = DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
             pitcher_val = DynastyValueCalculator.calculate_pitcher_value(player)
             # Take higher value as base, add 40% of secondary value, plus 10% two-way premium
             primary = max(hitter_val, pitcher_val)
@@ -1062,7 +1174,7 @@ class DynastyValueCalculator:
         elif player.is_pitcher():
             return DynastyValueCalculator.calculate_pitcher_value(player)
         else:
-            return DynastyValueCalculator.calculate_hitter_value(player)
+            return DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
     
     @staticmethod
     def calculate_pick_value(pick: str) -> float:

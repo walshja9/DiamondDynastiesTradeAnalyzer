@@ -1009,6 +1009,16 @@ league_transactions = []
 player_actual_stats = {}  # player_name -> {stats dict}
 player_fantasy_points = {}  # player_name -> {fantasy_points, fppg}
 
+
+def calc_player_value(player):
+    """Wrapper for calculate_player_value that automatically includes actual stats.
+
+    This enables the blended stats feature - projections are blended with actual
+    in-season performance as the season progresses.
+    """
+    actual = player_actual_stats.get(player.name)
+    return calculator.calculate_player_value(player, actual)
+
 # Draft order configuration (team_name -> pick_number for 2026)
 # If empty, draft order is calculated based on team value (worst team = pick 1)
 draft_order_config = {}
@@ -1040,7 +1050,7 @@ def get_team_rankings():
     """Calculate team rankings based on total dynasty value (lower value = worse team = earlier pick)."""
     team_values = []
     for name, team in teams.items():
-        total_value = sum(calculator.calculate_player_value(p) for p in team.players)
+        total_value = sum(calc_player_value(p) for p in team.players)
         team_values.append((name, total_value))
 
     # Sort by value ascending (worst team first for draft order)
@@ -5203,7 +5213,7 @@ def get_prospects():
     for team_name, team in teams.items():
         for player in team.players:
             if player.is_prospect and player.prospect_rank and player.prospect_rank <= 300:
-                value = calculator.calculate_player_value(player)
+                value = calc_player_value(player)
                 # Use matched prospect name as key (for consistency with PROSPECT_RANKINGS)
                 prospect_key = getattr(player, 'prospect_name', None) or player.name
                 found_prospects[prospect_key] = {
@@ -5430,7 +5440,7 @@ def get_team(team_name):
         team = teams[team_name]
         draft_order, power_rankings, team_totals = get_team_rankings()
 
-        players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+        players_with_value = [(p, calc_player_value(p)) for p in team.players]
         players_with_value.sort(key=lambda x: x[1], reverse=True)
 
         players = []
@@ -5655,7 +5665,7 @@ def build_gm_chat_context(team_name, client_prefs=None):
     philosophy = GM_PHILOSOPHIES.get(gm.get('philosophy', 'balanced'), GM_PHILOSOPHIES['balanced'])
 
     # Get player values
-    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value = [(p, calc_player_value(p)) for p in team.players]
     players_with_value.sort(key=lambda x: x[1], reverse=True)
 
     # Get rankings
@@ -5669,7 +5679,7 @@ def build_gm_chat_context(team_name, client_prefs=None):
 
     # Build roster summary
     top_players = [(p.name, round(v, 1), p.age, p.position) for p, v in players_with_value[:15]]
-    prospects = [(p.name, p.prospect_rank, round(calculator.calculate_player_value(p), 1))
+    prospects = [(p.name, p.prospect_rank, round(calc_player_value(p), 1))
                  for p in team.players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100]
     prospects.sort(key=lambda x: x[1])
 
@@ -5717,7 +5727,7 @@ def build_gm_chat_context(team_name, client_prefs=None):
     for other_team_name, other_team in teams.items():
         if other_team_name != team_name:
             for p in other_team.players:
-                val = calculator.calculate_player_value(p)
+                val = calc_player_value(p)
                 if val >= 40:
                     mlb_abbrev = p.mlb_team[:3].upper() if p.mlb_team else p.team[:3].upper() if p.team else "???"
                     player_tuple = (p.name, round(val, 1), p.age, p.position, other_team_name, mlb_abbrev)
@@ -6085,7 +6095,7 @@ def find_trades_for_player():
         if not player:
             return jsonify({"error": f"Player '{player_name}' not found on your team"}), 404
 
-        player_value = calculator.calculate_player_value(player)
+        player_value = calc_player_value(player)
 
         # Find what other teams can offer in return
         other_teams = [t for t in teams.keys() if t != my_team_name]
@@ -6094,7 +6104,7 @@ def find_trades_for_player():
 
         for other_team_name in other_teams:
             other_team = teams[other_team_name]
-            other_players = [(p, calculator.calculate_player_value(p)) for p in other_team.players]
+            other_players = [(p, calc_player_value(p)) for p in other_team.players]
             other_players.sort(key=lambda x: x[1], reverse=True)
 
             # 1-for-1 trades
@@ -6132,10 +6142,10 @@ def find_trades_for_player():
         if not player:
             return jsonify({"error": f"Player '{player_name}' not found on {target_team_name}"}), 404
 
-        player_value = calculator.calculate_player_value(player)
+        player_value = calc_player_value(player)
 
         # Find what MY team can offer
-        my_players = [(p, calculator.calculate_player_value(p)) for p in my_team.players]
+        my_players = [(p, calc_player_value(p)) for p in my_team.players]
         my_players.sort(key=lambda x: x[1], reverse=True)
 
         # 1-for-1 trades
@@ -6183,7 +6193,7 @@ def get_category_trade_targets(team_name, weak_categories, num_targets=3):
                 if not proj:
                     continue
 
-                value = calculator.calculate_player_value(player)
+                value = calc_player_value(player)
                 cat_value = 0
 
                 # Map category to projection key
@@ -6250,7 +6260,7 @@ def scan_league_for_opportunities(team_name):
         if other_rank >= 9:
             sellable = []
             for p in other_team.players:
-                v = calculator.calculate_player_value(p)
+                v = calc_player_value(p)
                 if p.age >= 27 and v >= 35:
                     sellable.append((p.name, v, p.age))
             if sellable:
@@ -6320,7 +6330,7 @@ def find_similar_value_players(team_name, player_value, tolerance=8):
             continue
 
         for player in other_team.players:
-            value = calculator.calculate_player_value(player)
+            value = calc_player_value(player)
             if abs(value - player_value) <= tolerance:
                 similar.append({
                     'name': player.name,
@@ -6335,7 +6345,7 @@ def find_similar_value_players(team_name, player_value, tolerance=8):
 
 def get_trade_package_suggestions(team_name, team, target_value, weak_cats):
     """Suggest players from the team that could be packaged to acquire targets."""
-    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value = [(p, calc_player_value(p)) for p in team.players]
     players_with_value.sort(key=lambda x: x[1], reverse=True)
 
     # Find tradeable assets (not the top 3-5 core players unless rebuilding)
@@ -6473,7 +6483,7 @@ def get_buy_low_sell_high_alerts(team_name, team):
     is_rebuilding = my_power_rank >= 9
 
     # ============ SELL-HIGH ANALYSIS (Your Team) ============
-    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value = [(p, calc_player_value(p)) for p in team.players]
     players_with_value.sort(key=lambda x: x[1], reverse=True)
 
     for p, v in players_with_value:
@@ -6536,7 +6546,7 @@ def get_buy_low_sell_high_alerts(team_name, team):
         is_seller = other_power_rank >= 9  # Rebuilding team = motivated seller
 
         for p in other_team.players:
-            v = calculator.calculate_player_value(p)
+            v = calc_player_value(p)
             proj_h = HITTER_PROJECTIONS.get(p.name, {})
             proj_p = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
 
@@ -6676,7 +6686,7 @@ def get_buy_low_sell_high_alerts(team_name, team):
             if p.name in seen_players:
                 continue
 
-            v = calculator.calculate_player_value(p)
+            v = calc_player_value(p)
             proj_h = HITTER_PROJECTIONS.get(p.name, {})
             proj_p = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
 
@@ -6794,7 +6804,7 @@ def get_gm_trade_partner_intelligence(team_name):
             other_rank = power_rankings.get(other_team, 6)
 
             # Get top tradeable assets
-            other_players = [(p, calculator.calculate_player_value(p)) for p in other_team_obj.players]
+            other_players = [(p, calc_player_value(p)) for p in other_team_obj.players]
             other_players.sort(key=lambda x: x[1], reverse=True)
             tradeable = [(p.name, v, p.age) for p, v in other_players[:5] if v >= 30]
 
@@ -6847,7 +6857,7 @@ def generate_gm_trade_scenarios(team_name, team):
     """
     scenarios = []
 
-    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value = [(p, calc_player_value(p)) for p in team.players]
     players_with_value.sort(key=lambda x: x[1], reverse=True)
 
     # Get GM philosophy - this determines what types of trades are appropriate
@@ -6970,7 +6980,7 @@ def generate_gm_trade_scenarios(team_name, team):
                     cat_value = 2.0 - proj_p.get('WHIP', 1.5)  # Invert
 
                 if cat_value > 0:
-                    pv = calculator.calculate_player_value(p)
+                    pv = calc_player_value(p)
                     if value_range[0] <= pv <= value_range[1]:
                         targets.append({
                             'player': p,
@@ -7186,7 +7196,7 @@ def generate_gm_trade_scenarios(team_name, team):
                         [p for p in other_team.players if p.is_prospect and p.prospect_rank],
                         key=lambda x: x.prospect_rank
                     )
-                    their_young = [(p, calculator.calculate_player_value(p)) for p in other_team.players
+                    their_young = [(p, calc_player_value(p)) for p in other_team.players
                                   if p.age <= 26 and not p.is_prospect]
                     their_young.sort(key=lambda x: x[1], reverse=True)
 
@@ -7196,7 +7206,7 @@ def generate_gm_trade_scenarios(team_name, team):
                         ask_value = 0
                         if their_prospects:
                             ask_parts.append(f"{their_prospects[0].name} (#{their_prospects[0].prospect_rank})")
-                            ask_value += calculator.calculate_player_value(their_prospects[0])
+                            ask_value += calc_player_value(their_prospects[0])
                         if their_young and ask_value < best_vet[1] * 0.8:
                             ask_parts.append(f"{their_young[0][0].name} ({their_young[0][1]:.0f})")
                             ask_value += their_young[0][1]
@@ -7230,8 +7240,8 @@ def generate_gm_trade_scenarios(team_name, team):
                                   if p.is_prospect and p.prospect_rank and p.prospect_rank <= 25]
                 if elite_prospects:
                     target = elite_prospects[0]
-                    target_value = calculator.calculate_player_value(target)
-                    offer_value = sum(calculator.calculate_player_value(p) for p in lower_prospects)
+                    target_value = calc_player_value(target)
+                    offer_value = sum(calc_player_value(p) for p in lower_prospects)
                     offer_names = " + ".join([f"{p.name} (#{p.prospect_rank})" for p in lower_prospects])
 
                     # Value gap analysis
@@ -7490,7 +7500,7 @@ def generate_gm_trade_scenarios(team_name, team):
                     continue
                 other_rank = power_rankings.get(other_team_name, 6)
                 if other_rank >= 8:  # Struggling team
-                    their_players = [(p, calculator.calculate_player_value(p)) for p in other_team.players]
+                    their_players = [(p, calc_player_value(p)) for p in other_team.players]
                     their_players.sort(key=lambda x: x[1], reverse=True)
                     # Find a quality player they might sell
                     for p, v in their_players[:10]:
@@ -7540,7 +7550,7 @@ def generate_gm_trade_scenarios(team_name, team):
             for other_team_name, other_team in teams.items():
                 if other_team_name == team_name:
                     continue
-                their_players = [(op, calculator.calculate_player_value(op)) for op in other_team.players]
+                their_players = [(op, calc_player_value(op)) for op in other_team.players]
                 their_players.sort(key=lambda x: x[1], reverse=True)
                 # Find a comparable player
                 for op, ov in their_players:
@@ -7608,7 +7618,7 @@ def generate_gm_trade_scenarios(team_name, team):
                     if other_phil in ['championship_closer', 'all_in_buyer', 'loaded_and_ready']:
                         # They might overpay for proven talent
                         their_vets = sorted(
-                            [(p, calculator.calculate_player_value(p)) for p in other_team.players if p.age >= 27 and not p.is_prospect],
+                            [(p, calc_player_value(p)) for p in other_team.players if p.age >= 27 and not p.is_prospect],
                             key=lambda x: x[1], reverse=True
                         )
                         if their_vets and their_vets[0][1] >= pval * 0.8:
@@ -7635,7 +7645,7 @@ def generate_gm_trade_scenarios(team_name, team):
             if other_team_name == team_name:
                 continue
             their_players = sorted(
-                [(p, calculator.calculate_player_value(p)) for p in other_team.players],
+                [(p, calc_player_value(p)) for p in other_team.players],
                 key=lambda x: x[1], reverse=True
             )
             for tp, tv in their_players:
@@ -7708,7 +7718,7 @@ def generate_gm_trade_scenarios(team_name, team):
 
                 if helps_them:
                     # Find their player who helps us
-                    their_players = [(p, calculator.calculate_player_value(p)) for p in other_team.players]
+                    their_players = [(p, calc_player_value(p)) for p in other_team.players]
                     for tp, tv in their_players:
                         if abs(tv - pval) <= 15:  # Similar value
                             tp_proj = HITTER_PROJECTIONS.get(tp.name, {}) or PITCHER_PROJECTIONS.get(tp.name, {})
@@ -7747,7 +7757,7 @@ def generate_gm_trade_scenarios(team_name, team):
                     other_rank = power_rankings.get(other_team_name, 6)
                     if other_rank >= 8:  # Rebuilding team wants youth
                         their_vets = sorted(
-                            [(p, calculator.calculate_player_value(p)) for p in other_team.players if p.age >= 28 and p.age <= 32],
+                            [(p, calc_player_value(p)) for p in other_team.players if p.age >= 28 and p.age <= 32],
                             key=lambda x: x[1], reverse=True
                         )
                         if their_vets:
@@ -7797,7 +7807,7 @@ def generate_gm_trade_scenarios(team_name, team):
                 if other_team_name == team_name:
                     continue
                 their_hitters = sorted(
-                    [(p, calculator.calculate_player_value(p)) for p in other_team.players
+                    [(p, calc_player_value(p)) for p in other_team.players
                      if 'SP' not in (p.position or '').upper() and 'RP' not in (p.position or '').upper()],
                     key=lambda x: x[1], reverse=True
                 )
@@ -7837,7 +7847,7 @@ def generate_gm_trade_scenarios(team_name, team):
                 if other_team_name == team_name:
                     continue
                 their_pitchers = sorted(
-                    [(p, calculator.calculate_player_value(p)) for p in other_team.players
+                    [(p, calc_player_value(p)) for p in other_team.players
                      if 'SP' in (p.position or '').upper()],
                     key=lambda x: x[1], reverse=True
                 )
@@ -7876,7 +7886,7 @@ def generate_gm_trade_scenarios(team_name, team):
         is_seller = other_rank >= 7
 
         for p in other_team.players:
-            pval = calculator.calculate_player_value(p)
+            pval = calc_player_value(p)
             proj = HITTER_PROJECTIONS.get(p.name, {}) or PITCHER_PROJECTIONS.get(p.name, {})
 
             # Look for players whose value might be depressed
@@ -7932,7 +7942,7 @@ def generate_gm_trade_scenarios(team_name, team):
                     continue
                 for p in other_team.players:
                     proj = HITTER_PROJECTIONS.get(p.name, {}) or PITCHER_PROJECTIONS.get(p.name, {})
-                    pval = calculator.calculate_player_value(p)
+                    pval = calc_player_value(p)
 
                     cat_value = 0
                     if best_cat == 'HR':
@@ -7996,7 +8006,7 @@ def generate_gm_trade_scenarios(team_name, team):
             for p in other_team.players:
                 player_pos = (p.position or '').upper()
                 if pos in player_pos or (pos == 'OF' and any(x in player_pos for x in ['LF', 'CF', 'RF'])):
-                    pval = calculator.calculate_player_value(p)
+                    pval = calc_player_value(p)
                     if pval >= 50:  # Elite level
                         pos_upgrades.append({
                             'player': p,
@@ -8034,7 +8044,7 @@ def generate_gm_trade_scenarios(team_name, team):
             # Rebuilding teams like getting multiple pieces
             if other_rank >= 7:
                 their_stars = sorted(
-                    [(p, calculator.calculate_player_value(p)) for p in other_team.players],
+                    [(p, calc_player_value(p)) for p in other_team.players],
                     key=lambda x: x[1], reverse=True
                 )
                 # Skip true superstars (98+) - they don't get traded in package deals
@@ -8158,8 +8168,8 @@ def generate_rivalry_analysis(team_name, rival_name):
     rival = teams[rival_name]
 
     # Calculate total values
-    my_value = sum(calculator.calculate_player_value(p) for p in team.players)
-    rival_value = sum(calculator.calculate_player_value(p) for p in rival.players)
+    my_value = sum(calc_player_value(p) for p in team.players)
+    rival_value = sum(calc_player_value(p) for p in rival.players)
 
     # Get category comparisons
     team_cats, rankings = calculate_league_category_rankings()
@@ -8182,8 +8192,8 @@ def generate_rivalry_analysis(team_name, rival_name):
             disadvantages.append(cat)
 
     # Find top players on each side
-    my_top = sorted([(p, calculator.calculate_player_value(p)) for p in team.players], key=lambda x: x[1], reverse=True)[:3]
-    rival_top = sorted([(p, calculator.calculate_player_value(p)) for p in rival.players], key=lambda x: x[1], reverse=True)[:3]
+    my_top = sorted([(p, calc_player_value(p)) for p in team.players], key=lambda x: x[1], reverse=True)[:3]
+    rival_top = sorted([(p, calc_player_value(p)) for p in rival.players], key=lambda x: x[1], reverse=True)[:3]
 
     # Count prospects
     my_prospects = len([p for p in team.players if p.is_prospect])
@@ -8322,7 +8332,7 @@ def get_normalized_championship_odds():
     # Calculate raw scores for all teams
     raw_scores = {}
     for team_name, team in teams.items():
-        players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+        players_with_value = [(p, calc_player_value(p)) for p in team.players]
         players_with_value.sort(key=lambda x: x[1], reverse=True)
         power_rank = power_rankings.get(team_name, len(teams))
         my_ranks = rankings.get(team_name, {})
@@ -8418,7 +8428,7 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
 
     # ============ DATA SETUP ============
     if players_with_value is None:
-        players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+        players_with_value = [(p, calc_player_value(p)) for p in team.players]
         players_with_value.sort(key=lambda x: x[1], reverse=True)
 
     if power_rank is None:
@@ -8819,7 +8829,7 @@ def search_players():
     for team_name, team in teams.items():
         for p in team.players:
             if query in p.name.lower():
-                value = calculator.calculate_player_value(p)
+                value = calc_player_value(p)
                 results.append({
                     "name": p.name,
                     "position": p.position,
@@ -9039,7 +9049,7 @@ def get_player(player_name):
             }
         })
 
-    value = calculator.calculate_player_value(player)
+    value = calc_player_value(player)
 
     # Get projections
     projections = {}
@@ -9177,8 +9187,8 @@ def analyze_trade():
                 break
 
     # Calculate values
-    value_a_sends = sum(calculator.calculate_player_value(p) for p in found_players_a)
-    value_b_sends = sum(calculator.calculate_player_value(p) for p in found_players_b)
+    value_a_sends = sum(calc_player_value(p) for p in found_players_a)
+    value_b_sends = sum(calc_player_value(p) for p in found_players_b)
 
     # Add pick values
     for pick in picks_a:
@@ -9422,8 +9432,8 @@ def analyze_trade():
 
         # Suggest removing a player to close the gap
         if loser == team_a and found_players_a:
-            smallest = min(found_players_a, key=lambda p: calculator.calculate_player_value(p))
-            smallest_val = calculator.calculate_player_value(smallest)
+            smallest = min(found_players_a, key=lambda p: calc_player_value(p))
+            smallest_val = calc_player_value(smallest)
             if smallest_val <= gap * 1.5 and smallest_val >= gap * 0.5:
                 counter_offer_suggestions.append({
                     'for_team': loser,
@@ -9431,8 +9441,8 @@ def analyze_trade():
                     'value_add': smallest_val
                 })
         elif loser == team_b and found_players_b:
-            smallest = min(found_players_b, key=lambda p: calculator.calculate_player_value(p))
-            smallest_val = calculator.calculate_player_value(smallest)
+            smallest = min(found_players_b, key=lambda p: calc_player_value(p))
+            smallest_val = calc_player_value(smallest)
             if smallest_val <= gap * 1.5 and smallest_val >= gap * 0.5:
                 counter_offer_suggestions.append({
                     'for_team': loser,
@@ -9443,7 +9453,7 @@ def analyze_trade():
         # Find a player from winner's team that could be added
         winner_team = teams.get(winner)
         if winner_team:
-            candidates = [(p, calculator.calculate_player_value(p)) for p in winner_team.players
+            candidates = [(p, calc_player_value(p)) for p in winner_team.players
                          if not any(fp.name == p.name for fp in (found_players_a if winner == team_a else found_players_b))]
             candidates.sort(key=lambda x: abs(x[1] - gap))
 
@@ -9520,7 +9530,7 @@ def analyze_trade():
         "name": p.name,
         "position": p.position,
         "age": p.age,
-        "value": round(calculator.calculate_player_value(p), 1),
+        "value": round(calc_player_value(p), 1),
         "is_prospect": p.is_prospect,
         "prospect_rank": p.prospect_rank if p.is_prospect else None
     } for p in found_players_a]
@@ -9529,7 +9539,7 @@ def analyze_trade():
         "name": p.name,
         "position": p.position,
         "age": p.age,
-        "value": round(calculator.calculate_player_value(p), 1),
+        "value": round(calc_player_value(p), 1),
         "is_prospect": p.is_prospect,
         "prospect_rank": p.prospect_rank if p.is_prospect else None
     } for p in found_players_b]
@@ -9633,7 +9643,7 @@ def calculate_team_needs(team_name):
     avg_age = sum(ages) / len(ages) if ages else 27
     prospects = len([p for p in team.players if p.is_prospect])
 
-    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value = [(p, calc_player_value(p)) for p in team.players]
     total_value = sum(v for _, v in players_with_value)
 
     # Get power ranking for consistent window determination
@@ -9845,7 +9855,7 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
     # Elite young talent acquisition bonus
     for p in you_receive:
         if p.age <= 25:
-            pval = calculator.calculate_player_value(p)
+            pval = calc_player_value(p)
             if pval >= 60:
                 score += 12
                 reasons.append(f"Acquires elite young star ({p.name})")
@@ -9863,10 +9873,10 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
 
     # "Steal" detection - getting significantly younger player at similar value
     if you_receive and you_send:
-        best_received = max(you_receive, key=lambda p: calculator.calculate_player_value(p))
-        best_sent = max(you_send, key=lambda p: calculator.calculate_player_value(p))
-        val_received = calculator.calculate_player_value(best_received)
-        val_sent = calculator.calculate_player_value(best_sent)
+        best_received = max(you_receive, key=lambda p: calc_player_value(p))
+        best_sent = max(you_send, key=lambda p: calc_player_value(p))
+        val_received = calc_player_value(best_received)
+        val_sent = calc_player_value(best_sent)
         if best_received.age <= 26 and best_sent.age >= 30 and val_received >= val_sent * 0.9:
             score += 10
             reasons.append(f"Getting younger at similar value")
@@ -9874,10 +9884,10 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
     # Positional upgrade detection
     for p_recv in you_receive:
         recv_pos = p_recv.position.upper() if p_recv.position else ''
-        recv_val = calculator.calculate_player_value(p_recv)
+        recv_val = calc_player_value(p_recv)
         for p_send in you_send:
             send_pos = p_send.position.upper() if p_send.position else ''
-            send_val = calculator.calculate_player_value(p_send)
+            send_val = calc_player_value(p_send)
             # Same position, getting upgrade
             if recv_pos == send_pos and recv_val > send_val * 1.15:
                 score += 5
@@ -9929,7 +9939,7 @@ def get_suggestions():
             return jsonify({"error": "Invalid team specified"}), 400
 
         suggestions = []
-        my_players = [(p, calculator.calculate_player_value(p)) for p in teams[my_team].players]
+        my_players = [(p, calc_player_value(p)) for p in teams[my_team].players]
         my_players.sort(key=lambda x: x[1], reverse=True)
         my_tradeable = [(p, v) for p, v in my_players if 15 <= v <= 85][:12]  # Reduced from 15
 
@@ -9944,7 +9954,7 @@ def get_suggestions():
             if other_team == my_team:
                 continue
 
-            their_players = [(p, calculator.calculate_player_value(p)) for p in teams[other_team].players]
+            their_players = [(p, calc_player_value(p)) for p in teams[other_team].players]
             their_players.sort(key=lambda x: x[1], reverse=True)
             # Use fewer players when searching all teams
             max_tradeable = 8 if all_teams_mode else 12
@@ -10275,7 +10285,7 @@ def get_free_agent_suggestions():
         team = teams[team_name]
         for p in team.players:
             pos = p.position.upper() if p.position else ''
-            pval = calculator.calculate_player_value(p)
+            pval = calc_player_value(p)
             for check_pos in ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP']:
                 if check_pos in pos or (check_pos == 'OF' and any(x in pos for x in ['LF', 'CF', 'RF'])):
                     pos_depth[check_pos] = pos_depth.get(check_pos, 0) + 1
