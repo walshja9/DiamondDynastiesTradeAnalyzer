@@ -1794,6 +1794,14 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 <div id="gm-learned-prefs" style="color: #aaa; font-size: 0.85rem; line-height: 1.5;"></div>
                                 <button onclick="resetPreferences()" style="margin-top: 10px; width: 100%; padding: 6px; background: rgba(255,100,100,0.2); border: 1px solid rgba(255,100,100,0.3); border-radius: 6px; color: #ff6b6b; font-size: 0.75rem; cursor: pointer;">Reset Preferences</button>
                             </div>
+
+                            <!-- Manager Style Section (from onboarding) -->
+                            <div id="gm-manager-style-section" style="background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.2); border-radius: 8px; padding: 12px; margin-top: 12px; display: none;">
+                                <div style="color: #667eea; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 8px;">Your Manager Style</div>
+                                <div id="gm-manager-style" style="color: #fff; font-weight: bold; margin-bottom: 4px;"></div>
+                                <div id="gm-manager-desc" style="color: #888; font-size: 0.8rem; line-height: 1.4;"></div>
+                                <button onclick="resetManagerStyle()" style="margin-top: 10px; width: 100%; padding: 6px; background: rgba(102,126,234,0.2); border: 1px solid rgba(102,126,234,0.3); border-radius: 6px; color: #667eea; font-size: 0.75rem; cursor: pointer;">Change Manager Style</button>
+                            </div>
                         </div>
 
                         <div id="gm-chat-disabled" style="margin-top: 20px; padding: 15px; background: rgba(255,100,100,0.1); border: 1px solid rgba(255,100,100,0.3); border-radius: 8px; display: none;">
@@ -1859,6 +1867,143 @@ HTML_CONTENT = '''<!DOCTYPE html>
         <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 900px;">
             <span class="modal-close" onclick="closeComparisonModal()">&times;</span>
             <div id="comparison-modal-content"></div>
+        </div>
+    </div>
+
+    <!-- GM Onboarding Questionnaire Modal -->
+    <div id="gm-onboarding-modal" class="modal" style="display: none;">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 600px; background: linear-gradient(135deg, #1a1a2e, #16162b); border: 1px solid rgba(102,126,234,0.3);">
+            <div style="text-align: center; padding: 20px 0;">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🤖</div>
+                <h2 style="color: #667eea; margin: 0 0 10px 0;">Welcome to GM Chat</h2>
+                <p style="color: #888; margin: 0;">Let's set up your managerial style so I can give you personalized advice.</p>
+            </div>
+
+            <div id="onboarding-questions" style="padding: 20px;">
+                <!-- Question 1 -->
+                <div class="onboarding-question" data-question="1" style="display: block;">
+                    <h3 style="color: #fff; margin-bottom: 15px;">Where is your team right now?</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button class="onboarding-option" onclick="selectAnswer(1, 'contending')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #4ade80;">🏆 Competing for a championship</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Top 3 team, ready to win now</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(1, 'playoff')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #fbbf24;">⚡ In the playoff mix</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Competitive, pushing for playoffs</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(1, 'middle')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #60a5fa;">🤔 Middle of the pack</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Could go either way - buy or sell</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(1, 'rebuilding')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #f87171;">🔧 Rebuilding</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Focused on the future, accumulating assets</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Question 2 -->
+                <div class="onboarding-question" data-question="2" style="display: none;">
+                    <h3 style="color: #fff; margin-bottom: 15px;">How do you feel about trading prospects?</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button class="onboarding-option" onclick="selectAnswer(2, 'protect')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #4ade80;">🛡️ They're untouchable</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Building for the future - prospects are the plan</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(2, 'selective')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #fbbf24;">⚖️ I'll trade them for the right star</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Selective, but open to the right deal</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(2, 'chips')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #f87171;">💰 Prospects are trade chips</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Win now matters - use them to get proven talent</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Question 3 -->
+                <div class="onboarding-question" data-question="3" style="display: none;">
+                    <h3 style="color: #fff; margin-bottom: 15px;">When a trade offer comes in, you typically...</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button class="onboarding-option" onclick="selectAnswer(3, 'reactive')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #60a5fa;">🧘 Wait and analyze</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Take your time, no rush decisions</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(3, 'opportunistic')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #fbbf24;">🎯 Strike when value appears</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Opportunistic - jump on good deals</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(3, 'aggressive')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #f87171;">🔥 Counter aggressively</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Always negotiating, always dealing</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Question 4 -->
+                <div class="onboarding-question" data-question="4" style="display: none;">
+                    <h3 style="color: #fff; margin-bottom: 15px;">What's your risk tolerance?</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button class="onboarding-option" onclick="selectAnswer(4, 'conservative')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #4ade80;">🐢 Conservative</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Safe, steady moves - protect what you have</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(4, 'moderate')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #fbbf24;">⚖️ Moderate</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Calculated risks when the upside is there</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(4, 'aggressive')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #f87171;">🎰 Aggressive</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Swing for the fences - high risk, high reward</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Question 5 -->
+                <div class="onboarding-question" data-question="5" style="display: none;">
+                    <h3 style="color: #fff; margin-bottom: 15px;">Oldest player you'd build around?</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <button class="onboarding-option" onclick="selectAnswer(5, 'young')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #4ade80;">👶 27 or younger</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Youth is everything in dynasty</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(5, 'prime')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #fbbf24;">💪 28-30</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Prime years still have value</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(5, 'veteran')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #60a5fa;">🎖️ 31-33</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">Experience matters, still productive</span>
+                        </button>
+                        <button class="onboarding-option" onclick="selectAnswer(5, 'any')" style="padding: 15px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.3); border-radius: 8px; color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <strong style="color: #f87171;">🏆 Age doesn't matter</strong><br>
+                            <span style="color: #888; font-size: 0.85rem;">If they produce, they produce</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="onboarding-result" style="display: none; text-align: center; padding: 20px;">
+                    <div style="font-size: 2rem; margin-bottom: 15px;">✨</div>
+                    <h3 style="color: #fff; margin-bottom: 10px;">Based on your answers...</h3>
+                    <div id="result-personality" style="font-size: 1.5rem; color: #667eea; font-weight: bold; margin-bottom: 10px;"></div>
+                    <p id="result-description" style="color: #888; margin-bottom: 20px;"></p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="confirmPersonality()" style="padding: 12px 30px; background: linear-gradient(135deg, #667eea, #764ba2); border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer;">Looks Good!</button>
+                        <button onclick="restartOnboarding()" style="padding: 12px 30px; background: rgba(255,255,255,0.1); border: 1px solid #444; border-radius: 8px; color: #888; cursor: pointer;">Try Again</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress indicator -->
+            <div id="onboarding-progress" style="padding: 15px 20px; border-top: 1px solid #333; display: flex; justify-content: center; gap: 8px;">
+                <div class="progress-dot" data-step="1" style="width: 10px; height: 10px; border-radius: 50%; background: #667eea;"></div>
+                <div class="progress-dot" data-step="2" style="width: 10px; height: 10px; border-radius: 50%; background: #333;"></div>
+                <div class="progress-dot" data-step="3" style="width: 10px; height: 10px; border-radius: 50%; background: #333;"></div>
+                <div class="progress-dot" data-step="4" style="width: 10px; height: 10px; border-radius: 50%; background: #333;"></div>
+                <div class="progress-dot" data-step="5" style="width: 10px; height: 10px; border-radius: 50%; background: #333;"></div>
+            </div>
         </div>
     </div>
 
@@ -2143,6 +2288,216 @@ HTML_CONTENT = '''<!DOCTYPE html>
             return prefs;
         }
 
+        // ============ GM ONBOARDING FUNCTIONS ============
+        let onboardingAnswers = {};
+        let currentOnboardingTeam = '';
+
+        const PERSONALITY_MAP = {
+            // Maps answer combinations to base personalities
+            // Format: [team_status, prospect_attitude, trade_style, risk, age] -> personality
+        };
+
+        function hasCompletedOnboarding(teamName) {
+            try {
+                const key = `gm-personality-${teamName}`;
+                return localStorage.getItem(key) !== null;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function getStoredPersonality(teamName) {
+            try {
+                const key = `gm-personality-${teamName}`;
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function savePersonality(teamName, personality) {
+            try {
+                const key = `gm-personality-${teamName}`;
+                localStorage.setItem(key, JSON.stringify(personality));
+            } catch (e) {
+                console.error('Failed to save personality:', e);
+            }
+        }
+
+        function showOnboarding(teamName) {
+            currentOnboardingTeam = teamName;
+            onboardingAnswers = {};
+
+            // Reset UI
+            document.querySelectorAll('.onboarding-question').forEach(q => q.style.display = 'none');
+            document.querySelector('.onboarding-question[data-question="1"]').style.display = 'block';
+            document.getElementById('onboarding-result').style.display = 'none';
+            document.getElementById('onboarding-progress').style.display = 'flex';
+
+            // Reset progress dots
+            document.querySelectorAll('.progress-dot').forEach(dot => {
+                dot.style.background = '#333';
+            });
+            document.querySelector('.progress-dot[data-step="1"]').style.background = '#667eea';
+
+            // Show modal
+            document.getElementById('gm-onboarding-modal').style.display = 'flex';
+        }
+
+        function selectAnswer(questionNum, answer) {
+            onboardingAnswers[questionNum] = answer;
+
+            // Update progress dots
+            document.querySelectorAll('.progress-dot').forEach(dot => {
+                const step = parseInt(dot.dataset.step);
+                if (step <= questionNum) {
+                    dot.style.background = '#667eea';
+                }
+            });
+
+            // Move to next question or show result
+            if (questionNum < 5) {
+                document.querySelector(`.onboarding-question[data-question="${questionNum}"]`).style.display = 'none';
+                document.querySelector(`.onboarding-question[data-question="${questionNum + 1}"]`).style.display = 'block';
+            } else {
+                // Calculate personality and show result
+                const result = calculatePersonality(onboardingAnswers);
+                showOnboardingResult(result);
+            }
+        }
+
+        function calculatePersonality(answers) {
+            // Map answers to personality based on combination
+            const status = answers[1];      // contending, playoff, middle, rebuilding
+            const prospects = answers[2];   // protect, selective, chips
+            const style = answers[3];       // reactive, opportunistic, aggressive
+            const risk = answers[4];        // conservative, moderate, aggressive
+            const age = answers[5];         // young, prime, veteran, any
+
+            let personality = 'balanced';
+            let name = 'Balanced Approach';
+            let description = 'Evaluates trades purely on value, balancing present and future.';
+
+            // Contenders
+            if (status === 'contending') {
+                if (prospects === 'chips' && risk === 'aggressive') {
+                    personality = 'championship_closer';
+                    name = 'Championship Closer';
+                    description = 'Elite contender focused on closing the gap. Prospects are trade chips for proven talent.';
+                } else if (prospects === 'protect') {
+                    personality = 'dynasty_champion';
+                    name = 'Dynasty Champion';
+                    description = 'Playing from strength. Only makes moves that clearly improve an already elite roster.';
+                } else {
+                    personality = 'smart_contender';
+                    name = 'Smart Contender';
+                    description = 'Top contender who maintains flexibility. Sustainable success over flash.';
+                }
+            }
+            // Playoff teams
+            else if (status === 'playoff') {
+                if (prospects === 'chips' && style === 'aggressive') {
+                    personality = 'all_in_buyer';
+                    name = 'All-In Buyer';
+                    description = 'Committed to winning now. Prospects are currency to acquire proven talent.';
+                } else if (prospects === 'protect') {
+                    personality = 'loaded_and_ready';
+                    name = 'Loaded & Ready';
+                    description = 'Competitive roster AND deep prospects. Maximum flexibility to dictate terms.';
+                } else {
+                    personality = 'aggressive_buyer';
+                    name = 'Aggressive Buyer';
+                    description = 'Willing to part with prospects to compete now. Hard bargainer.';
+                }
+            }
+            // Middle of pack
+            else if (status === 'middle') {
+                if (prospects === 'protect' && risk === 'conservative') {
+                    personality = 'rising_powerhouse';
+                    name = 'Rising Powerhouse';
+                    description = 'Mid-pack with prospects to develop. Patiently building a future dynasty.';
+                } else if (style === 'opportunistic') {
+                    personality = 'value_seeker';
+                    name = 'Value Seeker';
+                    description = 'Opportunistic trader who buys low and sells high.';
+                } else {
+                    personality = 'crossroads_decision';
+                    name = 'At The Crossroads';
+                    description = 'Time to commit to a direction. The GM will help you decide: buy or sell?';
+                }
+            }
+            // Rebuilding
+            else if (status === 'rebuilding') {
+                if (prospects === 'protect' && risk === 'conservative') {
+                    personality = 'prospect_rich_rebuilder';
+                    name = 'Prospect-Rich Rebuilder';
+                    description = 'Deep farm system. Patiently developing talent into future stars.';
+                } else if (style === 'aggressive' || risk === 'aggressive') {
+                    personality = 'desperate_accumulator';
+                    name = 'Desperate Accumulator';
+                    description = 'Aggressively acquiring prospects through any means. Always dealing.';
+                } else if (style === 'opportunistic') {
+                    personality = 'analytical_rebuilder';
+                    name = 'Analytical Rebuilder';
+                    description = 'Data-driven rebuild. Methodical seller seeking maximum prospect returns.';
+                } else {
+                    personality = 'protective_rebuilder';
+                    name = 'Protective Rebuilder';
+                    description = 'Fiercely protective of young assets. Building carefully for the future.';
+                }
+            }
+
+            return { personality, name, description };
+        }
+
+        function showOnboardingResult(result) {
+            document.querySelectorAll('.onboarding-question').forEach(q => q.style.display = 'none');
+            document.getElementById('onboarding-progress').style.display = 'none';
+
+            document.getElementById('result-personality').textContent = result.name;
+            document.getElementById('result-description').textContent = result.description;
+            document.getElementById('onboarding-result').style.display = 'block';
+
+            // Store temporarily for confirmation
+            window.pendingPersonality = result;
+        }
+
+        function confirmPersonality() {
+            if (window.pendingPersonality && currentOnboardingTeam) {
+                savePersonality(currentOnboardingTeam, window.pendingPersonality);
+                document.getElementById('gm-onboarding-modal').style.display = 'none';
+
+                // Now load the GM profile with the new personality
+                loadGMProfile();
+            }
+        }
+
+        function restartOnboarding() {
+            onboardingAnswers = {};
+            document.querySelectorAll('.onboarding-question').forEach(q => q.style.display = 'none');
+            document.querySelector('.onboarding-question[data-question="1"]').style.display = 'block';
+            document.getElementById('onboarding-result').style.display = 'none';
+            document.getElementById('onboarding-progress').style.display = 'flex';
+
+            document.querySelectorAll('.progress-dot').forEach(dot => {
+                dot.style.background = '#333';
+            });
+            document.querySelector('.progress-dot[data-step="1"]').style.background = '#667eea';
+        }
+
+        function resetManagerStyle() {
+            const teamName = document.getElementById('gmChatTeamSelect').value;
+            if (teamName) {
+                try {
+                    localStorage.removeItem(`gm-personality-${teamName}`);
+                    showOnboarding(teamName);
+                } catch (e) {
+                    console.error('Failed to reset manager style:', e);
+                }
+            }
+        }
+
         async function initGMChat() {
             // Populate team dropdown
             const select = document.getElementById('gmChatTeamSelect');
@@ -2180,6 +2535,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             gmChatTeam = teamName;
             gmChatHistory = [];
+
+            // Check if user has completed onboarding for this team
+            if (!hasCompletedOnboarding(teamName)) {
+                showOnboarding(teamName);
+                return;
+            }
 
             try {
                 // Get GM profile and team data from server
@@ -2223,6 +2584,16 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         prefsContainer.style.display = 'none';
                         document.getElementById('gm-prefs-section').style.display = 'none';
                     }
+                }
+
+                // Display user's manager style (from onboarding)
+                const storedPersonality = getStoredPersonality(teamName);
+                if (storedPersonality) {
+                    document.getElementById('gm-manager-style').textContent = storedPersonality.name;
+                    document.getElementById('gm-manager-desc').textContent = storedPersonality.description;
+                    document.getElementById('gm-manager-style-section').style.display = 'block';
+                } else {
+                    document.getElementById('gm-manager-style-section').style.display = 'none';
                 }
 
                 // Enable chat if API is available
