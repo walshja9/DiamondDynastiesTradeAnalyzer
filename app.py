@@ -6270,14 +6270,27 @@ CRITICAL RULES:
 - If you cannot construct a fair offer, SAY SO: "We'd need to overpay significantly to get this player"
 - ALWAYS show your math: "Player A (45) + Player B (40) = 85 total for Player C (80) = ratio 1.06 = fair"
 
+NEVER TRADE DOWN IN VALUE:
+- DO NOT suggest trading a higher-value player for a lower-value player in a 1-for-1
+- WRONG: Trading Sanchez (92) for Crow-Armstrong (80) = We LOSE 12 points of value!
+- If the target is worth 80, offer a player worth 75-85, NOT a player worth 92+
+- The goal is to ACQUIRE value or trade laterally, NOT to give away value
+- Only overpay slightly (up to 1.15x) if there's a compelling strategic reason (age, position need)
+
+USE TRADEABLE ASSETS, NOT CORE PLAYERS:
+- Your CORE = Top 4 players by value - do NOT suggest trading these unless user specifically asks
+- Your TRADEABLE ASSETS = Players ranked 5-15 by value - USE THESE to construct offers
+- Look at the "TRADEABLE ASSETS" section of your roster data for pieces to offer
+- Example: If target is worth 75, look for tradeable assets worth 65-85 to offer
+- You can combine 2 tradeable assets (like 45+35=80) to match an 80-value target
+
 REALISTIC TRADE TARGET GUIDELINES (CRITICAL):
-- "Realistic targets" means players your team can ACTUALLY acquire without gutting the roster
-- Players valued 90+ (superstars like Ohtani, Acuna, Bobby Witt) are virtually UNTOUCHABLE - don't suggest them as realistic targets
-- Focus on players in the 40-75 value range - these are actually acquirable
-- Look at YOUR roster's tradeable pieces and find targets that match what you can offer
-- A "realistic" target is one where you have enough surplus value to make a FAIR offer (within 15%!)
-- If asked for trade targets, suggest players that fill team NEEDS and are realistically acquirable
-- Don't suggest trading your best players (top 3-4 by value) unless specifically asked
+- "Realistic targets" = players you can acquire using your TRADEABLE ASSETS (not core)
+- If your best tradeable asset is worth 60, your realistic targets are players worth 50-70
+- Players valued 90+ are virtually UNTOUCHABLE - don't suggest them as realistic targets
+- Focus on players whose value MATCHES your available tradeable pieces
+- If asked for trade targets, suggest players that fill team NEEDS and match tradeable asset values
+- NEVER suggest trading your core (top 4) unless specifically asked
 
 ALWAYS SHOW YOUR MATH WHEN SUGGESTING TRADES:
 - Format: "Player A (52) + Player B (35) = 87 total → for Player C (80) = ratio 87÷80 = 1.09 = FAIR"
