@@ -520,7 +520,7 @@ ELITE_YOUNG_PLAYERS = {
     "Jordan Lawlar": 1.10,        # 23yo SS, elite prospect pedigree
     "Jackson Merrill": 1.12,      # 23yo OF, breakout 2024
     "Wyatt Langford": 1.10,       # 25yo OF, power upside
-    "Pete Crow-Armstrong": 1.10,  # 24yo OF, elite CF defense
+    "Pete Crow-Armstrong": 1.15,  # 24yo OF, proven 30/30 (31 HR, 35 SB in 2025), elite CF defense
 }
 
 # Proven veteran stars (ages 26-32) who deserve a boost for their track record and reliability
