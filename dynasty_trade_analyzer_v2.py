@@ -495,12 +495,12 @@ UNPROVEN_PITCHERS = {
     "Forrest Whitley",   # ~10 career IP, former top prospect
 }
 
-# Elite young players whose dynasty value exceeds their pure projection-based value
-# These are proven MLB talents (age 26 or younger) where projections are conservative
-# Bonus multiplier applied to base value to reflect true dynasty market value
-# Format: "Player Name": bonus_multiplier (1.15 = +15% boost, 1.20 = +20% boost)
+# Elite young players who deserve ADDITIONAL boost beyond the automatic elite category boost
+# The automatic boost (in calculate_hitter_value) handles: HR≥35, SB≥35, AVG≥.300, RBI≥110
+# This manual list is for truly exceptional talents whose dynasty value exceeds even that
+# Format: "Player Name": bonus_multiplier (1.15 = +15% ADDITIONAL boost, stacks with automatic)
 ELITE_YOUNG_PLAYERS = {
-    # Tier 1: Generational/MVP-caliber young superstars (20%+ boost)
+    # Tier 1: Generational/MVP-caliber young superstars (20%+ additional boost)
     "Elly De La Cruz": 1.20,      # 24yo SS, elite speed/power combo, 40+ SB, 25+ HR upside
     "Bobby Witt Jr.": 1.20,       # 26yo SS, 30/30 caliber, MVP candidate
     "Gunnar Henderson": 1.20,     # 24yo SS, elite power, future MVP
@@ -715,7 +715,51 @@ class DynastyValueCalculator:
                 so_score = max(35 - (proj['SO'] - 170) * 0.5, 5)
             so_score = min(so_score, 115)
             value += so_score * DynastyValueCalculator.HITTING_WEIGHTS['so']
-            
+
+            # ============ AUTOMATIC ELITE YOUNG HITTER BOOST ============
+            # Young players (≤25) with elite single-category production get a boost
+            # This compensates for the balanced formula penalizing specialists
+            if player.age > 0 and player.age <= 25:
+                elite_boost = 1.0
+                elite_categories = 0
+
+                # Elite power: 35+ HR
+                if proj['HR'] >= 40:
+                    elite_boost += 0.12  # 40+ HR is exceptional
+                    elite_categories += 1
+                elif proj['HR'] >= 35:
+                    elite_boost += 0.08
+                    elite_categories += 1
+
+                # Elite speed: 35+ SB
+                if proj['SB'] >= 40:
+                    elite_boost += 0.12  # 40+ SB is exceptional
+                    elite_categories += 1
+                elif proj['SB'] >= 35:
+                    elite_boost += 0.08
+                    elite_categories += 1
+
+                # Elite contact: .300+ AVG
+                if proj['AVG'] >= 0.310:
+                    elite_boost += 0.10  # .310+ is exceptional
+                    elite_categories += 1
+                elif proj['AVG'] >= 0.300:
+                    elite_boost += 0.06
+                    elite_categories += 1
+
+                # Elite run production: 110+ RBI
+                if proj['RBI'] >= 110:
+                    elite_boost += 0.08
+                    elite_categories += 1
+
+                # Multi-category elite bonus (5-tool players)
+                if elite_categories >= 2:
+                    elite_boost += 0.05  # Extra boost for multi-category elite
+
+                # Apply automatic boost (capped at 25% to avoid stacking too high)
+                elite_boost = min(elite_boost, 1.25)
+                value *= elite_boost
+
         else:
             # Fall back to Fantrax score with discount based on rank
             if player.fantrax_rank < 100:
@@ -726,8 +770,8 @@ class DynastyValueCalculator:
                 value = player.fantrax_score * 0.50
             else:
                 value = player.fantrax_score * 0.35
-        
-        # Dynasty adjustments (with reduced stacking)
+
+        # Dynasty adjustments (with reduced stacking) - includes manual ELITE_YOUNG_PLAYERS boost
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=True)
 
         return value  # No cap - show true dynasty value
