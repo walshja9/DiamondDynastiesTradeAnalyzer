@@ -2971,13 +2971,13 @@ def calculate_fa_dynasty_value(fa):
 
     if is_prospect and prospect_rank:
         # Use same linear formula as rostered prospects
-        # Rank 1 = 68 value, Rank 300 = 1 value
-        # Formula: value = 1 + (67 * (300 - rank) / 299)
+        # Rank 1 = 68 value, Rank 300 = 0.5 value
+        # Formula: value = 0.5 + (67.5 * (300 - rank) / 299)
         if prospect_rank <= 300:
-            value = 1 + (67 * (300 - prospect_rank) / 299)
+            value = 0.5 + (67.5 * (300 - prospect_rank) / 299)
         else:
-            # Beyond rank 300: minimal value, decaying further
-            value = max(0.5, 1 - ((prospect_rank - 300) * 0.01))
+            # Beyond rank 300: minimal value
+            value = 0.5
 
         final_value = round(value, 1)
         print(f"  -> FA PROSPECT LINEAR VALUE: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
@@ -3827,9 +3827,9 @@ def get_prospects():
         if name not in found_prospects:
             metadata = PROSPECT_METADATA.get(name, {})
             # Use same linear formula as rostered prospects
-            # Rank 1 = 68, Rank 300 = 1
-            # Formula: value = 1 + (67 * (300 - rank) / 299)
-            est_value = 1 + (67 * (300 - rank) / 299)
+            # Rank 1 = 68, Rank 300 = 0.5
+            # Formula: value = 0.5 + (67.5 * (300 - rank) / 299)
+            est_value = 0.5 + (67.5 * (300 - rank) / 299)
 
             # All prospects are available in Fantrax pool - show as Free Agent
             found_prospects[name] = {

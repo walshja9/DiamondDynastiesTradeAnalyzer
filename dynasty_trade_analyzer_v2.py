@@ -778,18 +778,18 @@ class DynastyValueCalculator:
         value *= bonus_multiplier
         
         # Prospect adjustments - smooth linear scale from rank 1 to 300
-        # Rank 1 = 68 value, Rank 300 = 1 value
-        # Formula: value = 1 + (67 * (300 - rank) / 299)
+        # Rank 1 = 68 value, Rank 300 = 0.5 value
+        # Formula: value = 0.5 + (67.5 * (300 - rank) / 299)
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
 
             # Cap rank at 300 for the formula (anything beyond gets minimum)
             if rank <= 300:
-                # Linear scale: Rank 1 = 68, Rank 300 = 1
-                prospect_value = 1 + (67 * (300 - rank) / 299)
+                # Linear scale: Rank 1 = 68, Rank 300 = 0.5
+                prospect_value = 0.5 + (67.5 * (300 - rank) / 299)
             else:
-                # Beyond rank 300: minimal value, decaying further
-                prospect_value = max(0.5, 1 - ((rank - 300) * 0.01))
+                # Beyond rank 300: minimal value
+                prospect_value = 0.5
 
             # Use prospect value directly - rank determines value for prospects
             value = prospect_value
