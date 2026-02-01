@@ -465,6 +465,7 @@ PLAYER_AGES = {
     "Carlos Rodon": 33,
     # Unproven pitchers with high prospect pedigree but minimal MLB track record
     "Forrest Whitley": 27,  # Born Sept 15, 1997 - only ~10 career IP
+    "Davis Martin": 28,     # Born Sept 4, 1997 - limited MLB innings
     # Relievers (ages verified for 2026 season)
     "Mason Miller": 27, "Edwin Diaz": 32, "Cade Smith": 26, "Jhoan Duran": 28,  # Mason Miller: Aug 24, 1998, Duran: Jan 8, 1998
     "Josh Hader": 32, "Andres Munoz": 27, "Aroldis Chapman": 38, "Devin Williams": 31,  # Munoz: Jan 16, 1999
@@ -486,6 +487,13 @@ PLAYER_AGES = {
     "Kyle Finnegan": 33, "Lucas Erceg": 31, "Steven Okert": 35, "Bryan Baker": 32,
     "Kirby Yates": 37, "Jordan Leasure": 27, "Brusdar Graterol": 27, "Taylor Rogers": 34,
     "Kevin Ginkel": 30,
+}
+
+# Pitchers with minimal MLB track record whose projections are unreliable
+# These get an 80% discount regardless of fantrax data
+UNPROVEN_PITCHERS = {
+    "Forrest Whitley",   # ~10 career IP, former top prospect
+    "Davis Martin",      # Limited MLB innings, injury history
 }
 
 # Pitcher handedness (L = Left, R = Right)
@@ -932,24 +940,20 @@ class DynastyValueCalculator:
     def _apply_unproven_pitcher_discount(player: Player, value: float) -> float:
         """Apply discount to pitchers with high projections but no MLB track record.
 
-        Pitchers aged 26+ with very low Fantrax scores (<=5) and high Fantrax ranks (>1000)
-        are likely unproven arms whose projections are based on minors/potential, not
-        actual MLB performance. These projections are highly unreliable and should be
-        heavily discounted.
-
-        Example: Forrest Whitley (age 28, score 0, rank 7053) - only 10 career IP
-        but ZiPS projects him like a #3 starter based on past prospect hype.
+        Pitchers in UNPROVEN_PITCHERS list or those aged 26+ with very low Fantrax
+        scores (<=5) and high Fantrax ranks (>1000) are likely unproven arms whose
+        projections are based on minors/potential, not actual MLB performance.
         """
-        # Get player's Fantrax metrics
+        # Check explicit unproven list first
+        if player.name in UNPROVEN_PITCHERS:
+            value *= 0.20
+            return value
+
+        # Also check Fantrax metrics for pitchers not in the list
         fantrax_score = getattr(player, 'fantrax_score', 100)  # Default to established
         fantrax_rank = getattr(player, 'fantrax_rank', 1)  # Default to low rank (good)
 
-        # Unproven pitcher criteria:
-        # - Age 26 or older (should have established themselves by now)
-        # - Fantrax score <= 5 (essentially zero fantasy production)
-        # - Fantrax rank > 1000 (way outside normal fantasy relevance)
         if player.age >= 26 and fantrax_score <= 5 and fantrax_rank > 1000:
-            # Apply 80% discount - projections for unproven 26+ year olds are unreliable
             value *= 0.20
 
         return value
