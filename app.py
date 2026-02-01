@@ -7,6 +7,20 @@ import os
 import json
 from flask import Flask, request, jsonify, Response
 from itertools import combinations
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Anthropic client for GM Chat
+try:
+    import anthropic
+    ANTHROPIC_CLIENT = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+    GM_CHAT_ENABLED = bool(os.getenv('ANTHROPIC_API_KEY'))
+except ImportError:
+    ANTHROPIC_CLIENT = None
+    GM_CHAT_ENABLED = False
+    print("Warning: anthropic package not installed. GM Chat will be disabled.")
 
 # Import from the core analyzer module
 from dynasty_trade_analyzer_v2 import (
@@ -1054,6 +1068,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <button class="tab" onclick="showPanel('freeagents')">Free Agents</button>
             <button class="tab" onclick="showPanel('search')">Player Search</button>
             <button class="tab" onclick="showPanel('league')">League</button>
+            <button class="tab" onclick="showPanel('gmchat')" id="gmchat-tab" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">GM Chat</button>
         </div>
 
         <div id="analyze-panel" class="panel active">
@@ -1288,6 +1303,79 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <div id="league-matchups" class="league-tab" style="display:none;"></div>
             <div id="league-transactions" class="league-tab" style="display:none;"></div>
         </div>
+
+        <div id="gmchat-panel" class="panel">
+            <div style="display: flex; gap: 20px; height: calc(100vh - 200px); min-height: 500px;">
+                <!-- Left side: Team Selection & GM Info -->
+                <div style="width: 280px; flex-shrink: 0;">
+                    <div style="background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.1)); border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; padding: 20px;">
+                        <h3 style="color: #667eea; margin: 0 0 15px 0; font-size: 1.1rem;">Select Your Team</h3>
+                        <select id="gmChatTeamSelect" onchange="loadGMProfile()" style="width: 100%; padding: 10px; border-radius: 8px; background: #1a1a2e; border: 1px solid #333; color: #fff; font-size: 14px;">
+                            <option value="">Choose a team...</option>
+                        </select>
+
+                        <div id="gm-profile" style="margin-top: 20px; display: none;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                <div id="gm-avatar" style="width: 50px; height: 50px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #fff;"></div>
+                                <div>
+                                    <div id="gm-name" style="font-weight: bold; color: #fff;"></div>
+                                    <div id="gm-title" style="font-size: 0.85rem; color: #888;"></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                                <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Philosophy</div>
+                                <div id="gm-philosophy" style="color: #667eea; font-weight: 500;"></div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                                <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Trade Style</div>
+                                <div id="gm-tradestyle" style="color: #aaa;"></div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px;">
+                                <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Team Status</div>
+                                <div id="gm-teamstatus" style="color: #aaa;"></div>
+                            </div>
+                        </div>
+
+                        <div id="gm-chat-disabled" style="margin-top: 20px; padding: 15px; background: rgba(255,100,100,0.1); border: 1px solid rgba(255,100,100,0.3); border-radius: 8px; display: none;">
+                            <div style="color: #ff6b6b; font-weight: bold; margin-bottom: 8px;">Chat Unavailable</div>
+                            <div style="color: #888; font-size: 0.85rem;">API key not configured. Add ANTHROPIC_API_KEY to .env file.</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 15px; background: rgba(0,212,255,0.05); border: 1px solid rgba(0,212,255,0.2); border-radius: 8px;">
+                        <div style="color: #00d4ff; font-weight: bold; margin-bottom: 8px; font-size: 0.9rem;">Example Questions</div>
+                        <div style="color: #888; font-size: 0.8rem; line-height: 1.6;">
+                            <div style="cursor: pointer; padding: 4px 0;" onclick="askQuestion('What are my biggest roster needs?')">• What are my biggest roster needs?</div>
+                            <div style="cursor: pointer; padding: 4px 0;" onclick="askQuestion('Should I be buying or selling?')">• Should I be buying or selling?</div>
+                            <div style="cursor: pointer; padding: 4px 0;" onclick="askQuestion('Who should I target in trades?')">• Who should I target in trades?</div>
+                            <div style="cursor: pointer; padding: 4px 0;" onclick="askQuestion('What is my championship window?')">• What is my championship window?</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right side: Chat Interface -->
+                <div style="flex: 1; display: flex; flex-direction: column; background: linear-gradient(135deg, rgba(26,26,46,0.8), rgba(22,22,35,0.9)); border: 1px solid #333; border-radius: 12px; overflow: hidden;">
+                    <div id="chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                        <div style="text-align: center; color: #666; padding: 40px;">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">🤖</div>
+                            <div style="font-size: 1.1rem; color: #888;">Select a team to start chatting with your AI GM</div>
+                            <div style="font-size: 0.9rem; color: #666; margin-top: 8px;">Get personalized trade advice, roster analysis, and strategy tips</div>
+                        </div>
+                    </div>
+                    <div style="padding: 15px; border-top: 1px solid #333; background: rgba(0,0,0,0.3);">
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="chat-input" placeholder="Ask your GM anything..."
+                                   style="flex: 1; padding: 12px 15px; border-radius: 8px; background: #1a1a2e; border: 1px solid #444; color: #fff; font-size: 14px;"
+                                   onkeypress="if(event.key === 'Enter') sendChatMessage()" disabled>
+                            <button onclick="sendChatMessage()" id="chat-send-btn"
+                                    style="padding: 12px 25px; border-radius: 8px; background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: #fff; font-weight: bold; cursor: pointer; opacity: 0.5;" disabled>
+                                Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="player-modal" class="modal" onclick="closeModal(event)">
@@ -1434,6 +1522,195 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             if (panel === 'league') loadLeagueData();
             if (panel === 'freeagents') loadFASuggestions();
+            if (panel === 'gmchat') initGMChat();
+        }
+
+        // ============ GM CHAT FUNCTIONS ============
+        let gmChatHistory = [];
+        let gmChatTeam = '';
+        let gmChatEnabled = false;
+
+        async function initGMChat() {
+            // Populate team dropdown
+            const select = document.getElementById('gmChatTeamSelect');
+            if (select.options.length <= 1) {
+                teamsData.forEach(team => {
+                    const option = document.createElement('option');
+                    option.value = team.name;
+                    option.textContent = team.name;
+                    select.appendChild(option);
+                });
+            }
+
+            // Check if chat is enabled
+            try {
+                const resp = await fetch(`${API_BASE}/gm-chat-status`);
+                const data = await resp.json();
+                gmChatEnabled = data.enabled;
+                if (!gmChatEnabled) {
+                    document.getElementById('gm-chat-disabled').style.display = 'block';
+                }
+            } catch (e) {
+                console.error('Failed to check GM chat status:', e);
+            }
+        }
+
+        async function loadGMProfile() {
+            const teamName = document.getElementById('gmChatTeamSelect').value;
+            if (!teamName) {
+                document.getElementById('gm-profile').style.display = 'none';
+                document.getElementById('chat-input').disabled = true;
+                document.getElementById('chat-send-btn').disabled = true;
+                document.getElementById('chat-send-btn').style.opacity = '0.5';
+                return;
+            }
+
+            gmChatTeam = teamName;
+            gmChatHistory = [];
+
+            try {
+                // Get GM profile
+                const gmResp = await fetch(`${API_BASE}/assistant-gm/${encodeURIComponent(teamName)}`);
+                const gm = await gmResp.json();
+
+                // Get team data for status
+                const teamResp = await fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`);
+                const team = await teamResp.json();
+
+                // Update GM profile display
+                document.getElementById('gm-avatar').textContent = gm.name.charAt(0);
+                document.getElementById('gm-name').textContent = gm.name;
+                document.getElementById('gm-title').textContent = gm.title;
+                document.getElementById('gm-philosophy').textContent = gm.philosophy_details?.name || gm.philosophy;
+                document.getElementById('gm-tradestyle').textContent = gm.trade_style;
+                document.getElementById('gm-teamstatus').innerHTML = `#${team.power_rank} Power Rank<br>${team.total_value?.toFixed(0) || 0} Total Value`;
+                document.getElementById('gm-profile').style.display = 'block';
+
+                // Enable chat if API is available
+                if (gmChatEnabled) {
+                    document.getElementById('chat-input').disabled = false;
+                    document.getElementById('chat-send-btn').disabled = false;
+                    document.getElementById('chat-send-btn').style.opacity = '1';
+                }
+
+                // Reset chat messages with welcome
+                document.getElementById('chat-messages').innerHTML = `
+                    <div style="display: flex; gap: 12px; align-items: flex-start;">
+                        <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">${gm.name.charAt(0)}</div>
+                        <div style="background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; padding: 15px; max-width: 80%;">
+                            <div style="color: #667eea; font-weight: bold; margin-bottom: 8px;">${gm.name}</div>
+                            <div style="color: #ddd; line-height: 1.5;">${gm.catchphrase}</div>
+                            <div style="color: #888; font-size: 0.85rem; margin-top: 10px;">Ask me anything about the ${teamName} - trades, roster moves, strategy, or just chat about the team!</div>
+                        </div>
+                    </div>
+                `;
+
+            } catch (e) {
+                console.error('Failed to load GM profile:', e);
+            }
+        }
+
+        function askQuestion(question) {
+            if (!gmChatTeam) {
+                alert('Please select a team first');
+                return;
+            }
+            document.getElementById('chat-input').value = question;
+            sendChatMessage();
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+
+            if (!message || !gmChatTeam || !gmChatEnabled) return;
+
+            // Add user message to chat
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML += `
+                <div style="display: flex; gap: 12px; align-items: flex-start; justify-content: flex-end;">
+                    <div style="background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3); border-radius: 12px; padding: 15px; max-width: 80%;">
+                        <div style="color: #ddd; line-height: 1.5;">${escapeHtml(message)}</div>
+                    </div>
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #00d4ff, #0099cc); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">You</div>
+                </div>
+            `;
+
+            // Add to history
+            gmChatHistory.push({ role: 'user', content: message });
+
+            // Clear input and show loading
+            input.value = '';
+            const loadingId = 'loading-' + Date.now();
+            chatMessages.innerHTML += `
+                <div id="${loadingId}" style="display: flex; gap: 12px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">...</div>
+                    <div style="background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; padding: 15px;">
+                        <div style="color: #888;">Thinking...</div>
+                    </div>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const response = await fetch(`${API_BASE}/gm-chat/${encodeURIComponent(gmChatTeam)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        history: gmChatHistory.slice(-10)
+                    })
+                });
+
+                const data = await response.json();
+
+                // Remove loading
+                document.getElementById(loadingId)?.remove();
+
+                if (data.error) {
+                    chatMessages.innerHTML += `
+                        <div style="display: flex; gap: 12px; align-items: flex-start;">
+                            <div style="width: 36px; height: 36px; background: #ff4d6d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">!</div>
+                            <div style="background: rgba(255,77,109,0.15); border: 1px solid rgba(255,77,109,0.3); border-radius: 12px; padding: 15px;">
+                                <div style="color: #ff6b6b;">${escapeHtml(data.error)}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Add assistant response
+                    const gmName = document.getElementById('gm-name').textContent;
+                    gmChatHistory.push({ role: 'assistant', content: data.response });
+
+                    chatMessages.innerHTML += `
+                        <div style="display: flex; gap: 12px; align-items: flex-start;">
+                            <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">${gmName.charAt(0)}</div>
+                            <div style="background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; padding: 15px; max-width: 80%;">
+                                <div style="color: #667eea; font-weight: bold; margin-bottom: 8px;">${gmName}</div>
+                                <div style="color: #ddd; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(data.response)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            } catch (e) {
+                document.getElementById(loadingId)?.remove();
+                chatMessages.innerHTML += `
+                    <div style="display: flex; gap: 12px; align-items: flex-start;">
+                        <div style="width: 36px; height: 36px; background: #ff4d6d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">!</div>
+                        <div style="background: rgba(255,77,109,0.15); border: 1px solid rgba(255,77,109,0.3); border-radius: 12px; padding: 15px;">
+                            <div style="color: #ff6b6b;">Failed to get response. Please try again.</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         async function loadLeagueData() {
@@ -4126,6 +4403,173 @@ def update_team_profile_route(team_name):
     return jsonify({"error": "Failed to save profile"}), 500
 
 
+# ============================================================================
+# GM CHAT - AI-Powered Dynasty Advisor
+# ============================================================================
+
+def build_gm_chat_context(team_name):
+    """Build comprehensive context about a team for the GM chat."""
+    if team_name not in teams:
+        return None
+
+    team = teams[team_name]
+    gm = get_assistant_gm(team_name)
+
+    # Get player values
+    players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+    players_with_value.sort(key=lambda x: x[1], reverse=True)
+
+    # Get rankings
+    _, power_rankings, _ = get_team_rankings()
+    power_rank = power_rankings.get(team_name, 0)
+    team_cats, cat_rankings = calculate_league_category_rankings()
+    my_ranks = cat_rankings.get(team_name, {})
+
+    # Championship odds
+    champ_odds = get_team_championship_odds(team_name)
+
+    # Build roster summary
+    top_players = [(p.name, round(v, 1), p.age, p.position) for p, v in players_with_value[:15]]
+    prospects = [(p.name, p.prospect_rank, round(calculator.calculate_player_value(p), 1))
+                 for p in team.players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100]
+    prospects.sort(key=lambda x: x[1])
+
+    # Category analysis
+    strengths = [f"{cat} (#{rank})" for cat, rank in my_ranks.items() if rank <= 3]
+    weaknesses = [f"{cat} (#{rank})" for cat, rank in my_ranks.items() if rank >= 9]
+
+    # Age breakdown
+    ages = [p.age for p in team.players if p.age > 0]
+    avg_age = sum(ages) / len(ages) if ages else 0
+    young_count = len([a for a in ages if a <= 25])
+    prime_count = len([a for a in ages if 26 <= a <= 30])
+    vet_count = len([a for a in ages if a > 30])
+
+    # Total value
+    total_value = sum(v for _, v in players_with_value)
+
+    # Draft pick
+    draft_pick = draft_order_config.get(team_name, 0)
+
+    # Build context string
+    context = f"""You are the AI Assistant GM for {team_name} in a dynasty fantasy baseball league.
+
+YOUR GM PERSONALITY:
+- Name: {gm['name']}
+- Title: {gm['title']}
+- Philosophy: {gm['philosophy']}
+- Personality: {gm['personality']}
+- Trade Style: {gm['trade_style']}
+- Risk Tolerance: {gm['risk_tolerance']}
+- Priorities: {', '.join(gm['priorities'])}
+
+TEAM OVERVIEW:
+- Power Rank: #{power_rank} of {len(teams)} teams
+- Championship Odds: {champ_odds}%
+- Total Roster Value: {total_value:.0f} points
+- Draft Pick: #{draft_pick}
+
+ROSTER (Top 15 by value):
+{chr(10).join([f"  {i+1}. {name} - Value: {val}, Age: {age}, Pos: {pos}" for i, (name, val, age, pos) in enumerate(top_players)])}
+
+PROSPECTS ON ROSTER (Top 100):
+{chr(10).join([f"  #{rank} {name} (Value: {val})" for name, rank, val in prospects[:8]]) if prospects else "  None"}
+
+CATEGORY STRENGTHS: {', '.join(strengths) if strengths else 'None'}
+CATEGORY WEAKNESSES: {', '.join(weaknesses) if weaknesses else 'None'}
+
+AGE BREAKDOWN:
+- Young (≤25): {young_count} players
+- Prime (26-30): {prime_count} players
+- Veterans (31+): {vet_count} players
+- Average Age: {avg_age:.1f}
+
+LEAGUE CONTEXT:
+- 12-team dynasty league
+- H2H categories format
+- All {len(teams)} teams competing
+
+INSTRUCTIONS:
+- Respond as this team's GM with their personality and philosophy
+- Give specific, actionable advice based on the team's actual roster and needs
+- Reference specific players by name when relevant
+- Consider the team's championship window and contention status
+- Keep responses concise but insightful (2-4 paragraphs max)
+- Be honest about weaknesses while staying encouraging
+"""
+    return context
+
+
+@app.route('/gm-chat/<team_name>', methods=['POST'])
+def gm_chat(team_name):
+    """Chat with the AI GM for a specific team."""
+    if not GM_CHAT_ENABLED:
+        return jsonify({
+            "error": "GM Chat is not enabled. Please add ANTHROPIC_API_KEY to your .env file."
+        }), 503
+
+    if team_name not in teams:
+        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+
+    data = request.get_json()
+    user_message = data.get('message', '').strip()
+    conversation_history = data.get('history', [])
+
+    if not user_message:
+        return jsonify({"error": "No message provided"}), 400
+
+    # Build team context
+    context = build_gm_chat_context(team_name)
+    if not context:
+        return jsonify({"error": "Could not build team context"}), 500
+
+    try:
+        # Build messages for the API
+        messages = []
+
+        # Add conversation history
+        for msg in conversation_history[-10:]:  # Keep last 10 messages for context
+            messages.append({
+                "role": msg.get("role", "user"),
+                "content": msg.get("content", "")
+            })
+
+        # Add current user message
+        messages.append({
+            "role": "user",
+            "content": user_message
+        })
+
+        # Call Claude API
+        response = ANTHROPIC_CLIENT.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=1024,
+            system=context,
+            messages=messages
+        )
+
+        assistant_message = response.content[0].text
+
+        return jsonify({
+            "response": assistant_message,
+            "team": team_name,
+            "model": "claude-3-haiku"
+        })
+
+    except Exception as e:
+        print(f"GM Chat error: {e}")
+        return jsonify({"error": f"Chat error: {str(e)}"}), 500
+
+
+@app.route('/gm-chat-status')
+def gm_chat_status():
+    """Check if GM Chat is enabled."""
+    return jsonify({
+        "enabled": GM_CHAT_ENABLED,
+        "model": "claude-3-haiku" if GM_CHAT_ENABLED else None
+    })
+
+
 @app.route('/find-trades-for-player')
 def find_trades_for_player():
     player_name = request.args.get('player_name', '')
@@ -6718,9 +7162,20 @@ def get_player(player_name):
             else:
                 prospect_bonus = 3
 
-        # Build trade advice
+        # Build trade advice based on prospect tier
         if is_fa_prospect and fa_prospect_rank:
-            trade_advice = f"TOP {fa_prospect_rank} PROSPECT available as free agent! High priority pickup for dynasty leagues."
+            if fa_prospect_rank <= 10:
+                trade_advice = f"🚨 ELITE TOP-10 PROSPECT (#{fa_prospect_rank}) available! Immediate high-priority pickup - future cornerstone player."
+            elif fa_prospect_rank <= 25:
+                trade_advice = f"⭐ TOP-25 PROSPECT (#{fa_prospect_rank}) on waivers! High-priority dynasty pickup with star upside."
+            elif fa_prospect_rank <= 50:
+                trade_advice = f"TOP-50 PROSPECT (#{fa_prospect_rank}) available. Strong dynasty asset - should be rostered in all leagues."
+            elif fa_prospect_rank <= 100:
+                trade_advice = f"Top-100 prospect (#{fa_prospect_rank}). Solid dynasty stash with upside - worth a roster spot."
+            elif fa_prospect_rank <= 150:
+                trade_advice = f"Ranked prospect (#{fa_prospect_rank}). Speculative add if you have roster space."
+            else:
+                trade_advice = f"Fringe prospect (#{fa_prospect_rank}). Deep league stash only - monitor development."
         else:
             trade_advice = f"Free agent with {fa_data['roster_pct']:.0f}% roster rate. Fantrax rank #{fa_data['rank']}. Consider adding if he fills a need."
 
