@@ -66,8 +66,9 @@ class Player:
     roster_status: str = "Active"  # Active, Reserve, Minors, Inj Res
     age: int = 0
     fantrax_score: float = 0.0
-    fantrax_rank: int = 999
-    
+    fantrax_rank: int = 9999  # Default to high rank (unranked/unknown player)
+    throws: str = ""  # L = Left, R = Right (for pitchers)
+
     # Hitting projections
     proj_avg: float = 0.0
     proj_ops: float = 0.0
@@ -462,6 +463,8 @@ PLAYER_AGES = {
     "Grayson Rodriguez": 26, "Corbin Burnes": 31, "Roki Sasaki": 24, "Bryce Miller": 27,  # Rodriguez: Nov 16, 1999, Sasaki: Nov 3, 2001, Miller: Aug 23, 1998
     "Bailey Ober": 30, "Brady Singer": 29, "Cade Horton": 24, "AJ Smith-Shawver": 23,  # Horton: Aug 20, 2001, Smith-Shawver: Nov 20, 2002
     "Carlos Rodon": 33,
+    # Unproven pitchers with high prospect pedigree but minimal MLB track record
+    "Forrest Whitley": 27,  # Born Sept 15, 1997 - only ~10 career IP
     # Relievers (ages verified for 2026 season)
     "Mason Miller": 27, "Edwin Diaz": 32, "Cade Smith": 26, "Jhoan Duran": 28,  # Mason Miller: Aug 24, 1998, Duran: Jan 8, 1998
     "Josh Hader": 32, "Andres Munoz": 27, "Aroldis Chapman": 38, "Devin Williams": 31,  # Munoz: Jan 16, 1999
@@ -483,6 +486,59 @@ PLAYER_AGES = {
     "Kyle Finnegan": 33, "Lucas Erceg": 31, "Steven Okert": 35, "Bryan Baker": 32,
     "Kirby Yates": 37, "Jordan Leasure": 27, "Brusdar Graterol": 27, "Taylor Rogers": 34,
     "Kevin Ginkel": 30,
+}
+
+# Pitcher handedness (L = Left, R = Right)
+# Used to provide accurate information in AI analysis
+PITCHER_HANDEDNESS = {
+    # Starters - Left-handed
+    "Tarik Skubal": "L", "Garrett Crochet": "L", "Max Fried": "L", "Chris Sale": "L",
+    "Framber Valdez": "L", "Jesus Luzardo": "L", "Blake Snell": "L", "Shane McClanahan": "L",
+    "Nick Lodolo": "L", "Ranger Suarez": "L", "David Peterson": "L", "Ryan Weathers": "L",
+    "Robert Gasser": "L", "Shota Imanaga": "L", "Cristopher Sanchez": "L", "MacKenzie Gore": "L",
+    "Patrick Corbin": "L", "Eduardo Rodriguez": "L", "Sean Manaea": "L", "Cody Bradford": "L",
+    "Andrew Heaney": "L", "Rich Hill": "L", "Jordan Montgomery": "L", "JP Sears": "L",
+    "Matthew Boyd": "L", "Tyler Anderson": "L", "Steven Matz": "L", "Kyle Freeland": "L",
+    "DL Hall": "L", "Drew Smyly": "L", "Mitchell Parker": "L", "Carlos Rodon": "L",
+    "Kris Bubic": "L", "Jose Quintana": "L", "Yusei Kikuchi": "L", "Reid Detmers": "L",
+    # Starters - Right-handed
+    "Paul Skenes": "R", "Logan Webb": "R", "Logan Gilbert": "R", "Bryan Woo": "R",
+    "Hunter Brown": "R", "Jacob deGrom": "R", "Yoshinobu Yamamoto": "R", "Hunter Greene": "R",
+    "George Kirby": "R", "Cole Ragans": "R", "Joe Ryan": "R", "Spencer Schwellenbach": "R",
+    "Dylan Cease": "R", "Nathan Eovaldi": "R", "Sonny Gray": "R", "Nick Pivetta": "R",
+    "Freddy Peralta": "R", "Zack Wheeler": "R", "Kevin Gausman": "R", "Luis Castillo": "R",
+    "Pablo Lopez": "R", "Brandon Woodruff": "R", "Tyler Glasnow": "R", "Gerrit Cole": "R",
+    "Kyle Bradish": "R", "Joe Musgrove": "R", "Chase Burns": "R", "Joe Boyle": "R",
+    "Seth Lugo": "R", "Jared Jones": "R", "Tanner Bibee": "R", "Luis Gil": "R",
+    "Michael King": "R", "Grayson Rodriguez": "R", "Corbin Burnes": "R", "Roki Sasaki": "R",
+    "Bryce Miller": "R", "Bailey Ober": "R", "Brady Singer": "R", "Cade Horton": "R",
+    "AJ Smith-Shawver": "R", "Gavin Williams": "R", "Gavin Stone": "R", "Mitch Keller": "R",
+    "Aaron Nola": "R", "Sandy Alcantara": "R", "Marcus Stroman": "R", "Charlie Morton": "R",
+    "Max Scherzer": "R", "Justin Verlander": "R", "Zac Gallen": "R", "Merrill Kelly": "R",
+    "Chris Bassitt": "R", "Jack Flaherty": "R", "Reynaldo Lopez": "R", "Forrest Whitley": "R",
+    "Clarke Schmidt": "R", "Tobias Myers": "R", "Michael Wacha": "R", "Taj Bradley": "R",
+    "Zach Eflin": "R", "Frankie Montas": "R", "Miles Mikolas": "R", "Luis Severino": "R",
+    # Relievers - Left-handed
+    "Aroldis Chapman": "L", "Alex Vesia": "L", "Tanner Scott": "L", "Adrian Morejon": "L",
+    "A.J. Minter": "L", "Matt Strahm": "L", "JoJo Romero": "L", "Tyler Holton": "L",
+    "Jose Alvarado": "L", "Caleb Thielbar": "L", "Taylor Rogers": "L", "Dylan Lee": "L",
+    "Garrett Cleavinger": "L", "Steven Okert": "L", "Tim Hill": "L", "Brooks Raley": "L",
+    "Brent Suter": "L", "Andrew Chafin": "L", "Jake Diekman": "L", "Sam Moll": "L",
+    # Relievers - Right-handed
+    "Mason Miller": "R", "Edwin Diaz": "R", "Cade Smith": "R", "Jhoan Duran": "R",
+    "Josh Hader": "R", "Andres Munoz": "R", "Devin Williams": "R", "David Bednar": "R",
+    "Griffin Jax": "R", "Raisel Iglesias": "R", "Abner Uribe": "R", "Ryan Walker": "R",
+    "Jeff Hoffman": "R", "Ryan Helsley": "R", "Daniel Palencia": "R", "Pete Fairbanks": "R",
+    "Trevor Megill": "R", "Emilio Pagan": "R", "Carlos Estevez": "R", "Kenley Jansen": "R",
+    "Grant Taylor": "R", "Bryan Abreu": "R", "Jeremiah Estrada": "R", "Garrett Whitlock": "R",
+    "Robert Suarez": "R", "Matt Brash": "R", "Tyler Rogers": "R", "Bryan King": "R",
+    "Phil Maton": "R", "Luke Weaver": "R", "Gabe Speier": "R", "Orion Kerkering": "R",
+    "Louis Varland": "R", "Seranthony Dominguez": "R", "Camilo Doval": "R", "Robert Stephenson": "R",
+    "Clayton Beeter": "R", "Robert Garcia": "R", "Victor Vodnik": "R", "Blake Treinen": "R",
+    "Hunter Harvey": "R", "Hunter Gaddis": "R", "Cole Sands": "R", "Yimi Garcia": "R",
+    "Kyle Finnegan": "R", "Lucas Erceg": "R", "Bryan Baker": "R", "Kirby Yates": "R",
+    "Jordan Leasure": "R", "Brusdar Graterol": "R", "Kevin Ginkel": "R", "Craig Kimbrel": "R",
+    "Emmanuel Clase": "R", "Felix Bautista": "R", "Jordan Romano": "R", "Clay Holmes": "R",
 }
 
 

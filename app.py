@@ -38,6 +38,7 @@ from dynasty_trade_analyzer_v2 import (
     RELIEVER_PROJECTIONS,
     PROSPECT_RANKINGS,
     PLAYER_AGES,
+    PITCHER_HANDEDNESS,
 )
 
 # Fantrax API imports
@@ -4929,6 +4930,7 @@ def load_data_from_json():
                     age=player_age,
                     is_prospect=is_prospect,
                     prospect_rank=prospect_rank if is_prospect else 999,
+                    throws=PITCHER_HANDEDNESS.get(p['name'], ''),
                 )
                 # Store matched prospect name for /prospects endpoint
                 if is_prospect and matched_prospect_name:
@@ -5080,6 +5082,7 @@ def load_data_from_api():
                     age=roster_player.age or 0,
                     is_prospect=is_prospect,
                     prospect_rank=prospect_rank if is_prospect else 999,
+                    throws=PITCHER_HANDEDNESS.get(player_name, ''),
                 )
                 # Store matched prospect name for /prospects endpoint
                 if is_prospect and matched_prospect_name:
@@ -5631,9 +5634,9 @@ def build_gm_chat_context(team_name, client_prefs=None):
                  for p in team.players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100]
     prospects.sort(key=lambda x: x[1])
 
-    # Build position-specific breakdowns for clarity
-    starters = [(p.name, round(v, 1), p.age) for p, v in players_with_value if 'SP' in p.position][:8]
-    relievers = [(p.name, round(v, 1), p.age) for p, v in players_with_value if 'RP' in p.position and 'SP' not in p.position][:5]
+    # Build position-specific breakdowns for clarity (include handedness for pitchers)
+    starters = [(p.name, round(v, 1), p.age, p.throws or '?') for p, v in players_with_value if 'SP' in p.position][:8]
+    relievers = [(p.name, round(v, 1), p.age, p.throws or '?') for p, v in players_with_value if 'RP' in p.position and 'SP' not in p.position][:5]
     hitters = [(p.name, round(v, 1), p.age, p.position) for p, v in players_with_value if p.position not in ['SP', 'RP', 'SP,RP', 'RP,SP']][:10]
 
     # Full roster list for "already on team" check
@@ -5708,11 +5711,12 @@ ROSTER (Top 15 by value):
 {chr(10).join([f"  {i+1}. {name} - Value: {val}, Age: {age}, Pos: {pos}" for i, (name, val, age, pos) in enumerate(top_players)])}
 
 STARTING PITCHERS (SP) - These are ALL STARTERS, not relievers:
-{chr(10).join([f"  {'★ ACE: ' if i == 0 else ''}{name} - Value: {val}, Age: {age} [STARTER]" for i, (name, val, age) in enumerate(starters)]) if starters else "  None"}
+{chr(10).join([f"  {'★ ACE: ' if i == 0 else ''}{name} ({throws}HP) - Value: {val}, Age: {age} [STARTER]" for i, (name, val, age, throws) in enumerate(starters)]) if starters else "  None"}
 NOTE: Every pitcher listed above is a STARTING PITCHER on this fantasy team regardless of their real-life history.
+L = Left-handed pitcher, R = Right-handed pitcher, ? = Unknown
 
 RELIEF PITCHERS (RP) - These are the ONLY relievers on the team:
-{chr(10).join([f"  {name} - Value: {val}, Age: {age} [RELIEVER]" for name, val, age in relievers]) if relievers else "  None"}
+{chr(10).join([f"  {name} ({throws}HP) - Value: {val}, Age: {age} [RELIEVER]" for name, val, age, throws in relievers]) if relievers else "  None"}
 NOTE: If a pitcher is NOT listed here, they are NOT a reliever on this team.
 
 TOP HITTERS - sorted by value:
@@ -5775,7 +5779,7 @@ INSTRUCTIONS:
   * If a player is listed under "STARTING PITCHERS (SP)" they are a STARTER on this fantasy team
   * If a player is listed under "RELIEF PITCHERS (RP)" they are a RELIEVER on this fantasy team
   * Do NOT assume a player is a reliever just because they may have been one in real life - use the data above
-  * Do NOT assume player handedness (lefty/righty) - this data is NOT provided, so don't mention it
+  * Pitcher handedness (LHP/RHP) is provided in the roster data - use it when relevant to analysis
   * Do NOT describe players as "contact hitters", "power bats", "ground ball pitchers" etc. unless the stats clearly show it
   * NEVER suggest trading FOR a player who is ALREADY ON THIS TEAM'S ROSTER - check the roster list above first!
   * Only suggest trade targets from the "REALISTIC TRADE TARGETS" list above - these are players on OTHER teams
