@@ -1117,35 +1117,35 @@ class DynastyValueCalculator:
             vet_boost = PROVEN_VETERAN_STARS[player.name]
             value *= vet_boost
 
-        # Prospect adjustments - aligned with new dynasty value tiers
-        # Top prospects are valuable dynasty assets with high upside
+        # Prospect adjustments - reduced values to reflect bust risk vs proven MLB players
+        # Proven stars (Tucker ~91, Crow-Armstrong ~83) should beat prospects with similar "ceiling"
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
 
-            # Tiered prospect valuation (aligned with Superstar 90+, Elite 75+, Star 60+, Solid 40+)
+            # Tiered prospect valuation - discounted for uncertainty
             if rank <= 0 or rank > 300:
                 prospect_value = 0.5
             elif rank <= 5:
-                # Top 5: 90 at rank 1, 80 at rank 5 (SUPERSTAR/ELITE)
-                prospect_value = 90 - (rank - 1) * 2.5
+                # Top 5: 85 at rank 1, 73 at rank 5 (elite ceiling, unproven)
+                prospect_value = 85 - (rank - 1) * 3.0
             elif rank <= 10:
-                # Top 10: 78 at rank 6, 70 at rank 10 (ELITE/STAR)
-                prospect_value = 78 - (rank - 6) * 1.6
+                # Top 10: 71 at rank 6, 63 at rank 10 (star ceiling)
+                prospect_value = 71 - (rank - 6) * 2.0
             elif rank <= 25:
-                # 11-25: 68 at rank 11, 53 at rank 25 (STAR/SOLID)
-                prospect_value = 68 - (rank - 11) * 1.07
+                # 11-25: 62 at rank 11, 45 at rank 25 (solid ceiling)
+                prospect_value = 62 - (rank - 11) * 1.21
             elif rank <= 50:
-                # 26-50: 52 at rank 26, 35 at rank 50 (SOLID)
-                prospect_value = 52 - (rank - 26) * 0.68
+                # 26-50: 44 at rank 26, 28 at rank 50 (lottery tickets)
+                prospect_value = 44 - (rank - 26) * 0.67
             elif rank <= 100:
-                # 51-100: 34 at rank 51, 15 at rank 100 (SOLID/DEPTH)
-                prospect_value = 34 - (rank - 51) * 0.39
+                # 51-100: 27.5 at rank 51, 12 at rank 100 (depth with upside)
+                prospect_value = 27.5 - (rank - 51) * 0.316
             elif rank <= 200:
-                # 101-200: 14 at rank 101, 5 at rank 200 (DEPTH)
-                prospect_value = 14 - (rank - 101) * 0.09
+                # 101-200: 11.7 at rank 101, 5 at rank 200 (deep depth)
+                prospect_value = 11.7 - (rank - 101) * 0.068
             else:
-                # 201-300: 4.5 at rank 201, 1 at rank 300 (DEPTH)
-                prospect_value = 4.5 - (rank - 201) * 0.035
+                # 201-300: 4.9 at rank 201, 1.5 at rank 300 (long shots)
+                prospect_value = 4.9 - (rank - 201) * 0.034
 
             # Use prospect value directly - rank determines value for prospects
             value = prospect_value
