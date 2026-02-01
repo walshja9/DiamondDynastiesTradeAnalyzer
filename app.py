@@ -7703,7 +7703,7 @@ def generate_gm_trade_scenarios(team_name, team):
                 scenarios.append({
                     'title': "Stockpile Picks: Future Draft Capital",
                     'target': " + ".join(picks_estimate) + " picks",
-                    'target_value': vet[1] * 0.9,
+                    'target_value': vet[1] * 0.97,  # Expect near-fair value
                     'offer': f"{vet[0].name} ({vet[1]:.0f} value)",
                     'offer_value': vet[1],
                     'reasoning': f"Draft picks = lottery tickets. {vet[0].name} at age {vet[0].age} won't be part of your next contention window. Convert to picks.",
@@ -7730,7 +7730,7 @@ def generate_gm_trade_scenarios(team_name, team):
                 scenarios.append({
                     'title': "Crossroads: Commit to Rebuild",
                     'target': f"Prospects + picks from {buyer_team}",
-                    'target_value': best_vet[1] * 0.9,
+                    'target_value': best_vet[1] * 0.97,  # Expect near-fair value
                     'offer': f"{best_vet[0].name} ({best_vet[1]:.0f} value, age {best_vet[0].age})",
                     'offer_value': best_vet[1],
                     'reasoning': f"Ranked #{my_power_rank} with avg age {avg_age:.1f}. Not good enough to win, too old to wait. Sell {best_vet[0].name} to {buyer_team} and restart.\nDecision time: Commit to rebuild NOW or risk being stuck in the middle forever.",
@@ -7779,7 +7779,7 @@ def generate_gm_trade_scenarios(team_name, team):
                             scenarios.append({
                                 'title': get_sell_title(),
                                 'target': f"Prospects from {other_team_name}",
-                                'target_value': vet_val * 0.85,
+                                'target_value': vet_val * 0.97,  # Expect near-fair value, not a discount
                                 'target_stats': f"Target their prospect depth",
                                 'offer': f"{vet.name} ({vet_val:.0f} value, age {vet.age})",
                                 'offer_value': vet_val,
@@ -8575,15 +8575,15 @@ def generate_gm_trade_scenarios(team_name, team):
     # Sort by score descending
     scored_scenarios.sort(key=lambda x: x.get('_score', 0), reverse=True)
 
-    # CRITICAL: Filter out scenarios with unrealistic ratios (< 0.75 or > 1.25)
-    # Trades way outside this range would never be accepted
+    # CRITICAL: Filter out scenarios with unrealistic ratios (< 0.85 or > 1.15)
+    # Trades outside this range would never be accepted - matches chatbot rules
     filtered_scenarios = []
     for s in scored_scenarios:
         target_val = s.get('target_value', 0)
         offer_val = s.get('offer_value', 0)
         if target_val > 0 and offer_val > 0:
             ratio = offer_val / target_val
-            if ratio < 0.75 or ratio > 1.25:
+            if ratio < 0.85 or ratio > 1.15:
                 continue  # Skip this scenario - unrealistic
         filtered_scenarios.append(s)
 
