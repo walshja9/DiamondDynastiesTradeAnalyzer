@@ -5636,6 +5636,9 @@ def build_gm_chat_context(team_name, client_prefs=None):
     relievers = [(p.name, round(v, 1), p.age) for p, v in players_with_value if 'RP' in p.position and 'SP' not in p.position][:5]
     hitters = [(p.name, round(v, 1), p.age, p.position) for p, v in players_with_value if p.position not in ['SP', 'RP', 'SP,RP', 'RP,SP']][:10]
 
+    # Full roster list for "already on team" check
+    all_roster_names = [p.name for p in team.players]
+
     # Category analysis with clear hitting/pitching labels
     hitting_cats = {'HR': 'HR (hitting)', 'SB': 'SB (hitting)', 'RBI': 'RBI (hitting)', 'R': 'Runs (hitting)',
                     'SO': 'Strikeouts (hitting - lower is better)', 'AVG': 'AVG (hitting)', 'OPS': 'OPS (hitting)'}
@@ -5723,6 +5726,9 @@ TRADEABLE ASSETS (players ranked 5-15, available to move in trades):
 TOTAL VALUE OF TOP 3 TRADEABLE PIECES: ~{max_tradeable_value:.0f} points
 (This is roughly the MAX value you can offer without trading core players)
 
+FULL ROSTER - ALL PLAYERS ON THIS TEAM (do NOT suggest trading FOR any of these - we already have them!):
+{', '.join(all_roster_names)}
+
 CATEGORY RANKINGS (out of {len(teams)} teams):
 HITTING CATEGORIES:
 - HR: #{my_ranks.get('HR', 'N/A')} | RBI: #{my_ranks.get('RBI', 'N/A')} | Runs: #{my_ranks.get('R', 'N/A')}
@@ -5765,10 +5771,15 @@ INSTRUCTIONS:
 - Keep responses concise but insightful (2-4 paragraphs max)
 - Be honest about weaknesses while staying encouraging
 - Speak with your personality flavor but stay helpful and direct
-- CRITICAL: Use ONLY the roster data provided above. Do NOT use outside knowledge about players' real-life roles.
+- CRITICAL: Use ONLY the roster data provided above. Do NOT use outside knowledge about players.
   * If a player is listed under "STARTING PITCHERS (SP)" they are a STARTER on this fantasy team
   * If a player is listed under "RELIEF PITCHERS (RP)" they are a RELIEVER on this fantasy team
   * Do NOT assume a player is a reliever just because they may have been one in real life - use the data above
+  * Do NOT assume player handedness (lefty/righty) - this data is NOT provided, so don't mention it
+  * Do NOT describe players as "contact hitters", "power bats", "ground ball pitchers" etc. unless the stats clearly show it
+  * NEVER suggest trading FOR a player who is ALREADY ON THIS TEAM'S ROSTER - check the roster list above first!
+  * Only suggest trade targets from the "REALISTIC TRADE TARGETS" list above - these are players on OTHER teams
+  * If a player is in our ROSTER section, they are OURS - don't suggest acquiring them
 
 TRADE VALUE GUIDELINES (CRITICAL - follow these rules when suggesting trades):
 - Every player has a VALUE number shown in the roster data - USE THESE VALUES when evaluating trades
