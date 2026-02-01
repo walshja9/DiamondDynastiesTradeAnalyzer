@@ -6854,6 +6854,16 @@ def generate_gm_trade_scenarios(team_name, team):
     gm = get_assistant_gm(team_name)
     philosophy = gm.get('philosophy', 'balanced')
 
+    # Get the full philosophy object to access new granular parameters
+    philosophy_obj = GM_PHILOSOPHIES.get(philosophy, GM_PHILOSOPHIES['balanced'])
+    min_value_threshold = philosophy_obj.get('min_value_threshold', 40)
+    trade_initiation_style = philosophy_obj.get('trade_initiation_style', 'opportunistic')
+
+    # Determine behavior based on initiation style
+    is_aggressive = trade_initiation_style == 'aggressive'
+    is_reactive = trade_initiation_style == 'reactive'
+    is_opportunistic = trade_initiation_style == 'opportunistic'
+
     # Define philosophy trade tendencies
     SELLING_PHILOSOPHIES = ['analytical_rebuilder', 'desperate_accumulator', 'reluctant_dealer', 'prospect_rich_rebuilder']
     BUYING_PHILOSOPHIES = ['championship_closer', 'all_in_buyer', 'dynasty_champion', 'loaded_and_ready']
@@ -6918,9 +6928,13 @@ def generate_gm_trade_scenarios(team_name, team):
     thin_positions = [pos for pos, count in pos_counts.items() if count <= 1 and pos not in ['UTIL', 'DH', '']]
 
     # Helper function to find trade partners for specific needs
-    def find_trade_targets(target_cat, value_range=(30, 70), prefer_sellers=True, exclude_surplus_positions=True):
+    def find_trade_targets(target_cat, value_range=None, prefer_sellers=True, exclude_surplus_positions=True):
         """Find specific players from other teams that address our category need.
+        Uses GM's min_value_threshold for default value range.
         Now checks if we already have surplus at the player's position before suggesting."""
+        # Default value range based on GM's min_value_threshold
+        if value_range is None:
+            value_range = (min_value_threshold, 85)  # Use GM's threshold as floor
         targets = []
         for other_team_name, other_team in teams.items():
             if other_team_name == team_name:
@@ -8065,10 +8079,15 @@ def generate_gm_trade_scenarios(team_name, team):
                         break
 
     # ============ SMART SCENARIO RANKING ============
-    # Score and filter scenarios before returning
+    # Score and filter scenarios based on GM personality parameters
     scored_scenarios = []
     for s in scenarios:
         score = 50  # Base score
+
+        # Filter by min_value_threshold - only show deals above GM's threshold
+        target_val = s.get('target_value', 0)
+        if target_val > 0 and target_val < min_value_threshold:
+            score -= 30  # Penalize deals below GM's threshold
 
         # Value matching bonus/penalty
         if s['target_value'] > 0 and s['offer_value'] > 0:
@@ -8093,11 +8112,31 @@ def generate_gm_trade_scenarios(team_name, team):
         elif should_buy and s.get('trade_type') == 'buy':
             score += 10
 
+        # Trade initiation style preferences
+        trade_type = s.get('trade_type', '')
+        if is_aggressive:
+            # Aggressive GMs prefer proactive scenarios
+            if trade_type in ['buy', 'buy_low', 'blockbuster', 'consolidate']:
+                score += 15  # Boost active acquisition scenarios
+            if s.get('urgency') == 'high':
+                score += 10  # Extra boost for urgent deals
+        elif is_reactive:
+            # Reactive GMs prefer sell scenarios and value plays
+            if trade_type in ['sell', 'hold', 'evaluate']:
+                score += 15  # Boost wait-and-see scenarios
+            if trade_type in ['buy', 'blockbuster']:
+                score -= 10  # Penalize aggressive buys
+        elif is_opportunistic:
+            # Opportunistic GMs prefer balanced value plays
+            if trade_type in ['swap', 'rebalance', 'buy_low']:
+                score += 15  # Boost value optimization plays
+
         # Prefer actionable trades (with specific targets) over generic advice
         if s['target_value'] > 0:
             score += 10
 
         s['_score'] = score
+        s['_initiation_style'] = trade_initiation_style  # Add for Trade Center display
         scored_scenarios.append(s)
 
     # Sort by score descending
@@ -8605,6 +8644,28 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     # SECTION 4: TRADE CENTER (Scenarios + Partner Intel + Opportunities)
     # ════════════════════════════════════════════════════════════════════
     trade = f"<b style='font-size: 14px;'>🔄 TRADE CENTER</b><br>"
+
+    # Get GM philosophy parameters for Trade Center display
+    philosophy_obj = GM_PHILOSOPHIES.get(philosophy, GM_PHILOSOPHIES['balanced'])
+    min_value_threshold = philosophy_obj.get('min_value_threshold', 40)
+    trade_initiation_style = philosophy_obj.get('trade_initiation_style', 'opportunistic')
+
+    # Initiation style indicator with color coding
+    STYLE_DISPLAY = {
+        'aggressive': ('<span style="color:#f87171">AGGRESSIVE</span>', 'Actively pursuing deals'),
+        'reactive': ('<span style="color:#60a5fa">REACTIVE</span>', 'Waiting for offers'),
+        'opportunistic': ('<span style="color:#4ade80">OPPORTUNISTIC</span>', 'Striking when value appears')
+    }
+    style_badge, style_desc = STYLE_DISPLAY.get(trade_initiation_style, ('BALANCED', 'Standard approach'))
+    trade += f"<b>Trade Style:</b> {style_badge} | Min Value: {min_value_threshold}+<br>"
+
+    # Determine category needs (weaknesses ranked 8+ are priorities)
+    category_needs = []
+    for cat, rank in sorted(my_ranks.items(), key=lambda x: -x[1]):
+        if rank >= 8:
+            category_needs.append(f"{cat} (#{rank})")
+    if category_needs:
+        trade += f"<b>Category Needs:</b> {', '.join(category_needs[:3])}<br>"
 
     # Trade scenarios
     gm_scenarios = generate_gm_trade_scenarios(team_name, team)
