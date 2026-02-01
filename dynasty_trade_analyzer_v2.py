@@ -523,6 +523,32 @@ ELITE_YOUNG_PLAYERS = {
     "Pete Crow-Armstrong": 1.10,  # 24yo OF, elite CF defense
 }
 
+# Proven veteran stars (ages 26-32) who deserve a boost for their track record and reliability
+# These are established major leaguers with multiple seasons of elite production
+# Unlike young players with "upside", these guys have PROVEN they belong at the top
+# Format: "Player Name": bonus_multiplier (1.15 = +15% boost)
+PROVEN_VETERAN_STARS = {
+    # Tier 1: MVP-caliber veterans still in their prime (20% boost)
+    "Juan Soto": 1.20,            # 27yo OF, elite plate discipline, perennial MVP candidate
+    "Ronald Acuna Jr.": 1.20,     # 28yo OF, 40/70 potential when healthy, former MVP
+    "Corey Seager": 1.18,         # 32yo SS, elite bat, World Series MVP pedigree
+    "Mookie Betts": 1.15,         # 33yo OF/SS, all-around star, former MVP
+    # Tier 2: All-Star caliber veterans (15% boost)
+    "Kyle Tucker": 1.15,          # 29yo OF, consistent 30/20 player, All-Star
+    "Rafael Devers": 1.15,        # 29yo 3B, elite power, .280+ hitter
+    "Vladimir Guerrero Jr.": 1.15, # 27yo 1B, elite bat, MVP runner-up
+    "Yordan Alvarez": 1.15,       # 28yo DH, elite power, .280+ hitter
+    "Jose Ramirez": 1.12,         # 33yo 3B, 30/30 caliber, aging but still elite
+    "Bryce Harper": 1.12,         # 33yo 1B/OF, MVP ceiling, injury concerns
+    "Matt Olson": 1.12,           # 32yo 1B, elite power, 50 HR upside
+    # Tier 3: Established solid veterans (10% boost)
+    "Bo Bichette": 1.10,          # 28yo SS, solid all-around, durability concerns
+    "Ozzie Albies": 1.10,         # 29yo 2B, solid speed/power combo
+    "Bryan Reynolds": 1.10,       # 31yo OF, underrated, consistent producer
+    "Teoscar Hernandez": 1.08,    # 33yo OF, power bat, streaky
+    "Byron Buxton": 1.08,         # 32yo OF, elite tools, injury prone
+}
+
 # Pitcher handedness (L = Left, R = Right)
 # Used to provide accurate information in AI analysis
 PITCHER_HANDEDNESS = {
@@ -1084,6 +1110,12 @@ class DynastyValueCalculator:
         if player.name in ELITE_YOUNG_PLAYERS:
             elite_boost = ELITE_YOUNG_PLAYERS[player.name]
             value *= elite_boost
+
+        # Proven veteran star boost - established players with track records of elite production
+        # These players have proven reliability that projections alone don't capture
+        if player.name in PROVEN_VETERAN_STARS:
+            vet_boost = PROVEN_VETERAN_STARS[player.name]
+            value *= vet_boost
 
         # Prospect adjustments - aligned with new dynasty value tiers
         # Top prospects are valuable dynasty assets with high upside
