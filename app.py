@@ -6065,8 +6065,8 @@ def generate_rivalry_analysis(team_name, rival_name):
     }
 
 
-def calculate_championship_probability(team_name, power_rank, total_teams, players_with_value, my_ranks):
-    """Calculate championship probability based on multiple factors.
+def calculate_championship_score(team_name, power_rank, total_teams, players_with_value, my_ranks):
+    """Calculate raw championship score (unnormalized) based on multiple factors.
 
     Enhanced calculation incorporating:
     - Smooth power rank curve (not tiered)
@@ -6075,86 +6075,137 @@ def calculate_championship_probability(team_name, power_rank, total_teams, playe
     - Category dominance weighting (#1 > #2-3)
     - Draft position factor
     - Prospect upside bonus
+
+    Returns a raw score that should be normalized across all teams.
     """
     import math
 
     # 1. SMOOTH POWER RANK CURVE
-    # Uses exponential decay: top teams get significantly higher odds
-    # Rank 1 ≈ 28%, Rank 6 ≈ 8%, Rank 12 ≈ 2%
-    base_prob = 30 * math.exp(-0.18 * (power_rank - 1))
+    # Uses exponential decay: top teams get significantly higher scores
+    score = 30 * math.exp(-0.18 * (power_rank - 1))
 
     # 2. CATEGORY DOMINANCE (enhanced weighting)
-    # #1 in category = +4%, #2-3 = +2%, #9+ = -3%
     for cat, rank in my_ranks.items():
         if rank == 1:
-            base_prob += 4  # Dominant in category
+            score += 4  # Dominant in category
         elif rank <= 3:
-            base_prob += 2  # Strong in category
+            score += 2  # Strong in category
         elif rank >= 10:
-            base_prob -= 4  # Major weakness
+            score -= 4  # Major weakness
         elif rank >= 9:
-            base_prob -= 2  # Weakness
+            score -= 2  # Weakness
 
     # 3. ROSTER DEPTH AND ELITE TALENT
     if players_with_value:
-        # Multi-elite bonus: each player with value 70+ adds to championship odds
+        # Multi-elite bonus: each player with value 70+ adds to championship score
         elite_count = len([v for p, v in players_with_value if v >= 70])
         superstar_count = len([v for p, v in players_with_value if v >= 85])
 
-        # Scaling bonus: 1 elite = +2%, 2 = +5%, 3 = +8%, 4+ = +12%
+        # Scaling bonus: 1 elite = +2, 2 = +5, 3 = +8, 4+ = +12
         if elite_count >= 4:
-            base_prob += 12
+            score += 12
         elif elite_count == 3:
-            base_prob += 8
+            score += 8
         elif elite_count == 2:
-            base_prob += 5
+            score += 5
         elif elite_count == 1:
-            base_prob += 2
+            score += 2
 
         # Superstar bonus (85+ value players are difference makers)
-        base_prob += superstar_count * 3
+        score += superstar_count * 3
 
         # Depth bonus: quality players 11-20 (value > 30)
         if len(players_with_value) >= 20:
             depth_players = len([v for p, v in players_with_value[10:20] if v >= 30])
-            base_prob += depth_players * 0.5  # +0.5% per quality depth player
+            score += depth_players * 0.5
 
         # Age factor (smoother than before)
         avg_top_10_age = sum(p.age for p, v in players_with_value[:10]) / min(10, len(players_with_value))
         if avg_top_10_age <= 25:
-            base_prob += 4  # Very young core
+            score += 4  # Very young core
         elif avg_top_10_age <= 27:
-            base_prob += 2  # Young core
+            score += 2  # Young core
         elif avg_top_10_age >= 32:
-            base_prob -= 4  # Aging core
+            score -= 4  # Aging core
         elif avg_top_10_age >= 30:
-            base_prob -= 2  # Older core
+            score -= 2  # Older core
 
         # 4. PROSPECT UPSIDE BONUS
-        # Top-25 prospects on roster add future championship equity
         top_prospects = len([p for p, v in players_with_value
                            if p.is_prospect and p.prospect_rank and p.prospect_rank <= 25])
         if top_prospects >= 3:
-            base_prob += 4  # Loaded with elite prospects
+            score += 4  # Loaded with elite prospects
         elif top_prospects >= 2:
-            base_prob += 2
+            score += 2
         elif top_prospects >= 1:
-            base_prob += 1
+            score += 1
 
     # 5. DRAFT POSITION FACTOR
-    # Teams with high draft picks have better future odds
     draft_pick = draft_order_config.get(team_name, 0)
     if draft_pick == 1:
-        base_prob += 3  # #1 overall pick
+        score += 3  # #1 overall pick
     elif draft_pick <= 3:
-        base_prob += 2  # Top 3 pick
+        score += 2  # Top 3 pick
     elif draft_pick <= 5:
-        base_prob += 1  # Lottery pick
+        score += 1  # Lottery pick
 
-    # Cap probabilities (slightly higher ceiling for truly dominant teams)
-    base_prob = max(1, min(40, base_prob))
+    # Minimum score of 1 to ensure every team has some chance
+    return max(1, score)
 
-    return round(base_prob, 1)
+
+# Cache for normalized championship odds (recalculated when teams change)
+_championship_odds_cache = {}
+_championship_odds_cache_key = None
+
+
+def get_normalized_championship_odds():
+    """Calculate championship odds for all teams, normalized to sum to 100%.
+
+    Returns a dict of {team_name: probability} where all probabilities sum to 100.
+    """
+    global _championship_odds_cache, _championship_odds_cache_key
+
+    # Create cache key based on team count (simple invalidation)
+    cache_key = len(teams)
+    if cache_key == _championship_odds_cache_key and _championship_odds_cache:
+        return _championship_odds_cache
+
+    # Get rankings and category data
+    team_cats, rankings = calculate_league_category_rankings()
+    _, power_rankings, _ = get_team_rankings()
+
+    # Calculate raw scores for all teams
+    raw_scores = {}
+    for team_name, team in teams.items():
+        players_with_value = [(p, calculator.calculate_player_value(p)) for p in team.players]
+        players_with_value.sort(key=lambda x: x[1], reverse=True)
+        power_rank = power_rankings.get(team_name, len(teams))
+        my_ranks = rankings.get(team_name, {})
+
+        raw_scores[team_name] = calculate_championship_score(
+            team_name, power_rank, len(teams), players_with_value, my_ranks
+        )
+
+    # Normalize to 100%
+    total_score = sum(raw_scores.values())
+    if total_score > 0:
+        normalized = {name: round((score / total_score) * 100, 1) for name, score in raw_scores.items()}
+    else:
+        # Fallback: equal odds
+        equal_odds = round(100 / len(teams), 1)
+        normalized = {name: equal_odds for name in teams.keys()}
+
+    # Cache results
+    _championship_odds_cache = normalized
+    _championship_odds_cache_key = cache_key
+
+    return normalized
+
+
+def get_team_championship_odds(team_name):
+    """Get normalized championship odds for a specific team."""
+    odds = get_normalized_championship_odds()
+    return odds.get(team_name, 0)
 
 
 def calculate_risk_assessment(players_with_value):
@@ -6269,8 +6320,8 @@ def generate_team_analysis(team_name, team, players_with_value=None, power_rank=
     thin_positions = [pos for pos, count in pos_counts.items() if count <= 2 and count > 0]
     deep_positions = [pos for pos, count in pos_counts.items() if count >= 5]
 
-    # Championship probability
-    champ_prob = calculate_championship_probability(team_name, power_rank, total_teams, players_with_value, my_ranks)
+    # Championship probability (normalized across all teams to sum to 100%)
+    champ_prob = get_team_championship_odds(team_name)
 
     # Risk assessment
     risks, overall_risk, risk_score = calculate_risk_assessment(players_with_value)
