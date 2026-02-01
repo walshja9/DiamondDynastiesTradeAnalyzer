@@ -495,6 +495,34 @@ UNPROVEN_PITCHERS = {
     "Forrest Whitley",   # ~10 career IP, former top prospect
 }
 
+# Elite young players whose dynasty value exceeds their pure projection-based value
+# These are proven MLB talents (age 26 or younger) where projections are conservative
+# Bonus multiplier applied to base value to reflect true dynasty market value
+# Format: "Player Name": bonus_multiplier (1.15 = +15% boost, 1.20 = +20% boost)
+ELITE_YOUNG_PLAYERS = {
+    # Tier 1: Generational/MVP-caliber young superstars (20%+ boost)
+    "Elly De La Cruz": 1.20,      # 24yo SS, elite speed/power combo, 40+ SB, 25+ HR upside
+    "Bobby Witt Jr.": 1.20,       # 26yo SS, 30/30 caliber, MVP candidate
+    "Gunnar Henderson": 1.20,     # 24yo SS, elite power, future MVP
+    "Julio Rodriguez": 1.15,      # 25yo OF, superstar ceiling when healthy
+    "Corbin Carroll": 1.15,       # 25yo OF, elite speed/plate discipline
+    "Jackson Chourio": 1.18,      # 22yo OF, 5-tool potential, youngest superstar
+    "Jackson Holliday": 1.18,     # 22yo 2B, #1 prospect pedigree, elite bat
+    # Tier 2: Established young stars (15% boost)
+    "CJ Abrams": 1.15,            # 25yo SS, breakout speed/power
+    "Anthony Volpe": 1.12,        # 25yo SS, premium position, solid production
+    "Michael Harris II": 1.15,    # 25yo OF, elite defense + bat
+    "Riley Greene": 1.12,         # 25yo OF, consistent production, high floor
+    "Evan Carter": 1.12,          # 24yo OF, elite plate discipline
+    "Masyn Winn": 1.12,           # 24yo SS, speed/defense combo
+    "Colton Cowser": 1.10,        # 25yo OF, balanced offensive profile
+    # Tier 3: Rising young stars (10% boost)
+    "Jordan Lawlar": 1.10,        # 23yo SS, elite prospect pedigree
+    "Jackson Merrill": 1.12,      # 23yo OF, breakout 2024
+    "Wyatt Langford": 1.10,       # 25yo OF, power upside
+    "Pete Crow-Armstrong": 1.10,  # 24yo OF, elite CF defense
+}
+
 # Pitcher handedness (L = Left, R = Right)
 # Used to provide accurate information in AI analysis
 PITCHER_HANDEDNESS = {
@@ -899,7 +927,13 @@ class DynastyValueCalculator:
         # Cap the total bonus/penalty - lowered floor to allow steep age decline
         bonus_multiplier = max(0.20, min(bonus_multiplier, 1.25))
         value *= bonus_multiplier
-        
+
+        # Elite young player boost - proven MLB talents whose dynasty value exceeds projections
+        # Applied AFTER age/position adjustments, BEFORE prospect overrides
+        if player.name in ELITE_YOUNG_PLAYERS:
+            elite_boost = ELITE_YOUNG_PLAYERS[player.name]
+            value *= elite_boost
+
         # Prospect adjustments - aligned with new dynasty value tiers
         # Top prospects are valuable dynasty assets with high upside
         if player.name in PROSPECT_RANKINGS:
