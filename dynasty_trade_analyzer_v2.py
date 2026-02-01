@@ -1144,8 +1144,8 @@ class DynastyValueCalculator:
                 # 101-200: 11.7 at rank 101, 5 at rank 200 (deep depth)
                 prospect_value = 11.7 - (rank - 101) * 0.068
             else:
-                # 201-300: 4.9 at rank 201, 1.5 at rank 300 (long shots)
-                prospect_value = 4.9 - (rank - 201) * 0.034
+                # 201-300: 4.9 at rank 201, 1 at rank 300 (long shots)
+                prospect_value = 4.9 - (rank - 201) * 0.039
 
             # Use prospect value directly - rank determines value for prospects
             value = prospect_value
