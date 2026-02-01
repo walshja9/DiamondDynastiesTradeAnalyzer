@@ -6066,43 +6066,95 @@ def generate_rivalry_analysis(team_name, rival_name):
 
 
 def calculate_championship_probability(team_name, power_rank, total_teams, players_with_value, my_ranks):
-    """Calculate championship probability based on multiple factors."""
-    # Base probability from power ranking
-    if power_rank <= 2:
-        base_prob = 25
-    elif power_rank <= 4:
-        base_prob = 15
-    elif power_rank <= 6:
-        base_prob = 8
-    elif power_rank <= 8:
-        base_prob = 4
-    else:
-        base_prob = 2
+    """Calculate championship probability based on multiple factors.
 
-    # Adjust for category balance (teams with no major weaknesses win more)
-    weak_cats = len([r for r in my_ranks.values() if r >= 9])
-    strong_cats = len([r for r in my_ranks.values() if r <= 3])
-    base_prob += (strong_cats * 2) - (weak_cats * 3)
+    Enhanced calculation incorporating:
+    - Smooth power rank curve (not tiered)
+    - Roster depth bonus (players 11-20)
+    - Multi-elite player scaling
+    - Category dominance weighting (#1 > #2-3)
+    - Draft position factor
+    - Prospect upside bonus
+    """
+    import math
 
-    # Adjust for roster depth and age
+    # 1. SMOOTH POWER RANK CURVE
+    # Uses exponential decay: top teams get significantly higher odds
+    # Rank 1 ≈ 28%, Rank 6 ≈ 8%, Rank 12 ≈ 2%
+    base_prob = 30 * math.exp(-0.18 * (power_rank - 1))
+
+    # 2. CATEGORY DOMINANCE (enhanced weighting)
+    # #1 in category = +4%, #2-3 = +2%, #9+ = -3%
+    for cat, rank in my_ranks.items():
+        if rank == 1:
+            base_prob += 4  # Dominant in category
+        elif rank <= 3:
+            base_prob += 2  # Strong in category
+        elif rank >= 10:
+            base_prob -= 4  # Major weakness
+        elif rank >= 9:
+            base_prob -= 2  # Weakness
+
+    # 3. ROSTER DEPTH AND ELITE TALENT
     if players_with_value:
-        top_10_value = sum(v for p, v in players_with_value[:10])
-        avg_top_10_age = sum(p.age for p, v in players_with_value[:10]) / 10 if players_with_value[:10] else 28
+        # Multi-elite bonus: each player with value 70+ adds to championship odds
+        elite_count = len([v for p, v in players_with_value if v >= 70])
+        superstar_count = len([v for p, v in players_with_value if v >= 85])
 
-        # Young rosters have upside
-        if avg_top_10_age <= 26:
-            base_prob += 3
-        elif avg_top_10_age >= 31:
-            base_prob -= 3
-
-        # Top-heavy rosters with elite talent
-        if players_with_value[0][1] >= 90:
+        # Scaling bonus: 1 elite = +2%, 2 = +5%, 3 = +8%, 4+ = +12%
+        if elite_count >= 4:
+            base_prob += 12
+        elif elite_count == 3:
+            base_prob += 8
+        elif elite_count == 2:
             base_prob += 5
+        elif elite_count == 1:
+            base_prob += 2
 
-    # Cap probabilities
-    base_prob = max(1, min(35, base_prob))
+        # Superstar bonus (85+ value players are difference makers)
+        base_prob += superstar_count * 3
 
-    return base_prob
+        # Depth bonus: quality players 11-20 (value > 30)
+        if len(players_with_value) >= 20:
+            depth_players = len([v for p, v in players_with_value[10:20] if v >= 30])
+            base_prob += depth_players * 0.5  # +0.5% per quality depth player
+
+        # Age factor (smoother than before)
+        avg_top_10_age = sum(p.age for p, v in players_with_value[:10]) / min(10, len(players_with_value))
+        if avg_top_10_age <= 25:
+            base_prob += 4  # Very young core
+        elif avg_top_10_age <= 27:
+            base_prob += 2  # Young core
+        elif avg_top_10_age >= 32:
+            base_prob -= 4  # Aging core
+        elif avg_top_10_age >= 30:
+            base_prob -= 2  # Older core
+
+        # 4. PROSPECT UPSIDE BONUS
+        # Top-25 prospects on roster add future championship equity
+        top_prospects = len([p for p, v in players_with_value
+                           if p.is_prospect and p.prospect_rank and p.prospect_rank <= 25])
+        if top_prospects >= 3:
+            base_prob += 4  # Loaded with elite prospects
+        elif top_prospects >= 2:
+            base_prob += 2
+        elif top_prospects >= 1:
+            base_prob += 1
+
+    # 5. DRAFT POSITION FACTOR
+    # Teams with high draft picks have better future odds
+    draft_pick = draft_order_config.get(team_name, 0)
+    if draft_pick == 1:
+        base_prob += 3  # #1 overall pick
+    elif draft_pick <= 3:
+        base_prob += 2  # Top 3 pick
+    elif draft_pick <= 5:
+        base_prob += 1  # Lottery pick
+
+    # Cap probabilities (slightly higher ceiling for truly dominant teams)
+    base_prob = max(1, min(40, base_prob))
+
+    return round(base_prob, 1)
 
 
 def calculate_risk_assessment(players_with_value):
