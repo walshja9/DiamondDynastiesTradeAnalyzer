@@ -6369,7 +6369,7 @@ def gm_chat(team_name):
 
         # Call Claude API
         response = ANTHROPIC_CLIENT.messages.create(
-            model="claude-3-haiku-20240307",
+            model="claude-sonnet-4-20250514",
             max_tokens=1024,
             system=context,
             messages=messages
@@ -6383,7 +6383,7 @@ def gm_chat(team_name):
         return jsonify({
             "response": assistant_message,
             "team": team_name,
-            "model": "claude-3-haiku"
+            "model": "claude-sonnet-4"
         })
 
     except Exception as e:
@@ -6396,7 +6396,7 @@ def gm_chat_status():
     """Check if GM Chat is enabled."""
     return jsonify({
         "enabled": GM_CHAT_ENABLED,
-        "model": "claude-3-haiku" if GM_CHAT_ENABLED else None
+        "model": "claude-sonnet-4" if GM_CHAT_ENABLED else None
     })
 
 
