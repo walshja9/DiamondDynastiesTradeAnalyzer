@@ -2970,62 +2970,17 @@ def calculate_fa_dynasty_value(fa):
     print(f"DEBUG calculate_fa_dynasty_value: {fa.get('name')} - is_prospect={is_prospect}, prospect_rank={prospect_rank}")
 
     if is_prospect and prospect_rank:
-        # Calculate preliminary value
-        preliminary_value = (base_value * age_mult) + rank_bonus + ros_bonus
-        print(f"  -> preliminary_value={preliminary_value}, applying prospect floor for rank {prospect_rank}")
-
-        # Apply prospect value floors using a graduated scale
-        # IMPORTANT: Prospects should NOT exceed proven MLB players (who are typically 70-85)
-        # Adjusted floors to match rostered prospect values:
-        # Elite (1-10): floor 55-60, cap 68
-        # Top 25 (11-25): floor 48-55, cap 62
-        # Top 50 (26-50): floor 40-48, cap 55
-        # Top 100 (51-100): floor 30-40, cap 48
-        if prospect_rank <= 10:
-            # Elite prospects (1-10): floor 55-60, cap 68
-            floor = 60 - (prospect_rank - 1) * 0.5  # 60 down to 55.5
-            cap = 68
-            value = max(preliminary_value, floor)
-            value = min(value, cap)
-        elif prospect_rank <= 25:
-            # Top 25 (11-25): floor 48-55, cap 62
-            floor = 55 - (prospect_rank - 10) * 0.47  # 55 down to 48
-            cap = 62
-            value = max(preliminary_value, floor)
-            value = min(value, cap)
-        elif prospect_rank <= 50:
-            # Top 50 (26-50): floor 40-48, cap 55
-            floor = 48 - (prospect_rank - 25) * 0.32  # 48 down to 40
-            cap = 55
-            value = max(preliminary_value, floor)
-            value = min(value, cap)
-        elif prospect_rank <= 100:
-            # Top 100 (51-100): floor 30-40, cap 48
-            floor = 40 - (prospect_rank - 50) * 0.2  # 40 down to 30
-            cap = 48
-            value = max(preliminary_value, floor)
-            value = min(value, cap)
-        elif prospect_rank <= 150:
-            # Rank 101-150: floor 20-30, cap 38
-            floor = 30 - (prospect_rank - 100) * 0.2  # 30 down to 20
-            cap = 38
-            value = max(preliminary_value, floor)
-            value = min(value, cap)
-        elif prospect_rank <= 300:
-            # Rank 151-200: floor 15-20, cap 28
-            floor = 20 - (prospect_rank - 150) * 0.1  # 20 down to 15
-            cap = 28
-            value = max(preliminary_value, floor)
-            value = min(value, cap)
+        # Use same linear formula as rostered prospects
+        # Rank 1 = 68 value, Rank 300 = 1 value
+        # Formula: value = 1 + (67 * (300 - rank) / 299)
+        if prospect_rank <= 300:
+            value = 1 + (67 * (300 - prospect_rank) / 299)
         else:
-            # Rank 201+: floor 10-15, cap 20
-            floor = max(10, 15 - (prospect_rank - 200) * 0.05)
-            cap = 20
-            value = max(preliminary_value, floor)
-            value = min(value, cap)
+            # Beyond rank 300: minimal value, decaying further
+            value = max(0.5, 1 - ((prospect_rank - 300) * 0.01))
 
         final_value = round(value, 1)
-        print(f"  -> PROSPECT FLOOR APPLIED: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
+        print(f"  -> FA PROSPECT LINEAR VALUE: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
         return final_value
 
     # Non-prospect FA value calculation
@@ -3871,24 +3826,10 @@ def get_prospects():
             continue
         if name not in found_prospects:
             metadata = PROSPECT_METADATA.get(name, {})
-            # Calculate estimated value based on rank using graduated scale
-            # Scale: Rank 1 = ~100, Rank 50 = ~75, Rank 100 = ~55, Rank 150 = ~32, Rank 200 = ~15, Rank 300 = ~8
-            if rank <= 10:
-                est_value = 100 - (rank - 1) * 0.5
-            elif rank <= 25:
-                est_value = 95 - (rank - 10) * 1.0
-            elif rank <= 50:
-                est_value = 80 - (rank - 25) * 0.5
-            elif rank <= 100:
-                est_value = 67 - (rank - 50) * 0.4
-            elif rank <= 150:
-                est_value = 46 - (rank - 100) * 0.4
-            elif rank <= 200:
-                est_value = 26 - (rank - 150) * 0.22  # ~15 at rank 200
-            elif rank <= 250:
-                est_value = 15 - (rank - 200) * 0.14  # ~8 at rank 250
-            else:
-                est_value = max(8 - (rank - 250) * 0.08, 5)  # Floor of 5 for ranks 251-300
+            # Use same linear formula as rostered prospects
+            # Rank 1 = 68, Rank 300 = 1
+            # Formula: value = 1 + (67 * (300 - rank) / 299)
+            est_value = 1 + (67 * (300 - rank) / 299)
 
             # All prospects are available in Fantrax pool - show as Free Agent
             found_prospects[name] = {
