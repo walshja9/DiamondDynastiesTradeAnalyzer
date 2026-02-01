@@ -17,6 +17,9 @@ ENV/
 # Local files (don't commit these)
 .fantrax_cookies.pkl
 *.log
+chat_history.json
+user_preferences.json
+nul
 
 # OS
 .DS_Store

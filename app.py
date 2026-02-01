@@ -49,6 +49,50 @@ except ImportError:
     print("Warning: fantraxapi not installed. API refresh will be unavailable.")
 
 # ============================================================================
+# PROSPECT VALUATION - Tiered exponential decay (realistic dynasty values)
+# ============================================================================
+
+def calculate_prospect_value(rank):
+    """
+    Calculate prospect dynasty value using tiered decay.
+    Aligned with dynasty value tiers: Superstar 90+, Elite 75+, Star 60+, Solid 40+
+
+    Tier breakdown:
+    - Rank 1-5:    Superstar/Elite (90 → 80)  - Franchise-changing talents
+    - Rank 6-10:   Elite/Star (78 → 70)       - High-ceiling assets
+    - Rank 11-25:  Star/Solid (68 → 53)       - Quality dynasty pieces
+    - Rank 26-50:  Solid (52 → 35)            - Meaningful trade chips
+    - Rank 51-100: Solid/Depth (34 → 15)      - Upside plays
+    - Rank 101-200: Depth (14 → 5)            - Organizational depth
+    - Rank 201-300: Minimal (4.5 → 1)         - Barely rosterable
+    """
+    if rank <= 0 or rank > 300:
+        return 0.5
+
+    if rank <= 5:
+        # Top 5: 90 at rank 1, 80 at rank 5 (SUPERSTAR/ELITE)
+        return 90 - (rank - 1) * 2.5
+    elif rank <= 10:
+        # Top 10: 78 at rank 6, 70 at rank 10 (ELITE/STAR)
+        return 78 - (rank - 6) * 1.6
+    elif rank <= 25:
+        # 11-25: 68 at rank 11, 53 at rank 25 (STAR/SOLID)
+        return 68 - (rank - 11) * 1.07
+    elif rank <= 50:
+        # 26-50: 52 at rank 26, 35 at rank 50 (SOLID)
+        return 52 - (rank - 26) * 0.68
+    elif rank <= 100:
+        # 51-100: 34 at rank 51, 15 at rank 100 (SOLID/DEPTH)
+        return 34 - (rank - 51) * 0.39
+    elif rank <= 200:
+        # 101-200: 14 at rank 101, 5 at rank 200 (DEPTH)
+        return 14 - (rank - 101) * 0.09
+    else:
+        # 201-300: 4.5 at rank 201, 1 at rank 300 (DEPTH)
+        return 4.5 - (rank - 201) * 0.035
+
+
+# ============================================================================
 # CONFIGURATION
 # ============================================================================
 
@@ -572,6 +616,186 @@ def update_team_profile(team_name, updates):
     profiles[team_name].update(updates)
     return save_team_profiles(profiles)
 
+# ============================================================================
+# GM CHAT HISTORY & LEARNING
+# ============================================================================
+CHAT_HISTORY_FILE = os.path.join(os.path.dirname(__file__), "chat_history.json")
+USER_PREFERENCES_FILE = os.path.join(os.path.dirname(__file__), "user_preferences.json")
+
+def load_chat_history():
+    """Load chat history for all teams."""
+    if os.path.exists(CHAT_HISTORY_FILE):
+        try:
+            with open(CHAT_HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {}
+    return {}
+
+def save_chat_history(history):
+    """Save chat history to file."""
+    try:
+        with open(CHAT_HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, indent=2, ensure_ascii=False)
+        return True
+    except IOError:
+        return False
+
+def get_team_chat_history(team_name, limit=50):
+    """Get chat history for a specific team."""
+    history = load_chat_history()
+    team_history = history.get(team_name, {"messages": [], "preferences": {}})
+    # Return last N messages
+    team_history["messages"] = team_history.get("messages", [])[-limit:]
+    return team_history
+
+def add_chat_message(team_name, role, content):
+    """Add a message to team's chat history."""
+    history = load_chat_history()
+    if team_name not in history:
+        history[team_name] = {"messages": [], "preferences": {}}
+
+    from datetime import datetime
+    history[team_name]["messages"].append({
+        "role": role,
+        "content": content,
+        "timestamp": datetime.now().isoformat()
+    })
+
+    # Keep only last 100 messages per team
+    history[team_name]["messages"] = history[team_name]["messages"][-100:]
+    save_chat_history(history)
+
+def load_user_preferences():
+    """Load learned user preferences for all teams."""
+    if os.path.exists(USER_PREFERENCES_FILE):
+        try:
+            with open(USER_PREFERENCES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {}
+    return {}
+
+def save_user_preferences(preferences):
+    """Save user preferences to file."""
+    try:
+        with open(USER_PREFERENCES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(preferences, f, indent=2, ensure_ascii=False)
+        return True
+    except IOError:
+        return False
+
+def get_team_preferences(team_name):
+    """Get learned preferences for a specific team."""
+    prefs = load_user_preferences()
+    return prefs.get(team_name, {
+        "trade_style": None,  # "aggressive", "conservative", "value-focused"
+        "risk_tolerance": None,  # "high", "medium", "low"
+        "favorite_players": [],  # Players frequently asked about
+        "players_to_move": [],  # Players they want to trade away
+        "target_players": [],  # Players they want to acquire
+        "category_focus": [],  # Categories they prioritize
+        "position_needs": [],  # Positions they're looking to fill
+        "notes": [],  # Key insights learned
+        "conversation_count": 0
+    })
+
+def update_team_preferences(team_name, updates):
+    """Update learned preferences for a team."""
+    prefs = load_user_preferences()
+    if team_name not in prefs:
+        prefs[team_name] = get_team_preferences(team_name)
+
+    # Merge updates
+    for key, value in updates.items():
+        if isinstance(value, list) and key in prefs[team_name] and isinstance(prefs[team_name][key], list):
+            # For lists, extend and keep unique values
+            existing = prefs[team_name][key]
+            for item in value:
+                if item not in existing:
+                    existing.append(item)
+            # Keep only last 10 items for lists
+            prefs[team_name][key] = existing[-10:]
+        else:
+            prefs[team_name][key] = value
+
+    save_user_preferences(prefs)
+    return prefs[team_name]
+
+def extract_preferences_from_conversation(team_name, user_message, assistant_response):
+    """Use simple heuristics to extract preferences from conversation."""
+    prefs_update = {}
+    user_lower = user_message.lower()
+
+    # Detect trade style
+    if any(word in user_lower for word in ["aggressive", "bold", "big move", "splash"]):
+        prefs_update["trade_style"] = "aggressive"
+    elif any(word in user_lower for word in ["conservative", "careful", "safe", "low risk"]):
+        prefs_update["trade_style"] = "conservative"
+    elif any(word in user_lower for word in ["value", "fair", "even"]):
+        prefs_update["trade_style"] = "value-focused"
+
+    # Detect risk tolerance
+    if any(word in user_lower for word in ["risky", "gamble", "swing big", "high ceiling"]):
+        prefs_update["risk_tolerance"] = "high"
+    elif any(word in user_lower for word in ["safe", "floor", "reliable", "consistent"]):
+        prefs_update["risk_tolerance"] = "low"
+
+    # Detect category focus
+    categories = ["HR", "AVG", "OPS", "R", "RBI", "SB", "K", "ERA", "WHIP", "QS", "SV"]
+    for cat in categories:
+        if cat.lower() in user_lower or cat in user_message:
+            if "category_focus" not in prefs_update:
+                prefs_update["category_focus"] = []
+            prefs_update["category_focus"].append(cat)
+
+    # Detect position needs
+    positions = ["C", "1B", "2B", "SS", "3B", "OF", "SP", "RP"]
+    for pos in positions:
+        pattern = f"need {pos.lower()}|looking for {pos.lower()}|acquire {pos.lower()}|want {pos.lower()}"
+        if any(p in user_lower for p in pattern.split("|")):
+            if "position_needs" not in prefs_update:
+                prefs_update["position_needs"] = []
+            prefs_update["position_needs"].append(pos)
+
+    # Increment conversation count
+    current_prefs = get_team_preferences(team_name)
+    prefs_update["conversation_count"] = current_prefs.get("conversation_count", 0) + 1
+
+    if prefs_update:
+        update_team_preferences(team_name, prefs_update)
+
+    return prefs_update
+
+def build_preferences_context(team_name):
+    """Build a context string from learned preferences."""
+    prefs = get_team_preferences(team_name)
+
+    if prefs.get("conversation_count", 0) == 0:
+        return ""
+
+    context_parts = ["\nLEARNED USER PREFERENCES (from previous conversations):"]
+
+    if prefs.get("trade_style"):
+        context_parts.append(f"- Trade Style: {prefs['trade_style']}")
+    if prefs.get("risk_tolerance"):
+        context_parts.append(f"- Risk Tolerance: {prefs['risk_tolerance']}")
+    if prefs.get("category_focus"):
+        context_parts.append(f"- Category Focus: {', '.join(prefs['category_focus'][:5])}")
+    if prefs.get("position_needs"):
+        context_parts.append(f"- Position Needs: {', '.join(prefs['position_needs'][:5])}")
+    if prefs.get("target_players"):
+        context_parts.append(f"- Players They Want: {', '.join(prefs['target_players'][:5])}")
+    if prefs.get("players_to_move"):
+        context_parts.append(f"- Players They Want to Trade: {', '.join(prefs['players_to_move'][:5])}")
+    if prefs.get("notes"):
+        context_parts.append(f"- Notes: {'; '.join(prefs['notes'][:3])}")
+
+    context_parts.append(f"- Total Conversations: {prefs.get('conversation_count', 0)}")
+    context_parts.append("\nUse these preferences to give more personalized advice!")
+
+    return "\n".join(context_parts) if len(context_parts) > 2 else ""
+
 app = Flask(__name__)
 
 # Name aliases: Fantrax name -> Fangraphs/projection name
@@ -1014,6 +1238,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .search-result:hover { background: rgba(0, 212, 255, 0.08); }
         .search-result .player-name { font-weight: 600; color: #e8e8e8; }
         .search-result .player-info { font-size: 0.88rem; color: #888; margin-top: 4px; }
+        .search-result-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid rgba(0, 212, 255, 0.1); transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .search-result-item:hover { background: rgba(0, 212, 255, 0.1); }
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(5, 5, 8, 0.96); z-index: 1000; overflow-y: auto; }
         .modal.active { display: flex; justify-content: center; align-items: flex-start; padding: 50px 20px; }
         .modal-content { background: linear-gradient(145deg, #0c0c12, #101018); border-radius: 20px; max-width: 650px; width: 100%; padding: 35px; position: relative; border: 1px solid rgba(0, 212, 255, 0.2); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
@@ -1024,6 +1250,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .player-header { text-align: center; margin-bottom: 30px; }
         .player-header h2 { color: #00d4ff; font-size: 2rem; text-shadow: 0 0 20px rgba(0, 212, 255, 0.25); }
         .player-header .dynasty-value { font-size: 3rem; font-weight: bold; background: linear-gradient(90deg, #00d4ff, #00a8cc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .tier-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; }
+        .tier-superstar { background: linear-gradient(90deg, #ffd700, #ff8c00); color: #000; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+        .tier-elite { background: linear-gradient(90deg, #9b59b6, #8e44ad); color: #fff; box-shadow: 0 0 10px rgba(155, 89, 182, 0.4); }
+        .tier-star { background: linear-gradient(90deg, #3498db, #2980b9); color: #fff; box-shadow: 0 0 10px rgba(52, 152, 219, 0.4); }
+        .tier-solid { background: linear-gradient(90deg, #27ae60, #229954); color: #fff; box-shadow: 0 0 10px rgba(39, 174, 96, 0.3); }
+        .tier-depth { background: linear-gradient(90deg, #7f8c8d, #6c7a7a); color: #fff; }
         .player-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 14px; }
         .stat-box { background: linear-gradient(145deg, #0a0a10, #0e0e16); padding: 16px 14px; border-radius: 10px; text-align: center; border: 1px solid rgba(0, 212, 255, 0.08); transition: all 0.2s ease; }
         .stat-box:hover { border-color: rgba(0, 212, 255, 0.2); }
@@ -1046,10 +1278,176 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .suggestion-value { color: #00d4ff; font-weight: 600; margin-top: 12px; font-size: 1.05rem; }
         .player-link { cursor: pointer; color: #00d4ff; transition: all 0.2s; }
         .player-link:hover { color: #00a8cc; text-decoration: underline; }
+        /* ============ MOBILE RESPONSIVE STYLES ============ */
+
+        /* Tablet breakpoint */
+        @media (max-width: 992px) {
+            .container { padding: 15px; }
+            header h1 { font-size: 1.8rem; }
+            .trade-sides { gap: 20px; }
+            .suggestion-sides { gap: 20px; }
+        }
+
+        /* Mobile breakpoint */
         @media (max-width: 768px) {
-            .trade-sides { grid-template-columns: 1fr; }
-            .arrow { transform: rotate(90deg); padding: 20px 0; }
-            .value-comparison { grid-template-columns: 1fr; }
+            /* Container and header */
+            .container { padding: 10px; }
+            header { margin-bottom: 20px; }
+            header h1 { font-size: 1.4rem; }
+            header p { font-size: 0.85rem; }
+
+            /* Tabs - horizontal scroll */
+            .tabs {
+                display: flex;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+                gap: 8px;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+            }
+            .tabs::-webkit-scrollbar { display: none; }
+            .tab {
+                flex-shrink: 0;
+                padding: 10px 16px;
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+
+            /* Trade sides - stack vertically */
+            .trade-sides { grid-template-columns: 1fr; gap: 15px; }
+            .arrow { transform: rotate(90deg); padding: 15px 0; font-size: 1.5rem; }
+            .value-comparison { grid-template-columns: 1fr; gap: 15px; }
+
+            /* Trade form inputs */
+            .trade-side { padding: 15px; }
+            .trade-side h3 { font-size: 1.1rem; margin-bottom: 15px; }
+
+            /* Suggestion cards */
+            .suggestion-card { padding: 18px; }
+            .suggestion-sides { grid-template-columns: 1fr; gap: 15px; }
+
+            /* Team grid */
+            #teams-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 12px !important;
+            }
+
+            /* Prospects grid */
+            #prospects-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+            }
+
+            /* Player cards */
+            .player-card { padding: 12px 14px; }
+
+            /* Modals - full width on mobile */
+            .modal.active { padding: 20px 10px; align-items: flex-start; }
+            .modal-content {
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 20px 15px;
+                border-radius: 15px;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+            .modal-close { top: 12px; right: 15px; font-size: 1.5rem; }
+
+            /* Player modal stats */
+            .player-stats { gap: 8px; }
+            .stat-box { padding: 10px 12px; min-width: 70px; }
+
+            /* Form groups - stack */
+            .form-group { min-width: 100% !important; }
+
+            /* Search results */
+            .search-results { max-height: 250px; }
+
+            /* Tables */
+            table { font-size: 0.85rem; }
+            th, td { padding: 8px 10px; }
+
+            /* Dynasty value display */
+            .dynasty-value { font-size: 2.5rem; }
+            .tier-badge { font-size: 0.7rem; padding: 4px 10px; }
+        }
+
+        /* Small mobile breakpoint */
+        @media (max-width: 480px) {
+            header h1 { font-size: 1.2rem; }
+            header p { font-size: 0.8rem; }
+
+            .tab { padding: 8px 12px; font-size: 0.8rem; }
+
+            #teams-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .trade-side { padding: 12px; }
+
+            /* Comparison modal - stack cards */
+            #comparison-modal-content > div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+            }
+            #comparison-modal-content table {
+                font-size: 0.85rem;
+            }
+            #comparison-modal-content button {
+                padding: 10px 16px !important;
+                font-size: 0.85rem;
+            }
+
+            .modal-content { padding: 15px 12px; }
+
+            .player-header h2 { font-size: 1.5rem; }
+            .dynasty-value { font-size: 2rem; }
+
+            .stat-box { min-width: 60px; padding: 8px 10px; }
+            .stat-box .label { font-size: 0.65rem; }
+            .stat-box .value { font-size: 0.95rem; }
+
+            /* Chat bubbles */
+            .chat-bubble { max-width: 90% !important; }
+        }
+
+        /* GM Chat mobile specific */
+        @media (max-width: 900px) {
+            #gmchat-container {
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: auto !important;
+            }
+            #gmchat-sidebar {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            #gmchat-panel #chat-messages {
+                min-height: 350px;
+                max-height: 50vh;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #gmchat-sidebar {
+                padding: 10px !important;
+            }
+            #gm-profile > div {
+                padding: 10px !important;
+            }
+        }
+
+        /* Touch-friendly buttons */
+        @media (hover: none) and (pointer: coarse) {
+            .tab, button, .player-card, .suggestion-card {
+                min-height: 44px;
+            }
+            input, select {
+                min-height: 44px;
+                font-size: 16px; /* Prevents iOS zoom on focus */
+            }
         }
     </style>
 </head>
@@ -1072,6 +1470,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
 
         <div id="analyze-panel" class="panel active">
+            <!-- Back to Suggestions Button (shown when coming from suggestions) -->
+            <div id="back-to-suggestions" style="display: none; margin-bottom: 15px;">
+                <button onclick="goBackToSuggestions()" style="background: linear-gradient(135deg, #3a3a5a, #4a4a6a); border: 1px solid rgba(0, 212, 255, 0.3); color: #00d4ff; padding: 10px 20px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9rem;">
+                    <span style="font-size: 1.1rem;">←</span> Back to Trade Suggestions
+                </button>
+            </div>
             <div class="trade-sides">
                 <div class="trade-side">
                     <h3>Team A Sends</h3>
@@ -1305,9 +1709,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
 
         <div id="gmchat-panel" class="panel">
-            <div style="display: flex; gap: 20px; height: calc(100vh - 200px); min-height: 500px;">
+            <div id="gmchat-container" style="display: flex; gap: 20px; height: calc(100vh - 200px); min-height: 500px;">
                 <!-- Left side: Team Selection & GM Info -->
-                <div style="width: 280px; flex-shrink: 0;">
+                <div id="gmchat-sidebar" style="width: 280px; flex-shrink: 0;">
                     <div style="background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.1)); border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; padding: 20px;">
                         <h3 style="color: #667eea; margin: 0 0 15px 0; font-size: 1.1rem;">Select Your Team</h3>
                         <select id="gmChatTeamSelect" onchange="loadGMProfile()" style="width: 100%; padding: 10px; border-radius: 8px; background: #1a1a2e; border: 1px solid #333; color: #fff; font-size: 14px;">
@@ -1334,6 +1738,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Team Status</div>
                                 <div id="gm-teamstatus" style="color: #aaa;"></div>
                             </div>
+
+                            <!-- Learned Preferences Section -->
+                            <div id="gm-prefs-section" style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-top: 12px; display: none;">
+                                <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 8px;">Learned Preferences</div>
+                                <div id="gm-learned-prefs" style="color: #aaa; font-size: 0.85rem; line-height: 1.5;"></div>
+                                <button onclick="resetPreferences()" style="margin-top: 10px; width: 100%; padding: 6px; background: rgba(255,100,100,0.2); border: 1px solid rgba(255,100,100,0.3); border-radius: 6px; color: #ff6b6b; font-size: 0.75rem; cursor: pointer;">Reset Preferences</button>
+                            </div>
                         </div>
 
                         <div id="gm-chat-disabled" style="margin-top: 20px; padding: 15px; background: rgba(255,100,100,0.1); border: 1px solid rgba(255,100,100,0.3); border-radius: 8px; display: none;">
@@ -1351,6 +1762,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             <div style="cursor: pointer; padding: 4px 0;" onclick="askQuestion('What is my championship window?')">• What is my championship window?</div>
                         </div>
                     </div>
+
+                    <!-- Clear History Button -->
+                    <button id="clear-history-btn" onclick="clearChatHistory()" style="margin-top: 15px; width: 100%; padding: 12px; background: rgba(255,77,109,0.1); border: 1px solid rgba(255,77,109,0.4); border-radius: 8px; color: #ff6b6b; font-size: 0.9rem; cursor: pointer; display: none; transition: all 0.2s;">🗑️ Clear Chat History</button>
                 </div>
 
                 <!-- Right side: Chat Interface -->
@@ -1392,6 +1806,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
         </div>
     </div>
 
+    <div id="comparison-modal" class="modal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 900px;">
+            <span class="modal-close" onclick="closeComparisonModal()">&times;</span>
+            <div id="comparison-modal-content"></div>
+        </div>
+    </div>
+
     <script>
         const API_BASE = '';
         let teamsData = [];
@@ -1403,6 +1824,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
         let currentTeamDepth = {};  // Store current team's positional depth for modal
         let currentSuggestLimit = 8;
         let allCurrentSuggestions = [];
+
+        // Player comparison state
+        let comparisonPlayer1 = null;
+        let comparisonPlayer2 = null;
+        let comparisonMode = false;
 
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-container')) {
@@ -1518,17 +1944,155 @@ HTML_CONTENT = '''<!DOCTYPE html>
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
             document.getElementById(`${panel}-panel`).classList.add('active');
-            event.target.classList.add('active');
+            if (event && event.target) event.target.classList.add('active');
 
             if (panel === 'league') loadLeagueData();
             if (panel === 'freeagents') loadFASuggestions();
             if (panel === 'gmchat') initGMChat();
+
+            // Hide back button if navigating to analyze panel manually (not from suggestions)
+            if (panel === 'analyze' && !cameFromSuggestions) {
+                const backBtn = document.getElementById('back-to-suggestions');
+                if (backBtn) backBtn.style.display = 'none';
+            }
+            // Reset the flag after using it
+            if (panel !== 'analyze') {
+                cameFromSuggestions = false;
+            }
         }
 
         // ============ GM CHAT FUNCTIONS ============
         let gmChatHistory = [];
         let gmChatTeam = '';
         let gmChatEnabled = false;
+
+        // ============ LOCAL STORAGE FUNCTIONS ============
+        function getLocalChatHistory(teamName) {
+            try {
+                const key = `gm-chat-history-${teamName}`;
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error('Failed to load chat history from localStorage:', e);
+                return [];
+            }
+        }
+
+        function saveLocalChatHistory(teamName, history) {
+            try {
+                const key = `gm-chat-history-${teamName}`;
+                // Keep only last 50 messages to avoid storage limits
+                const trimmed = history.slice(-50);
+                localStorage.setItem(key, JSON.stringify(trimmed));
+            } catch (e) {
+                console.error('Failed to save chat history to localStorage:', e);
+            }
+        }
+
+        function clearLocalChatHistory(teamName) {
+            try {
+                const key = `gm-chat-history-${teamName}`;
+                localStorage.removeItem(key);
+            } catch (e) {
+                console.error('Failed to clear chat history from localStorage:', e);
+            }
+        }
+
+        function getLocalPreferences(teamName) {
+            try {
+                const key = `gm-preferences-${teamName}`;
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : {};
+            } catch (e) {
+                console.error('Failed to load preferences from localStorage:', e);
+                return {};
+            }
+        }
+
+        function saveLocalPreferences(teamName, prefs) {
+            try {
+                const key = `gm-preferences-${teamName}`;
+                localStorage.setItem(key, JSON.stringify(prefs));
+            } catch (e) {
+                console.error('Failed to save preferences to localStorage:', e);
+            }
+        }
+
+        function clearLocalPreferences(teamName) {
+            try {
+                const key = `gm-preferences-${teamName}`;
+                localStorage.removeItem(key);
+            } catch (e) {
+                console.error('Failed to clear preferences from localStorage:', e);
+            }
+        }
+
+        function extractPreferencesFromMessage(teamName, userMessage, assistantResponse) {
+            // Simple heuristic-based preference extraction
+            const prefs = getLocalPreferences(teamName);
+            const msgLower = userMessage.toLowerCase();
+
+            // Detect trade style preferences
+            if (msgLower.includes('aggressive') || msgLower.includes('go all in')) {
+                prefs.trade_style = 'aggressive';
+            } else if (msgLower.includes('conservative') || msgLower.includes('careful')) {
+                prefs.trade_style = 'conservative';
+            } else if (msgLower.includes('balanced')) {
+                prefs.trade_style = 'balanced';
+            }
+
+            // Detect position priorities
+            const positions = ['SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'OF', 'DH'];
+            positions.forEach(pos => {
+                if (msgLower.includes(`need ${pos.toLowerCase()}`) || msgLower.includes(`want ${pos.toLowerCase()}`) ||
+                    msgLower.includes(`prioritize ${pos.toLowerCase()}`)) {
+                    if (!prefs.priority_positions) prefs.priority_positions = [];
+                    if (!prefs.priority_positions.includes(pos)) {
+                        prefs.priority_positions.push(pos);
+                    }
+                }
+            });
+
+            // Detect category priorities
+            const categories = ['HR', 'RBI', 'SB', 'AVG', 'OPS', 'K', 'ERA', 'WHIP', 'QS', 'saves', 'holds'];
+            categories.forEach(cat => {
+                if (msgLower.includes(`need ${cat.toLowerCase()}`) || msgLower.includes(`want ${cat.toLowerCase()}`) ||
+                    msgLower.includes(`improve ${cat.toLowerCase()}`)) {
+                    if (!prefs.priority_categories) prefs.priority_categories = [];
+                    const catUpper = cat.toUpperCase();
+                    if (!prefs.priority_categories.includes(catUpper)) {
+                        prefs.priority_categories.push(catUpper);
+                    }
+                }
+            });
+
+            // Detect target players (look for "target X" or "acquire X" patterns)
+            const targetMatch = userMessage.match(/(?:target|acquire|get|trade for)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)/gi);
+            if (targetMatch) {
+                if (!prefs.target_players) prefs.target_players = [];
+                targetMatch.forEach(match => {
+                    const name = match.replace(/^(target|acquire|get|trade for)\s+/i, '').trim();
+                    if (name && !prefs.target_players.includes(name)) {
+                        prefs.target_players.push(name);
+                    }
+                });
+            }
+
+            // Detect players to avoid
+            const avoidMatch = userMessage.match(/(?:avoid|don't want|stay away from)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)/gi);
+            if (avoidMatch) {
+                if (!prefs.avoid_players) prefs.avoid_players = [];
+                avoidMatch.forEach(match => {
+                    const name = match.replace(/^(avoid|don't want|stay away from)\s+/i, '').trim();
+                    if (name && !prefs.avoid_players.includes(name)) {
+                        prefs.avoid_players.push(name);
+                    }
+                });
+            }
+
+            saveLocalPreferences(teamName, prefs);
+            return prefs;
+        }
 
         async function initGMChat() {
             // Populate team dropdown
@@ -1569,13 +2133,18 @@ HTML_CONTENT = '''<!DOCTYPE html>
             gmChatHistory = [];
 
             try {
-                // Get GM profile
-                const gmResp = await fetch(`${API_BASE}/assistant-gm/${encodeURIComponent(teamName)}`);
-                const gm = await gmResp.json();
+                // Get GM profile and team data from server
+                const [gmResp, teamResp] = await Promise.all([
+                    fetch(`${API_BASE}/assistant-gm/${encodeURIComponent(teamName)}`),
+                    fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`)
+                ]);
 
-                // Get team data for status
-                const teamResp = await fetch(`${API_BASE}/team/${encodeURIComponent(teamName)}`);
+                const gm = await gmResp.json();
                 const team = await teamResp.json();
+
+                // Load chat history and preferences from localStorage (user's browser)
+                const history = getLocalChatHistory(teamName);
+                const prefs = getLocalPreferences(teamName);
 
                 // Update GM profile display
                 document.getElementById('gm-avatar').textContent = gm.name.charAt(0);
@@ -1586,6 +2155,27 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 document.getElementById('gm-teamstatus').innerHTML = `#${team.power_rank} Power Rank<br>${team.total_value?.toFixed(0) || 0} Total Value`;
                 document.getElementById('gm-profile').style.display = 'block';
 
+                // Display learned preferences if any (from localStorage)
+                const prefsContainer = document.getElementById('gm-learned-prefs');
+                if (prefsContainer) {
+                    const hasPref = prefs.trade_style || prefs.priority_positions?.length || prefs.priority_categories?.length || prefs.target_players?.length || prefs.avoid_players?.length;
+
+                    if (hasPref) {
+                        let prefsHtml = '';
+                        if (prefs.trade_style) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Style:</span> ${prefs.trade_style}</div>`;
+                        if (prefs.priority_positions?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Positions:</span> ${prefs.priority_positions.join(', ')}</div>`;
+                        if (prefs.priority_categories?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Categories:</span> ${prefs.priority_categories.join(', ')}</div>`;
+                        if (prefs.target_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #00ff88;">Targets:</span> ${prefs.target_players.slice(0, 3).join(', ')}</div>`;
+                        if (prefs.avoid_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #ff6b6b;">Avoid:</span> ${prefs.avoid_players.slice(0, 3).join(', ')}</div>`;
+                        prefsContainer.innerHTML = prefsHtml;
+                        prefsContainer.style.display = 'block';
+                        document.getElementById('gm-prefs-section').style.display = 'block';
+                    } else {
+                        prefsContainer.style.display = 'none';
+                        document.getElementById('gm-prefs-section').style.display = 'none';
+                    }
+                }
+
                 // Enable chat if API is available
                 if (gmChatEnabled) {
                     document.getElementById('chat-input').disabled = false;
@@ -1593,8 +2183,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     document.getElementById('chat-send-btn').style.opacity = '1';
                 }
 
-                // Reset chat messages with welcome
-                document.getElementById('chat-messages').innerHTML = `
+                // Build chat messages - start with welcome, then add history
+                const chatMessages = document.getElementById('chat-messages');
+                let messagesHtml = `
                     <div style="display: flex; gap: 12px; align-items: flex-start;">
                         <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">${gm.name.charAt(0)}</div>
                         <div style="background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; padding: 15px; max-width: 80%;">
@@ -1604,6 +2195,49 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         </div>
                     </div>
                 `;
+
+                // Add chat history if exists (from localStorage)
+                if (history.length > 0) {
+                    messagesHtml += `
+                        <div style="text-align: center; margin: 15px 0;">
+                            <span style="background: rgba(102,126,234,0.2); color: #888; font-size: 0.75rem; padding: 4px 12px; border-radius: 12px;">Previous conversation</span>
+                        </div>
+                    `;
+
+                    history.forEach(msg => {
+                        if (msg.role === 'user') {
+                            messagesHtml += `
+                                <div style="display: flex; gap: 12px; align-items: flex-start; justify-content: flex-end;">
+                                    <div style="background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3); border-radius: 12px; padding: 15px; max-width: 80%;">
+                                        <div style="color: #ddd; line-height: 1.5;">${escapeHtml(msg.content)}</div>
+                                    </div>
+                                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #00d4ff, #0099cc); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">You</div>
+                                </div>
+                            `;
+                        } else {
+                            messagesHtml += `
+                                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; flex-shrink: 0;">${gm.name.charAt(0)}</div>
+                                    <div style="background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.3); border-radius: 12px; padding: 15px; max-width: 80%;">
+                                        <div style="color: #667eea; font-weight: bold; margin-bottom: 8px;">${gm.name}</div>
+                                        <div style="color: #ddd; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(msg.content)}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        // Add to local history for context
+                        gmChatHistory.push({ role: msg.role, content: msg.content });
+                    });
+                }
+
+                chatMessages.innerHTML = messagesHtml;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Show Clear History button if there's history
+                const clearBtn = document.getElementById('clear-history-btn');
+                if (clearBtn) {
+                    clearBtn.style.display = history.length > 0 ? 'block' : 'none';
+                }
 
             } catch (e) {
                 console.error('Failed to load GM profile:', e);
@@ -1653,12 +2287,16 @@ HTML_CONTENT = '''<!DOCTYPE html>
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
             try {
+                // Get preferences from localStorage to send to server
+                const userPrefs = getLocalPreferences(gmChatTeam);
+
                 const response = await fetch(`${API_BASE}/gm-chat/${encodeURIComponent(gmChatTeam)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: message,
-                        history: gmChatHistory.slice(-10)
+                        history: gmChatHistory.slice(-10),
+                        preferences: userPrefs
                     })
                 });
 
@@ -1690,9 +2328,22 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             </div>
                         </div>
                     `;
+
+                    // Save chat history to localStorage
+                    saveLocalChatHistory(gmChatTeam, gmChatHistory);
+
+                    // Extract and save preferences from conversation
+                    const updatedPrefs = extractPreferencesFromMessage(gmChatTeam, message, data.response);
+
+                    // Update preferences display if any new preferences learned
+                    updatePreferencesDisplay(updatedPrefs);
                 }
 
                 chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Show clear history button after successful message
+                const clearBtn = document.getElementById('clear-history-btn');
+                if (clearBtn) clearBtn.style.display = 'block';
 
             } catch (e) {
                 document.getElementById(loadingId)?.remove();
@@ -1711,6 +2362,47 @@ HTML_CONTENT = '''<!DOCTYPE html>
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function updatePreferencesDisplay(prefs) {
+            const prefsContainer = document.getElementById('gm-learned-prefs');
+            if (!prefsContainer) return;
+
+            const hasPref = prefs.trade_style || prefs.priority_positions?.length || prefs.priority_categories?.length || prefs.target_players?.length || prefs.avoid_players?.length;
+
+            if (hasPref) {
+                let prefsHtml = '';
+                if (prefs.trade_style) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Style:</span> ${prefs.trade_style}</div>`;
+                if (prefs.priority_positions?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Positions:</span> ${prefs.priority_positions.join(', ')}</div>`;
+                if (prefs.priority_categories?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Categories:</span> ${prefs.priority_categories.join(', ')}</div>`;
+                if (prefs.target_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #00ff88;">Targets:</span> ${prefs.target_players.slice(0, 3).join(', ')}</div>`;
+                if (prefs.avoid_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #ff6b6b;">Avoid:</span> ${prefs.avoid_players.slice(0, 3).join(', ')}</div>`;
+                prefsContainer.innerHTML = prefsHtml;
+                prefsContainer.style.display = 'block';
+                document.getElementById('gm-prefs-section').style.display = 'block';
+            }
+        }
+
+        function clearChatHistory() {
+            if (!gmChatTeam) return;
+            if (!confirm('Clear all chat history for ' + gmChatTeam + '?')) return;
+
+            // Clear from localStorage
+            clearLocalChatHistory(gmChatTeam);
+            gmChatHistory = [];
+            document.getElementById('clear-history-btn').style.display = 'none';
+            // Reload GM profile to reset chat
+            loadGMProfile();
+        }
+
+        function resetPreferences() {
+            if (!gmChatTeam) return;
+            if (!confirm('Reset learned preferences for ' + gmChatTeam + '?')) return;
+
+            // Clear from localStorage
+            clearLocalPreferences(gmChatTeam);
+            document.getElementById('gm-prefs-section').style.display = 'none';
+            document.getElementById('gm-learned-prefs').innerHTML = '';
         }
 
         async function loadLeagueData() {
@@ -2045,6 +2737,75 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 ${data.category_impact.map(c => `<span style="background: linear-gradient(135deg, #14141c, #1a1a24); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; border: 1px solid rgba(0, 212, 255, 0.2);">${c}</span>`).join('')}
                             </div>
                         ` : ''}
+                        ${data.trade_impact ? `
+                            <div style="margin: 20px 0; padding: 20px; background: linear-gradient(145deg, #0a1520, #0f1a25); border-radius: 12px; border: 1px solid rgba(0, 212, 255, 0.15);">
+                                <h4 style="color: #00d4ff; margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 1.2rem;">📊</span> Trade Impact Simulator
+                                </h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <!-- Team A Impact -->
+                                    <div style="background: rgba(123, 44, 191, 0.1); border-radius: 10px; padding: 16px; border: 1px solid rgba(123, 44, 191, 0.2);">
+                                        <div style="font-weight: bold; color: #7b2cbf; margin-bottom: 12px; font-size: 0.95rem;">${teamA}</div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                                            <span style="color: #888; font-size: 0.85rem;">Championship Odds</span>
+                                            <div style="text-align: right;">
+                                                <span style="color: #a0a0c0;">${data.trade_impact.team_a.odds_before}%</span>
+                                                <span style="color: #666; margin: 0 6px;">→</span>
+                                                <span style="color: ${data.trade_impact.team_a.odds_change >= 0 ? '#00ff88' : '#ff4d6d'}; font-weight: bold;">${data.trade_impact.team_a.odds_after}%</span>
+                                                <span style="color: ${data.trade_impact.team_a.odds_change >= 0 ? '#00ff88' : '#ff4d6d'}; font-size: 0.8rem; margin-left: 6px;">(${data.trade_impact.team_a.odds_change >= 0 ? '+' : ''}${data.trade_impact.team_a.odds_change}%)</span>
+                                            </div>
+                                        </div>
+                                        ${data.trade_impact.team_a.ranking_changes.length > 0 ? `
+                                            <div style="font-size: 0.8rem; color: #888; margin-bottom: 8px;">Category Ranking Changes:</div>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                ${data.trade_impact.team_a.ranking_changes.slice(0, 6).map(c => `
+                                                    <span style="background: ${c.is_improvement ? 'rgba(0,255,136,0.15)' : 'rgba(255,77,109,0.15)'}; border: 1px solid ${c.is_improvement ? 'rgba(0,255,136,0.3)' : 'rgba(255,77,109,0.3)'}; padding: 4px 10px; border-radius: 15px; font-size: 0.8rem;">
+                                                        <span style="color: ${c.is_improvement ? '#00ff88' : '#ff4d6d'};">${c.category}</span>
+                                                        <span style="color: #888;">#${c.before}</span>
+                                                        <span style="color: #666;">→</span>
+                                                        <span style="color: ${c.is_improvement ? '#00ff88' : '#ff4d6d'}; font-weight: bold;">#${c.after}</span>
+                                                    </span>
+                                                `).join('')}
+                                            </div>
+                                            <div style="margin-top: 10px; font-size: 0.8rem; color: #888;">
+                                                <span style="color: #00ff88;">↑ ${data.trade_impact.team_a.categories_improved}</span> improved,
+                                                <span style="color: #ff4d6d;">↓ ${data.trade_impact.team_a.categories_worsened}</span> worsened
+                                            </div>
+                                        ` : '<div style="color: #666; font-size: 0.85rem;">No ranking changes</div>'}
+                                    </div>
+                                    <!-- Team B Impact -->
+                                    <div style="background: rgba(123, 44, 191, 0.1); border-radius: 10px; padding: 16px; border: 1px solid rgba(123, 44, 191, 0.2);">
+                                        <div style="font-weight: bold; color: #7b2cbf; margin-bottom: 12px; font-size: 0.95rem;">${teamB}</div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                                            <span style="color: #888; font-size: 0.85rem;">Championship Odds</span>
+                                            <div style="text-align: right;">
+                                                <span style="color: #a0a0c0;">${data.trade_impact.team_b.odds_before}%</span>
+                                                <span style="color: #666; margin: 0 6px;">→</span>
+                                                <span style="color: ${data.trade_impact.team_b.odds_change >= 0 ? '#00ff88' : '#ff4d6d'}; font-weight: bold;">${data.trade_impact.team_b.odds_after}%</span>
+                                                <span style="color: ${data.trade_impact.team_b.odds_change >= 0 ? '#00ff88' : '#ff4d6d'}; font-size: 0.8rem; margin-left: 6px;">(${data.trade_impact.team_b.odds_change >= 0 ? '+' : ''}${data.trade_impact.team_b.odds_change}%)</span>
+                                            </div>
+                                        </div>
+                                        ${data.trade_impact.team_b.ranking_changes.length > 0 ? `
+                                            <div style="font-size: 0.8rem; color: #888; margin-bottom: 8px;">Category Ranking Changes:</div>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                ${data.trade_impact.team_b.ranking_changes.slice(0, 6).map(c => `
+                                                    <span style="background: ${c.is_improvement ? 'rgba(0,255,136,0.15)' : 'rgba(255,77,109,0.15)'}; border: 1px solid ${c.is_improvement ? 'rgba(0,255,136,0.3)' : 'rgba(255,77,109,0.3)'}; padding: 4px 10px; border-radius: 15px; font-size: 0.8rem;">
+                                                        <span style="color: ${c.is_improvement ? '#00ff88' : '#ff4d6d'};">${c.category}</span>
+                                                        <span style="color: #888;">#${c.before}</span>
+                                                        <span style="color: #666;">→</span>
+                                                        <span style="color: ${c.is_improvement ? '#00ff88' : '#ff4d6d'}; font-weight: bold;">#${c.after}</span>
+                                                    </span>
+                                                `).join('')}
+                                            </div>
+                                            <div style="margin-top: 10px; font-size: 0.8rem; color: #888;">
+                                                <span style="color: #00ff88;">↑ ${data.trade_impact.team_b.categories_improved}</span> improved,
+                                                <span style="color: #ff4d6d;">↓ ${data.trade_impact.team_b.categories_worsened}</span> worsened
+                                            </div>
+                                        ` : '<div style="color: #666; font-size: 0.85rem;">No ranking changes</div>'}
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
                         ${statTableHtml}
                         <div style="padding: 14px 24px; background: ${data.recommendation?.includes('[OK]') ? 'linear-gradient(135deg, #0a2a15, #153d20)' : data.recommendation?.includes('[!]') ? 'linear-gradient(135deg, #2a2510, #3d3515)' : 'linear-gradient(135deg, #2a1015, #3d1520)'}; border-radius: 12px; font-weight: 600; text-align: center; font-size: 1.05rem; border: 1px solid ${data.recommendation?.includes('[OK]') ? 'rgba(0, 255, 136, 0.3)' : data.recommendation?.includes('[!]') ? 'rgba(255, 190, 11, 0.3)' : 'rgba(255, 77, 109, 0.3)'};">
                             ${data.recommendation || ''}
@@ -2284,7 +3045,14 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 content.innerHTML = `
                     <h3 style="color: #00d4ff; margin-bottom: 15px;">${position} Depth (${players.length} players)</h3>
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        ${players.map((p, i) => `
+                        ${players.map((p, i) => {
+                            const val = parseFloat(p.value);
+                            let tierClass = 'tier-depth'; let tierLabel = 'D';
+                            if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
+                            else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'E'; }
+                            else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'S'; }
+                            else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'B'; }
+                            return `
                             <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}'); event.stopPropagation();" style="cursor: pointer;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <span style="color: #888; font-size: 0.8rem; width: 24px;">#${i + 1}</span>
@@ -2293,9 +3061,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                         <div style="color: #888; font-size: 0.8rem;">Age ${p.age || '?'}</div>
                                     </div>
                                 </div>
-                                <div class="value">${p.value}</div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span class="tier-badge ${tierClass}" style="font-size: 0.6rem; padding: 2px 8px;">${tierLabel}</span>
+                                    <div class="value">${p.value}</div>
+                                </div>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     </div>
                 `;
             }
@@ -2390,12 +3161,21 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 let ageAdjClass = data.age_adjustment > 0 ? 'ascending' : (data.age_adjustment < 0 ? 'descending' : '');
                 let ageAdjPrefix = data.age_adjustment > 0 ? '+' : '';
 
+                // Calculate tier based on dynasty value
+                let tierClass = 'tier-depth';
+                let tierLabel = 'Depth';
+                const val = parseFloat(data.dynasty_value);
+                if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
+                else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
+                else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'Star'; }
+                else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
+
                 content.innerHTML = `
                     <div class="player-header">
                         <h2>${data.name}</h2>
                         <div style="color: #888; margin: 10px 0;">${data.position} | ${data.mlb_team || data.team} | ${data.fantasy_team}</div>
                         <div class="dynasty-value">${data.dynasty_value}</div>
-                        <div style="color: #888;">Dynasty Value</div>
+                        <div class="tier-badge ${tierClass}">${tierLabel}</div>
                     </div>
 
                     <div class="player-stats" style="margin-top:20px;">
@@ -2431,6 +3211,15 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <h4>Trade Advice</h4>
                         <p>${data.trade_advice || 'No specific advice available.'}</p>
                     </div>
+
+                    <div style="margin-top:20px; text-align:center;">
+                        <button onclick="startComparison('${data.name.replace(/'/g, "\\'")}')"
+                            style="padding:12px 24px; background:linear-gradient(135deg, #00d4ff, #0099cc);
+                            border:none; border-radius:8px; color:#000; font-weight:bold; cursor:pointer;
+                            transition:all 0.2s ease;">
+                            Compare Player
+                        </button>
+                    </div>
                 `;
             } catch (e) {
                 content.innerHTML = `<p style="color: #f87171;">Failed to load player details: ${e.message}</p>`;
@@ -2449,6 +3238,236 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
         function closeTeamModal() {
             document.getElementById('team-modal').classList.remove('active');
+        }
+
+        function closeComparisonModal() {
+            document.getElementById('comparison-modal').classList.remove('active');
+            comparisonMode = false;
+            comparisonPlayer1 = null;
+            comparisonPlayer2 = null;
+        }
+
+        async function startComparison(playerName) {
+            // Fetch player data
+            try {
+                const res = await fetch(`${API_BASE}/player/${encodeURIComponent(playerName)}`);
+                const data = await res.json();
+                if (data.error) return;
+
+                comparisonPlayer1 = data;
+                comparisonMode = true;
+                closePlayerModal();
+
+                // Show comparison selection modal
+                const modal = document.getElementById('comparison-modal');
+                const content = document.getElementById('comparison-modal-content');
+                content.innerHTML = `
+                    <div style="text-align:center; padding:20px;">
+                        <h2 style="color:#ffd700; margin-bottom:20px;">Compare ${data.name}</h2>
+                        <p style="color:#888; margin-bottom:20px;">Search for a player to compare with ${data.name}</p>
+                        <div class="search-container" style="max-width:400px; margin:0 auto;">
+                            <input type="text" id="comparisonSearchInput" placeholder="Search player to compare..."
+                                onkeyup="searchComparisonPlayers()" autocomplete="off"
+                                style="width:100%; padding:12px 15px; background:#1a1a2e; border:1px solid #333;
+                                border-radius:8px; color:#fff; font-size:1rem;">
+                            <div id="comparison-search-results" class="search-results" style="max-height:300px; overflow-y:auto;"></div>
+                        </div>
+                        <button onclick="closeComparisonModal()"
+                            style="margin-top:20px; padding:10px 20px; background:#333; border:none;
+                            border-radius:8px; color:#fff; cursor:pointer;">Cancel</button>
+                    </div>
+                `;
+                modal.classList.add('active');
+            } catch (e) {
+                console.error('Failed to start comparison:', e);
+            }
+        }
+
+        let comparisonSearchTimeout = null;
+        async function searchComparisonPlayers() {
+            const query = document.getElementById('comparisonSearchInput').value.trim();
+            const results = document.getElementById('comparison-search-results');
+
+            if (query.length < 2) {
+                results.innerHTML = '';
+                results.classList.remove('active');
+                return;
+            }
+
+            if (comparisonSearchTimeout) clearTimeout(comparisonSearchTimeout);
+            comparisonSearchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}&limit=20`);
+                    const data = await res.json();
+
+                    if (!data.results || data.results.length === 0) {
+                        results.innerHTML = '<div style="padding:10px; color:#888;">No players found</div>';
+                        results.classList.add('active');
+                        return;
+                    }
+
+                    results.innerHTML = data.results
+                        .filter(p => p.name !== comparisonPlayer1.name)
+                        .map(p => `
+                            <div class="search-result-item" onclick="selectComparisonPlayer('${p.name.replace(/'/g, "\\'")}')">
+                                <span>${p.name}</span>
+                                <span style="color:#888; font-size:0.85rem;">${p.position} | ${p.value.toFixed(1)}</span>
+                            </div>
+                        `).join('');
+                    results.classList.add('active');
+                } catch (e) {
+                    console.error('Search error:', e);
+                }
+            }, 200);
+        }
+
+        async function selectComparisonPlayer(playerName) {
+            try {
+                const res = await fetch(`${API_BASE}/player/${encodeURIComponent(playerName)}`);
+                const data = await res.json();
+                if (data.error) return;
+
+                comparisonPlayer2 = data;
+                showComparisonResult();
+            } catch (e) {
+                console.error('Failed to load comparison player:', e);
+            }
+        }
+
+        function showComparisonResult() {
+            const p1 = comparisonPlayer1;
+            const p2 = comparisonPlayer2;
+            const content = document.getElementById('comparison-modal-content');
+
+            // Helper to get tier info
+            function getTier(val) {
+                if (val >= 90) return { class: 'tier-superstar', label: 'Superstar' };
+                if (val >= 75) return { class: 'tier-elite', label: 'Elite' };
+                if (val >= 60) return { class: 'tier-star', label: 'Star' };
+                if (val >= 40) return { class: 'tier-solid', label: 'Solid' };
+                return { class: 'tier-depth', label: 'Depth' };
+            }
+
+            const tier1 = getTier(parseFloat(p1.dynasty_value));
+            const tier2 = getTier(parseFloat(p2.dynasty_value));
+
+            // Helper to compare stats and add color coding
+            function compareVal(v1, v2, higherIsBetter = true) {
+                if (v1 === v2 || v1 === null || v2 === null) return ['', ''];
+                const better = higherIsBetter ? v1 > v2 : v1 < v2;
+                return [better ? 'color:#4ade80;' : 'color:#f87171;', better ? 'color:#f87171;' : 'color:#4ade80;'];
+            }
+
+            // Build projection comparison rows
+            let projectionRows = '';
+            const allProjKeys = new Set([
+                ...Object.keys(p1.projections || {}),
+                ...Object.keys(p2.projections || {})
+            ]);
+            allProjKeys.delete('estimated_pitcher');
+            allProjKeys.delete('estimated_hitter');
+
+            const lowerIsBetter = ['ERA', 'WHIP', 'BB'];
+            allProjKeys.forEach(key => {
+                const v1 = p1.projections?.[key];
+                const v2 = p2.projections?.[key];
+                const isLowerBetter = lowerIsBetter.includes(key);
+                const [style1, style2] = compareVal(v1, v2, !isLowerBetter);
+
+                let fmt1 = v1 !== undefined ? (typeof v1 === 'number' ?
+                    (['AVG', 'OBP', 'SLG', 'OPS', 'WHIP'].includes(key) ? v1.toFixed(3) :
+                    ['ERA', 'K/BB'].includes(key) ? v1.toFixed(2) : Math.round(v1)) : v1) : '-';
+                let fmt2 = v2 !== undefined ? (typeof v2 === 'number' ?
+                    (['AVG', 'OBP', 'SLG', 'OPS', 'WHIP'].includes(key) ? v2.toFixed(3) :
+                    ['ERA', 'K/BB'].includes(key) ? v2.toFixed(2) : Math.round(v2)) : v2) : '-';
+
+                projectionRows += `
+                    <tr>
+                        <td style="padding:8px 12px; ${style1} font-weight:bold;">${fmt1}</td>
+                        <td style="padding:8px 12px; color:#888; text-align:center;">${key}</td>
+                        <td style="padding:8px 12px; ${style2} font-weight:bold; text-align:right;">${fmt2}</td>
+                    </tr>
+                `;
+            });
+
+            // Value comparison styling
+            const val1 = parseFloat(p1.dynasty_value);
+            const val2 = parseFloat(p2.dynasty_value);
+            const [valStyle1, valStyle2] = compareVal(val1, val2);
+
+            // Age comparison (lower is better for dynasty)
+            const [ageStyle1, ageStyle2] = compareVal(p1.age, p2.age, false);
+
+            content.innerHTML = `
+                <h2 style="text-align:center; color:#ffd700; margin-bottom:25px;">Player Comparison</h2>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:30px;">
+                    <!-- Player 1 Header -->
+                    <div style="text-align:center; padding:20px; background:linear-gradient(135deg, #1a1a2e, #16213e); border-radius:12px;">
+                        <h3 style="margin:0; font-size:1.3rem;">${p1.name}</h3>
+                        <div style="color:#888; margin:8px 0;">${p1.position} | ${p1.mlb_team || p1.team}</div>
+                        <div style="color:#888; font-size:0.85rem;">${p1.fantasy_team}</div>
+                        <div style="font-size:2rem; font-weight:bold; color:#ffd700; margin:15px 0; ${valStyle1}">${p1.dynasty_value}</div>
+                        <span class="tier-badge ${tier1.class}">${tier1.label}</span>
+                    </div>
+
+                    <!-- Player 2 Header -->
+                    <div style="text-align:center; padding:20px; background:linear-gradient(135deg, #1a1a2e, #16213e); border-radius:12px;">
+                        <h3 style="margin:0; font-size:1.3rem;">${p2.name}</h3>
+                        <div style="color:#888; margin:8px 0;">${p2.position} | ${p2.mlb_team || p2.team}</div>
+                        <div style="color:#888; font-size:0.85rem;">${p2.fantasy_team}</div>
+                        <div style="font-size:2rem; font-weight:bold; color:#ffd700; margin:15px 0; ${valStyle2}">${p2.dynasty_value}</div>
+                        <span class="tier-badge ${tier2.class}">${tier2.label}</span>
+                    </div>
+                </div>
+
+                <!-- Core Stats Comparison -->
+                <div style="margin-top:25px; background:#1a1a24; border-radius:12px; padding:20px;">
+                    <h4 style="color:#888; margin:0 0 15px 0; text-align:center;">Core Attributes</h4>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <tr>
+                            <td style="padding:10px; ${ageStyle1} font-weight:bold;">${p1.age}</td>
+                            <td style="padding:10px; color:#888; text-align:center;">Age</td>
+                            <td style="padding:10px; ${ageStyle2} font-weight:bold; text-align:right;">${p2.age}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px; font-weight:bold;" class="${p1.trajectory === 'Ascending' ? 'ascending' : p1.trajectory === 'Declining' ? 'descending' : ''}">${p1.trajectory}</td>
+                            <td style="padding:10px; color:#888; text-align:center;">Trajectory</td>
+                            <td style="padding:10px; font-weight:bold; text-align:right;" class="${p2.trajectory === 'Ascending' ? 'ascending' : p2.trajectory === 'Declining' ? 'descending' : ''}">${p2.trajectory}</td>
+                        </tr>
+                        ${p1.is_prospect || p2.is_prospect ? `
+                        <tr>
+                            <td style="padding:10px; font-weight:bold; color:#4ade80;">${p1.is_prospect ? '#' + (p1.prospect_rank || 'N/A') : '-'}</td>
+                            <td style="padding:10px; color:#888; text-align:center;">Prospect Rank</td>
+                            <td style="padding:10px; font-weight:bold; text-align:right; color:#4ade80;">${p2.is_prospect ? '#' + (p2.prospect_rank || 'N/A') : '-'}</td>
+                        </tr>
+                        ` : ''}
+                    </table>
+                </div>
+
+                <!-- Projections Comparison -->
+                ${projectionRows ? `
+                <div style="margin-top:20px; background:#1a1a24; border-radius:12px; padding:20px;">
+                    <h4 style="color:#888; margin:0 0 15px 0; text-align:center;">Projections</h4>
+                    <table style="width:100%; border-collapse:collapse;">
+                        ${projectionRows}
+                    </table>
+                </div>
+                ` : ''}
+
+                <!-- Action Buttons -->
+                <div style="margin-top:25px; display:flex; gap:15px; justify-content:center;">
+                    <button onclick="showPlayerModal('${p1.name.replace(/'/g, "\\'")}'); closeComparisonModal();"
+                        style="padding:12px 24px; background:linear-gradient(135deg, #1a1a2e, #16213e); border:1px solid #333;
+                        border-radius:8px; color:#fff; cursor:pointer;">View ${p1.name.split(' ')[0]}</button>
+                    <button onclick="showPlayerModal('${p2.name.replace(/'/g, "\\'")}'); closeComparisonModal();"
+                        style="padding:12px 24px; background:linear-gradient(135deg, #1a1a2e, #16213e); border:1px solid #333;
+                        border-radius:8px; color:#fff; cursor:pointer;">View ${p2.name.split(' ')[0]}</button>
+                    <button onclick="closeComparisonModal()"
+                        style="padding:12px 24px; background:#333; border:none;
+                        border-radius:8px; color:#fff; cursor:pointer;">Close</button>
+                </div>
+            `;
         }
 
         let searchTimeout = null;
@@ -2473,7 +3492,15 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         return;
                     }
 
-                    results.innerHTML = data.results.map(p => `
+                    results.innerHTML = data.results.map(p => {
+                        const val = p.value;
+                        let tierClass = 'tier-depth';
+                        let tierLabel = 'Depth';
+                        if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
+                        else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
+                        else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'Star'; }
+                        else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
+                        return `
                         <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div>
@@ -2481,12 +3508,15 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                     <div style="color:#888; font-size:0.85rem;">${p.position} | ${p.mlb_team} | ${p.fantasy_team}</div>
                                 </div>
                                 <div style="text-align:right;">
-                                    <div style="color:#ffd700; font-size:1.1rem; font-weight:bold;">${p.value.toFixed(1)}</div>
+                                    <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+                                        <span class="tier-badge ${tierClass}" style="font-size:0.55rem; padding:2px 6px;">${tierLabel}</span>
+                                        <span style="color:#ffd700; font-size:1.1rem; font-weight:bold;">${val.toFixed(1)}</span>
+                                    </div>
                                     <div style="color:#888; font-size:0.8rem;">Age: ${p.age || '?'}</div>
                                 </div>
                             </div>
                         </div>
-                    `).join('');
+                    `}).join('');
                 } catch (e) {
                     results.innerHTML = '<div style="color:#f87171;">Search failed: ' + e.message + '</div>';
                 }
@@ -2782,6 +3812,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 let html = needsHtml + data.suggestions.map(fa => {
                     const fitLabel = fa.fit_score >= 90 ? 'Excellent Fit' : (fa.fit_score >= 75 ? 'Great Fit' : (fa.fit_score >= 60 ? 'Good Fit' : 'Fair'));
                     const fitColor = fa.fit_score >= 90 ? '#4ade80' : (fa.fit_score >= 75 ? '#ffd700' : (fa.fit_score >= 60 ? '#60a5fa' : '#888'));
+                    const val = parseFloat(fa.dynasty_value);
+                    let tierClass = 'tier-depth'; let tierLabel = 'D';
+                    if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
+                    else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'E'; }
+                    else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'S'; }
+                    else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'B'; }
                     const reasonsHtml = fa.reasons && fa.reasons.length > 0
                         ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                             ${fa.reasons.map(r => `<span style="background: rgba(74, 222, 128, 0.15); color: #4ade80; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem;">${r}</span>`).join('')}
@@ -2798,7 +3834,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 ${reasonsHtml}
                             </div>
                             <div style="text-align: right;">
-                                <div class="value">${fa.dynasty_value}</div>
+                                <div style="display: flex; align-items: center; gap: 6px; justify-content: flex-end;">
+                                    <span class="tier-badge ${tierClass}" style="font-size: 0.5rem; padding: 2px 5px;">${tierLabel}</span>
+                                    <div class="value">${fa.dynasty_value}</div>
+                                </div>
                                 <div style="color: #888; font-size: 0.7rem;">${fa.roster_pct}% rostered</div>
                             </div>
                         </div>
@@ -2810,6 +3849,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 results.innerHTML = `<p style="color: #f87171; padding: 20px;">Failed to load free agents: ${e.message}</p>`;
             }
         }
+
+        let cameFromSuggestions = false;
+        let lastSuggestionTeam = '';
 
         function applySuggestion(idx) {
             const s = allCurrentSuggestions[idx];
@@ -2830,8 +3872,32 @@ HTML_CONTENT = '''<!DOCTYPE html>
             updateTeamA();
             updateTeamB();
 
+            // Track that we came from suggestions
+            cameFromSuggestions = true;
+            lastSuggestionTeam = s.my_team;
+            document.getElementById('back-to-suggestions').style.display = 'block';
+
             showPanel('analyze');
             document.querySelector('.tabs .tab').click();
+        }
+
+        function goBackToSuggestions() {
+            // Hide the back button
+            document.getElementById('back-to-suggestions').style.display = 'none';
+            cameFromSuggestions = false;
+
+            // Clear the trade analyzer
+            tradePlayersA = [];
+            tradePlayersB = [];
+            tradePicksA = [];
+            tradePicksB = [];
+            renderTradePlayers('A');
+            renderTradePlayers('B');
+            document.getElementById('results').innerHTML = '';
+
+            // Go back to suggestions panel
+            showPanel('suggest');
+            document.querySelectorAll('.tabs .tab')[1].click();  // Click the suggestions tab
         }
 
         async function updateTeamA() {
@@ -2994,12 +4060,16 @@ HTML_CONTENT = '''<!DOCTYPE html>
             }
         }
 
+        let tradeFinderPackages = [];
+        let tradeFinderMyTeam = '';
+
         async function findTradesForPlayer() {
             const myTeam = document.getElementById('tradeFinderTeamSelect').value;
             const playerName = document.getElementById('tradeFinderPlayerSelect').value;
             const direction = document.getElementById('tradeFinderDirection').value;
             const targetTeam = document.getElementById('tradeFinderTargetTeam').value;
             const results = document.getElementById('trade-finder-results');
+            tradeFinderMyTeam = myTeam;
 
             if (!myTeam || !playerName) {
                 results.innerHTML = '<p style="color: #f87171;">Please select your team and a player.</p>';
@@ -3032,32 +4102,40 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     return;
                 }
 
+                // Store packages for loading into analyzer
+                tradeFinderPackages = data.packages;
+
                 let html = '<div style="margin-bottom: 15px; color: #ffd700;">';
                 html += data.packages.length + ' packages found for ' + playerName + ' (' + data.player_value + ' pts)</div>';
                 html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
 
-                data.packages.forEach(pkg => {
+                data.packages.forEach((pkg, idx) => {
                     const diffColor = Math.abs(pkg.value_diff) <= 5 ? '#4ade80' : (Math.abs(pkg.value_diff) <= 15 ? '#ffd700' : '#f87171');
-                    const diffText = pkg.value_diff >= 0 ? '+' + pkg.value_diff : pkg.value_diff;
+                    const diffText = pkg.value_diff >= 0 ? '+' + pkg.value_diff.toFixed(1) : pkg.value_diff.toFixed(1);
+                    const fitColor = pkg.fit_score >= 75 ? '#4ade80' : (pkg.fit_score >= 50 ? '#ffd700' : '#f87171');
 
                     html += '<div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); border-radius: 10px; padding: 15px; border: 1px solid rgba(0, 212, 255, 0.1);">';
-                    html += '<div style="display: flex; justify-content: space-between; margin-bottom: 10px;">';
-                    html += '<span style="color: #00d4ff;">' + pkg.other_team + '</span>';
-                    html += '<span style="color: ' + diffColor + ';">' + diffText + ' pts</span>';
-                    html += '</div>';
+                    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">';
+                    html += '<span style="color: #00d4ff; font-weight: 600;">' + pkg.other_team + '</span>';
+                    html += '<div style="display: flex; gap: 8px; align-items: center;">';
+                    html += '<span style="background: rgba(255,215,0,0.15); color: ' + fitColor + '; padding: 3px 8px; border-radius: 10px; font-size: 0.75rem;">' + Math.round(pkg.fit_score) + ' fit</span>';
+                    html += '<span style="color: ' + diffColor + '; font-weight: 600;">' + diffText + ' pts</span>';
+                    html += '</div></div>';
                     html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">';
                     html += '<div style="background: rgba(248,113,113,0.1); padding: 10px; border-radius: 6px;">';
-                    html += '<div style="color: #f87171; font-size: 0.8rem; margin-bottom: 5px;">Send (' + pkg.send_total + ')</div>';
+                    html += '<div style="color: #f87171; font-size: 0.8rem; margin-bottom: 5px;">Send (' + pkg.send_total.toFixed(1) + ')</div>';
                     pkg.send.forEach(p => {
                         html += '<div style="color: #e0e0e0; font-size: 0.85rem;">' + p.name + ' - ' + p.value + '</div>';
                     });
                     html += '</div>';
                     html += '<div style="background: rgba(74,222,128,0.1); padding: 10px; border-radius: 6px;">';
-                    html += '<div style="color: #4ade80; font-size: 0.8rem; margin-bottom: 5px;">Receive (' + pkg.receive_total + ')</div>';
+                    html += '<div style="color: #4ade80; font-size: 0.8rem; margin-bottom: 5px;">Receive (' + pkg.receive_total.toFixed(1) + ')</div>';
                     pkg.receive.forEach(p => {
                         html += '<div style="color: #e0e0e0; font-size: 0.85rem;">' + p.name + ' - ' + p.value + '</div>';
                     });
-                    html += '</div></div></div>';
+                    html += '</div></div>';
+                    html += '<button onclick="loadTradeFinderPackage(' + idx + ')" style="margin-top: 12px; width: 100%; background: linear-gradient(135deg, #00d4ff, #0099cc); color: #000; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;">📊 Load in Trade Analyzer</button>';
+                    html += '</div>';
                 });
 
                 html += '</div>';
@@ -3065,6 +4143,36 @@ HTML_CONTENT = '''<!DOCTYPE html>
             } catch (e) {
                 results.innerHTML = '<p style="color: #f87171;">Error: ' + e.message + '</p>';
             }
+        }
+
+        function loadTradeFinderPackage(idx) {
+            const pkg = tradeFinderPackages[idx];
+            if (!pkg) return;
+
+            // Set teams
+            document.getElementById('teamASelect').value = tradeFinderMyTeam;
+            document.getElementById('teamBSelect').value = pkg.other_team;
+
+            // Populate players
+            tradePlayersA = pkg.send.map(p => ({ name: p.name, team: tradeFinderMyTeam }));
+            tradePlayersB = pkg.receive.map(p => ({ name: p.name, team: pkg.other_team }));
+            tradePicksA = [];
+            tradePicksB = [];
+
+            renderTradePlayers('A');
+            renderTradePlayers('B');
+
+            // Update roster dropdowns
+            updateTeamA();
+            updateTeamB();
+
+            // Show back button and track source
+            cameFromSuggestions = true;  // Reuse the same flag
+            document.getElementById('back-to-suggestions').style.display = 'block';
+
+            // Switch to analyzer panel
+            showPanel('analyze');
+            document.querySelector('.tabs .tab').click();
         }
 
         // Initialize
@@ -3247,17 +4355,11 @@ def calculate_fa_dynasty_value(fa):
     print(f"DEBUG calculate_fa_dynasty_value: {fa.get('name')} - is_prospect={is_prospect}, prospect_rank={prospect_rank}")
 
     if is_prospect and prospect_rank:
-        # Use same linear formula as rostered prospects
-        # Rank 1 = 68 value, Rank 300 = 0.5 value
-        # Formula: value = 0.5 + (67.5 * (300 - rank) / 299)
-        if prospect_rank <= 300:
-            value = 0.5 + (67.5 * (300 - prospect_rank) / 299)
-        else:
-            # Beyond rank 300: minimal value
-            value = 0.5
+        # Use tiered exponential decay formula (realistic dynasty values)
+        value = calculate_prospect_value(prospect_rank)
 
         final_value = round(value, 1)
-        print(f"  -> FA PROSPECT LINEAR VALUE: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
+        print(f"  -> FA PROSPECT TIERED VALUE: {fa.get('name')} rank {prospect_rank} -> value {final_value}")
         return final_value
 
     # Non-prospect FA value calculation
@@ -3436,8 +4538,12 @@ def load_projection_csvs():
             z = zips_h.get(name, {})
             s = steamer_h.get(name, {})
             if z or s:
+                ab = int(avg_val(z.get('AB'), s.get('AB')))
+                # Skip invalid projections (no AB) - keep hardcoded values if they exist
+                if ab < 50:
+                    continue
                 HITTER_PROJECTIONS[name] = {
-                    "AB": int(avg_val(z.get('AB'), s.get('AB'))),
+                    "AB": ab,
                     "R": int(avg_val(z.get('R'), s.get('R'))),
                     "HR": int(avg_val(z.get('HR'), s.get('HR'))),
                     "RBI": int(avg_val(z.get('RBI'), s.get('RBI'))),
@@ -4103,10 +5209,8 @@ def get_prospects():
             continue
         if name not in found_prospects:
             metadata = PROSPECT_METADATA.get(name, {})
-            # Use same linear formula as rostered prospects
-            # Rank 1 = 68, Rank 300 = 0.5
-            # Formula: value = 0.5 + (67.5 * (300 - rank) / 299)
-            est_value = 0.5 + (67.5 * (300 - rank) / 299)
+            # Use tiered exponential decay formula (realistic dynasty values)
+            est_value = calculate_prospect_value(rank)
 
             # All prospects are available in Fantrax pool - show as Free Agent
             found_prospects[name] = {
@@ -4189,6 +5293,91 @@ def calculate_league_category_rankings():
             rankings[t_name][cat] = rank
 
     return team_cats, rankings
+
+
+def simulate_trade_impact(team_a_name, team_b_name, players_a, players_b):
+    """
+    Simulate the impact of a trade on category rankings and championship odds.
+    players_a: list of Player objects Team A is sending
+    players_b: list of Player objects Team B is sending
+    Returns before/after comparison for both teams.
+    """
+    # Get current rankings and odds
+    current_cats, current_rankings = calculate_league_category_rankings()
+    current_odds_a = get_team_championship_odds(team_a_name)
+    current_odds_b = get_team_championship_odds(team_b_name)
+
+    # Store original rosters
+    team_a = teams[team_a_name]
+    team_b = teams[team_b_name]
+    original_roster_a = list(team_a.players)
+    original_roster_b = list(team_b.players)
+
+    # Simulate the trade: remove players from each team, add to the other
+    # Team A loses players_a, gains players_b
+    # Team B loses players_b, gains players_a
+    simulated_roster_a = [p for p in original_roster_a if p not in players_a] + list(players_b)
+    simulated_roster_b = [p for p in original_roster_b if p not in players_b] + list(players_a)
+
+    # Temporarily swap rosters
+    team_a.players = simulated_roster_a
+    team_b.players = simulated_roster_b
+
+    try:
+        # Calculate new rankings and odds
+        new_cats, new_rankings = calculate_league_category_rankings()
+        new_odds_a = get_team_championship_odds(team_a_name)
+        new_odds_b = get_team_championship_odds(team_b_name)
+    finally:
+        # Restore original rosters
+        team_a.players = original_roster_a
+        team_b.players = original_roster_b
+
+    # Build impact summary for each team
+    def build_impact(team_name, old_ranks, new_ranks, old_odds, new_odds):
+        changes = []
+        for cat in old_ranks.get(team_name, {}):
+            old_rank = old_ranks[team_name][cat]
+            new_rank = new_ranks[team_name][cat]
+            if old_rank != new_rank:
+                direction = "up" if new_rank < old_rank else "down"
+                # For ERA/WHIP/SO/L, lower rank is better
+                is_better = new_rank < old_rank
+                changes.append({
+                    "category": cat,
+                    "before": old_rank,
+                    "after": new_rank,
+                    "change": old_rank - new_rank,  # positive = improvement
+                    "direction": direction,
+                    "is_improvement": is_better
+                })
+
+        # Sort by magnitude of change
+        changes.sort(key=lambda x: abs(x["change"]), reverse=True)
+
+        return {
+            "ranking_changes": changes,
+            "odds_before": old_odds,
+            "odds_after": new_odds,
+            "odds_change": round(new_odds - old_odds, 1),
+            "total_ranking_improvement": sum(c["change"] for c in changes),
+            "categories_improved": len([c for c in changes if c["is_improvement"]]),
+            "categories_worsened": len([c for c in changes if not c["is_improvement"]])
+        }
+
+    impact_a = build_impact(team_a_name, current_rankings, new_rankings, current_odds_a, new_odds_a)
+    impact_b = build_impact(team_b_name, current_rankings, new_rankings, current_odds_b, new_odds_b)
+
+    return {
+        "team_a": {
+            "name": team_a_name,
+            **impact_a
+        },
+        "team_b": {
+            "name": team_b_name,
+            **impact_b
+        }
+    }
 
 
 @app.route('/team/<team_name>')
@@ -4407,10 +5596,18 @@ def update_team_profile_route(team_name):
 # GM CHAT - AI-Powered Dynasty Advisor
 # ============================================================================
 
-def build_gm_chat_context(team_name):
-    """Build comprehensive context about a team for the GM chat."""
+def build_gm_chat_context(team_name, client_prefs=None):
+    """Build comprehensive context about a team for the GM chat.
+
+    Args:
+        team_name: Name of the team
+        client_prefs: User preferences from client localStorage (optional)
+    """
     if team_name not in teams:
         return None
+
+    if client_prefs is None:
+        client_prefs = {}
 
     team = teams[team_name]
     gm = get_assistant_gm(team_name)
@@ -4434,9 +5631,22 @@ def build_gm_chat_context(team_name):
                  for p in team.players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 100]
     prospects.sort(key=lambda x: x[1])
 
-    # Category analysis
-    strengths = [f"{cat} (#{rank})" for cat, rank in my_ranks.items() if rank <= 3]
-    weaknesses = [f"{cat} (#{rank})" for cat, rank in my_ranks.items() if rank >= 9]
+    # Build position-specific breakdowns for clarity
+    starters = [(p.name, round(v, 1), p.age) for p, v in players_with_value if 'SP' in p.position][:8]
+    relievers = [(p.name, round(v, 1), p.age) for p, v in players_with_value if 'RP' in p.position and 'SP' not in p.position][:5]
+    hitters = [(p.name, round(v, 1), p.age, p.position) for p, v in players_with_value if p.position not in ['SP', 'RP', 'SP,RP', 'RP,SP']][:10]
+
+    # Category analysis with clear hitting/pitching labels
+    hitting_cats = {'HR': 'HR (hitting)', 'SB': 'SB (hitting)', 'RBI': 'RBI (hitting)', 'R': 'Runs (hitting)',
+                    'SO': 'Strikeouts (hitting - lower is better)', 'AVG': 'AVG (hitting)', 'OPS': 'OPS (hitting)'}
+    pitching_cats = {'K': 'K (pitching)', 'SV+HLD': 'SV+HLD (pitching)', 'ERA': 'ERA (pitching)',
+                     'WHIP': 'WHIP (pitching)', 'QS': 'QS (pitching)', 'L': 'Losses (pitching)', 'K/BB': 'K/BB (pitching)'}
+
+    def label_cat(cat):
+        return hitting_cats.get(cat, pitching_cats.get(cat, cat))
+
+    strengths = [f"{label_cat(cat)} (#{rank})" for cat, rank in my_ranks.items() if rank <= 3]
+    weaknesses = [f"{label_cat(cat)} (#{rank})" for cat, rank in my_ranks.items() if rank >= 9]
 
     # Age breakdown
     ages = [p.age for p in team.players if p.age > 0]
@@ -4448,8 +5658,30 @@ def build_gm_chat_context(team_name):
     # Total value
     total_value = sum(v for _, v in players_with_value)
 
+    # Identify tradeable assets (players ranked 5-15 who could be moved)
+    tradeable_assets = [(p.name, round(v, 1), p.position) for p, v in players_with_value[4:15] if v >= 25]
+    max_tradeable_value = sum(v for _, v, _ in tradeable_assets[:3])  # Best 3 tradeable pieces combined
+
     # Draft pick
     draft_pick = draft_order_config.get(team_name, 0)
+
+    # Build list of notable players from OTHER teams for trade reference
+    # Split into realistic targets (40-80) and superstars (80+)
+    realistic_targets = []
+    superstar_players = []
+    for other_team_name, other_team in teams.items():
+        if other_team_name != team_name:
+            for p in other_team.players:
+                val = calculator.calculate_player_value(p)
+                if val >= 40:
+                    mlb_abbrev = p.mlb_team[:3].upper() if p.mlb_team else p.team[:3].upper() if p.team else "???"
+                    player_tuple = (p.name, round(val, 1), p.age, p.position, other_team_name, mlb_abbrev)
+                    if val >= 80:
+                        superstar_players.append(player_tuple)
+                    else:
+                        realistic_targets.append(player_tuple)
+    realistic_targets.sort(key=lambda x: x[1], reverse=True)
+    superstar_players.sort(key=lambda x: x[1], reverse=True)
 
     # Build context string
     context = f"""You are the AI Assistant GM for {team_name} in a dynasty fantasy baseball league.
@@ -4472,8 +5704,35 @@ TEAM OVERVIEW:
 ROSTER (Top 15 by value):
 {chr(10).join([f"  {i+1}. {name} - Value: {val}, Age: {age}, Pos: {pos}" for i, (name, val, age, pos) in enumerate(top_players)])}
 
+STARTING PITCHERS (SP) - These are ALL STARTERS, not relievers:
+{chr(10).join([f"  {'★ ACE: ' if i == 0 else ''}{name} - Value: {val}, Age: {age} [STARTER]" for i, (name, val, age) in enumerate(starters)]) if starters else "  None"}
+NOTE: Every pitcher listed above is a STARTING PITCHER on this fantasy team regardless of their real-life history.
+
+RELIEF PITCHERS (RP) - These are the ONLY relievers on the team:
+{chr(10).join([f"  {name} - Value: {val}, Age: {age} [RELIEVER]" for name, val, age in relievers]) if relievers else "  None"}
+NOTE: If a pitcher is NOT listed here, they are NOT a reliever on this team.
+
+TOP HITTERS - sorted by value:
+{chr(10).join([f"  {name} - Value: {val}, Age: {age}, Pos: {pos}" for name, val, age, pos in hitters]) if hitters else "  None"}
+
 PROSPECTS ON ROSTER (Top 100):
 {chr(10).join([f"  #{rank} {name} (Value: {val})" for name, rank, val in prospects[:8]]) if prospects else "  None"}
+
+TRADEABLE ASSETS (players ranked 5-15, available to move in trades):
+{chr(10).join([f"  {name} - Value: {val}, {pos}" for name, val, pos in tradeable_assets]) if tradeable_assets else "  Limited trade chips available"}
+TOTAL VALUE OF TOP 3 TRADEABLE PIECES: ~{max_tradeable_value:.0f} points
+(This is roughly the MAX value you can offer without trading core players)
+
+CATEGORY RANKINGS (out of {len(teams)} teams):
+HITTING CATEGORIES:
+- HR: #{my_ranks.get('HR', 'N/A')} | RBI: #{my_ranks.get('RBI', 'N/A')} | Runs: #{my_ranks.get('R', 'N/A')}
+- SB: #{my_ranks.get('SB', 'N/A')} | AVG: #{my_ranks.get('AVG', 'N/A')} | OPS: #{my_ranks.get('OPS', 'N/A')}
+- Hitter Strikeouts (SO): #{my_ranks.get('SO', 'N/A')} (lower rank = fewer strikeouts = BETTER)
+
+PITCHING CATEGORIES:
+- Pitcher K: #{my_ranks.get('K', 'N/A')} | QS: #{my_ranks.get('QS', 'N/A')} | SV+HLD: #{my_ranks.get('SV+HLD', 'N/A')}
+- ERA: #{my_ranks.get('ERA', 'N/A')} | WHIP: #{my_ranks.get('WHIP', 'N/A')} | K/BB: #{my_ranks.get('K/BB', 'N/A')}
+- Losses: #{my_ranks.get('L', 'N/A')} (lower rank = fewer losses = BETTER)
 
 CATEGORY STRENGTHS: {', '.join(strengths) if strengths else 'None'}
 CATEGORY WEAKNESSES: {', '.join(weaknesses) if weaknesses else 'None'}
@@ -4489,15 +5748,84 @@ LEAGUE CONTEXT:
 - H2H categories format
 - All {len(teams)} teams competing
 
+REALISTIC TRADE TARGETS (Value 40-80, actually acquirable):
+{chr(10).join([f"  {name}, {pos} - {fantasy_tm} ({mlb}) - Value: {val}, Age: {age}" for name, val, age, pos, fantasy_tm, mlb in realistic_targets[:25]])}
+
+SUPERSTARS (Value 80+, virtually UNTOUCHABLE - do NOT suggest as "realistic" targets):
+{chr(10).join([f"  {name}, {pos} - {fantasy_tm} ({mlb}) - Value: {val}" for name, val, age, pos, fantasy_tm, mlb in superstar_players[:10]])}
+(These players would cost your ENTIRE core - only mention if user specifically asks about them)
+
 INSTRUCTIONS:
-- Respond as this team's GM with their personality and philosophy
+- You ARE the GM speaking directly to the team owner (the user) - give advice in first person
+- DO NOT refer to yourself in third person (don't say "The Shark thinks..." - say "I think...")
+- DO NOT say things like "I'll call you later" - this is a live chat, answer fully now
 - Give specific, actionable advice based on the team's actual roster and needs
 - Reference specific players by name when relevant
 - Consider the team's championship window and contention status
 - Keep responses concise but insightful (2-4 paragraphs max)
 - Be honest about weaknesses while staying encouraging
+- Speak with your personality flavor but stay helpful and direct
+- CRITICAL: Use ONLY the roster data provided above. Do NOT use outside knowledge about players' real-life roles.
+  * If a player is listed under "STARTING PITCHERS (SP)" they are a STARTER on this fantasy team
+  * If a player is listed under "RELIEF PITCHERS (RP)" they are a RELIEVER on this fantasy team
+  * Do NOT assume a player is a reliever just because they may have been one in real life - use the data above
+
+TRADE VALUE GUIDELINES (CRITICAL - follow these rules when suggesting trades):
+- Every player has a VALUE number shown in the roster data - USE THESE VALUES when evaluating trades
+- Trades should be roughly equal in total value (within ~10-15 points)
+- NEVER suggest giving up significantly more value than receiving
+- Value tiers: 90+ = Superstar, 75-89 = Elite, 60-74 = Star, 40-59 = Solid, <40 = Depth
+- For 2-for-1 trades: the 2 players combined should roughly equal the 1 player's value
+- For 3-for-1 trades: ONLY suggest if the single player is a true superstar (90+ value) AND the 3 players combined are close in value
+- Prospects have value too - a #10 prospect (50-60 value) is NOT a throw-in piece
+- Before suggesting any trade, mentally add up the values on each side
+- Example: Trading 3 players worth 40+35+30 (=105) for one player worth 55 is a TERRIBLE deal
+- Example: Trading 2 players worth 45+40 (=85) for one player worth 80 is reasonable
+- When the user asks about acquiring a specific player, first consider what fair value would look like
+- Be realistic - the other team won't accept obvious underpays either
+
+REALISTIC TRADE TARGET GUIDELINES (CRITICAL):
+- "Realistic targets" means players your team can ACTUALLY acquire without gutting the roster
+- Players valued 90+ (superstars like Ohtani, Acuna, Bobby Witt) are virtually UNTOUCHABLE - don't suggest them as realistic targets
+- Focus on players in the 40-75 value range - these are actually acquirable
+- Look at YOUR roster's tradeable pieces and find targets that match what you can offer
+- A "realistic" target is one where you have enough surplus value to make a fair offer
+- If asked for trade targets, suggest players that fill team NEEDS and are realistically acquirable
+- Don't suggest trading your best players (top 3-4 by value) unless specifically asked
+- SHOW YOUR MATH: When suggesting a trade, state the values: "Player A (52) for Player B (48) - fair deal"
+
+- IMPORTANT: If the user has learned preferences, use them to personalize your advice!
+{build_client_preferences_context(client_prefs)}
 """
     return context
+
+
+def build_client_preferences_context(prefs):
+    """Build preferences context from client-provided preferences."""
+    if not prefs:
+        return ""
+
+    context_parts = []
+
+    if prefs.get('trade_style'):
+        context_parts.append(f"- User prefers a {prefs['trade_style']} trade approach")
+
+    if prefs.get('priority_positions'):
+        context_parts.append(f"- Priority positions to target: {', '.join(prefs['priority_positions'])}")
+
+    if prefs.get('priority_categories'):
+        context_parts.append(f"- Category priorities: {', '.join(prefs['priority_categories'])}")
+
+    if prefs.get('target_players'):
+        context_parts.append(f"- Players they want to acquire: {', '.join(prefs['target_players'][:5])}")
+
+    if prefs.get('avoid_players'):
+        context_parts.append(f"- Players to avoid/not trade for: {', '.join(prefs['avoid_players'][:5])}")
+
+    if context_parts:
+        return "\nLEARNED USER PREFERENCES (from previous conversations):\n" + "\n".join(context_parts) + "\nUse these preferences to personalize your advice!"
+
+    return ""
 
 
 @app.route('/gm-chat/<team_name>', methods=['POST'])
@@ -4513,22 +5841,21 @@ def gm_chat(team_name):
 
     data = request.get_json()
     user_message = data.get('message', '').strip()
-    conversation_history = data.get('history', [])
+    client_history = data.get('history', [])  # Chat history from client localStorage
+    client_prefs = data.get('preferences', {})  # Preferences from client localStorage
 
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    # Build team context
-    context = build_gm_chat_context(team_name)
+    # Build team context with client-provided preferences
+    context = build_gm_chat_context(team_name, client_prefs)
     if not context:
         return jsonify({"error": "Could not build team context"}), 500
 
     try:
-        # Build messages for the API
+        # Build messages for the API from client-provided history
         messages = []
-
-        # Add conversation history
-        for msg in conversation_history[-10:]:  # Keep last 10 messages for context
+        for msg in client_history[-10:]:  # Last 10 messages from client
             messages.append({
                 "role": msg.get("role", "user"),
                 "content": msg.get("content", "")
@@ -4550,6 +5877,9 @@ def gm_chat(team_name):
 
         assistant_message = response.content[0].text
 
+        # Chat history and preferences are now stored client-side in localStorage
+        # No server-side storage needed
+
         return jsonify({
             "response": assistant_message,
             "team": team_name,
@@ -4568,6 +5898,79 @@ def gm_chat_status():
         "enabled": GM_CHAT_ENABLED,
         "model": "claude-3-haiku" if GM_CHAT_ENABLED else None
     })
+
+
+@app.route('/gm-chat-history/<team_name>')
+def get_chat_history(team_name):
+    """Get chat history for a team."""
+    if team_name not in teams:
+        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+
+    history = get_team_chat_history(team_name, limit=50)
+    prefs = get_team_preferences(team_name)
+
+    return jsonify({
+        "team": team_name,
+        "messages": history.get("messages", []),
+        "preferences": prefs,
+        "conversation_count": prefs.get("conversation_count", 0)
+    })
+
+
+@app.route('/gm-chat-history/<team_name>/clear', methods=['POST'])
+def clear_chat_history(team_name):
+    """Clear chat history for a team."""
+    if team_name not in teams:
+        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+
+    history = load_chat_history()
+    if team_name in history:
+        history[team_name] = {"messages": [], "preferences": {}}
+        save_chat_history(history)
+
+    return jsonify({"success": True, "message": f"Chat history cleared for {team_name}"})
+
+
+@app.route('/gm-preferences/<team_name>', methods=['GET', 'POST'])
+def manage_preferences(team_name):
+    """Get or update learned preferences for a team."""
+    if team_name not in teams:
+        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+
+    if request.method == 'GET':
+        prefs = get_team_preferences(team_name)
+        return jsonify({"team": team_name, "preferences": prefs})
+
+    elif request.method == 'POST':
+        data = request.get_json()
+        updates = {}
+
+        # Allow updating specific preference fields
+        allowed_fields = ["trade_style", "risk_tolerance", "category_focus",
+                          "position_needs", "target_players", "players_to_move", "notes"]
+        for field in allowed_fields:
+            if field in data:
+                updates[field] = data[field]
+
+        if updates:
+            updated_prefs = update_team_preferences(team_name, updates)
+            return jsonify({"success": True, "preferences": updated_prefs})
+        else:
+            return jsonify({"error": "No valid fields to update"}), 400
+
+
+@app.route('/gm-preferences/<team_name>/reset', methods=['POST'])
+def reset_preferences(team_name):
+    """Reset learned preferences for a team."""
+    if team_name not in teams:
+        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+
+    prefs = load_user_preferences()
+    if team_name in prefs:
+        del prefs[team_name]
+        save_user_preferences(prefs)
+
+    return jsonify({"success": True, "message": f"Preferences reset for {team_name}"})
 
 
 @app.route('/find-trades-for-player')
@@ -5015,7 +6418,14 @@ def get_buy_low_sell_high_alerts(team_name, team):
                 'value': v
             })
         # Players contributing to categories you're STRONG in (surplus)
+        # BUT: Never suggest selling elite cornerstones just for category surplus
         elif strong_cats and v >= 35:
+            # Skip elite players (80+ value) - untouchable cornerstones
+            # Also skip young high-value players (70+ value, age 28 or younger)
+            # You don't trade Skubal, Henderson, or Riley Greene just for category surplus
+            if v >= 80 or (v >= 70 and p.age <= 28):
+                continue  # Never sell a cornerstone just for category surplus
+
             surplus_cat = None
             if 'HR' in strong_cats and proj_h and proj_h.get('HR', 0) >= 25:
                 surplus_cat = f"HR surplus ({proj_h.get('HR', 0)} HR)"
@@ -5425,8 +6835,9 @@ def generate_gm_trade_scenarios(team_name, team):
     thin_positions = [pos for pos, count in pos_counts.items() if count <= 1 and pos not in ['UTIL', 'DH', '']]
 
     # Helper function to find trade partners for specific needs
-    def find_trade_targets(target_cat, value_range=(30, 70), prefer_sellers=True):
-        """Find specific players from other teams that address our category need."""
+    def find_trade_targets(target_cat, value_range=(30, 70), prefer_sellers=True, exclude_surplus_positions=True):
+        """Find specific players from other teams that address our category need.
+        Now checks if we already have surplus at the player's position before suggesting."""
         targets = []
         for other_team_name, other_team in teams.items():
             if other_team_name == team_name:
@@ -5435,6 +6846,15 @@ def generate_gm_trade_scenarios(team_name, team):
             is_seller = other_rank >= 8
 
             for p in other_team.players:
+                # Check if we already have surplus at this position
+                if exclude_surplus_positions:
+                    player_pos = p.position.split('/')[0].split(',')[0].upper() if p.position else 'UTIL'
+                    if player_pos in ['LF', 'CF', 'RF']:
+                        player_pos = 'OF'
+                    # Skip if we already have 4+ at this position (surplus)
+                    if pos_counts.get(player_pos, 0) >= 4:
+                        continue
+
                 proj_h = HITTER_PROJECTIONS.get(p.name, {})
                 proj_p = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
                 cat_value = 0
@@ -5470,9 +6890,25 @@ def generate_gm_trade_scenarios(team_name, team):
 
     # Helper function to build multi-player package
     def build_trade_package(target_value, prefer_prospects=False, max_players=3):
-        """Build a package of players to match target value."""
+        """Build a package of players to match target value.
+        Now with tighter value matching for elite targets (80+ value)."""
         package = []
         remaining = target_value
+
+        # TRUE SUPERSTARS (98+) - Cannot be acquired in package deals at all
+        # Players like Ohtani, Acuna at peak are only traded 1-for-1 with other superstars
+        if target_value >= 98:
+            return []  # No package deal for true superstars
+
+        # Elite players (80+ value) require stricter value matching
+        # Cannot realistically be acquired with 2-3 mid-tier players
+        is_elite_target = target_value >= 80
+        if is_elite_target:
+            # For elite targets, need at least one player worth 65% of target value
+            # Can't just cobble together multiple mid-tier players
+            min_anchor_value = target_value * 0.65
+        else:
+            min_anchor_value = target_value * 0.3
 
         candidates = tradeable.copy()
         if prefer_prospects:
@@ -5480,14 +6916,58 @@ def generate_gm_trade_scenarios(team_name, team):
         else:
             candidates.sort(key=lambda x: x[1], reverse=True)
 
+        # For elite targets, first check if we even have a suitable anchor piece
+        if is_elite_target:
+            has_anchor = any(v >= min_anchor_value for p, v in candidates)
+            if not has_anchor:
+                return []  # Can't realistically build a package for an elite player
+
         for p, v in candidates:
             if len(package) >= max_players:
                 break
-            if v <= remaining * 1.2 and v >= remaining * 0.3:  # Reasonable fit
-                package.append((p, v))
-                remaining -= v
-                if remaining <= target_value * 0.1:  # Close enough
-                    break
+
+            # First piece needs to be substantial for elite targets
+            if is_elite_target and len(package) == 0:
+                if v < min_anchor_value:
+                    continue  # Skip until we find a worthy anchor
+
+            # Tighter range for elite targets: 40%-110% of remaining
+            if is_elite_target:
+                if v <= remaining * 1.1 and v >= remaining * 0.4:
+                    package.append((p, v))
+                    remaining -= v
+            else:
+                if v <= remaining * 1.2 and v >= remaining * 0.3:
+                    package.append((p, v))
+                    remaining -= v
+
+            if remaining <= target_value * 0.1:  # Close enough
+                break
+
+        # For elite targets, validate the package is realistic using tiered thresholds
+        if is_elite_target and package:
+            total_package_value = sum(v for p, v in package)
+
+            # Tiered minimum package value based on target tier
+            if target_value >= 95:
+                min_ratio = 1.10  # Superstar: need 110% (significant overpay)
+            elif target_value >= 85:
+                min_ratio = 1.00  # Elite: need 100% (fair value)
+            elif target_value >= 80:
+                min_ratio = 0.95  # Star: need 95% (close to fair)
+            else:
+                min_ratio = 0.90  # Standard elite: need 90%
+
+            if total_package_value < target_value * min_ratio:
+                return []  # Package not substantial enough for this tier
+
+            # For 2+ player packages targeting elite players, no "throw-in" pieces allowed
+            # Each piece must be meaningful (at least 25% of target value, minimum 20)
+            if len(package) >= 2:
+                min_piece_value = max(target_value * 0.25, 20)
+                for p, v in package:
+                    if v < min_piece_value:
+                        return []  # Has a throw-in piece - not realistic for elite targets
 
         return package
 
@@ -5967,6 +7447,13 @@ def generate_gm_trade_scenarios(team_name, team):
                 their_players.sort(key=lambda x: x[1], reverse=True)
                 # Find a comparable player
                 for op, ov in their_players:
+                    # Check positional depth - skip if we already have 4+ at this position
+                    target_pos = op.position.split('/')[0].split(',')[0].upper() if op.position else 'UTIL'
+                    if target_pos in ['LF', 'CF', 'RF']:
+                        target_pos = 'OF'
+                    if pos_counts.get(target_pos, 0) >= 4:
+                        continue
+
                     if abs(ov - v) <= 10 and op.name != p.name:
                         scenarios.append({
                             'title': "Explore Value Swap",
@@ -6047,7 +7534,6 @@ def generate_gm_trade_scenarios(team_name, team):
         package_candidates = consolidation_pool[:4]
         combined_value = sum(v for p, v in package_candidates[:2])
 
-        # Find elite player on another team worth ~80-90% of package
         for other_team_name, other_team in teams.items():
             if other_team_name == team_name:
                 continue
@@ -6056,19 +7542,44 @@ def generate_gm_trade_scenarios(team_name, team):
                 key=lambda x: x[1], reverse=True
             )
             for tp, tv in their_players:
-                if combined_value * 0.75 <= tv <= combined_value * 1.1 and tv >= 55:
-                    offer_str = f"{package_candidates[0][0].name} + {package_candidates[1][0].name}"
-                    scenarios.append({
-                        'title': "Consolidate: 2-for-1 Upgrade",
-                        'target': f"{tp.name} ({other_team_name})",
-                        'target_value': tv,
-                        'offer': offer_str,
-                        'offer_value': combined_value,
-                        'reasoning': f"Package depth for star power. {tp.name} is worth the consolidation - fewer roster spots, more impact.",
-                        'trade_type': 'consolidate',
-                        'urgency': 'medium'
-                    })
-                    break
+                # Check positional depth - skip if we already have 4+ at this position
+                target_pos = tp.position.split('/')[0].split(',')[0].upper() if tp.position else 'UTIL'
+                if target_pos in ['LF', 'CF', 'RF']:
+                    target_pos = 'OF'
+                if pos_counts.get(target_pos, 0) >= 4:
+                    continue
+
+                # Tiered value matching based on target value
+                # Higher value players require closer-to-fair or overpay packages
+                if tv >= 95:
+                    # Superstar tier (95+): Need significant overpay (110%+)
+                    min_package_ratio = 1.10
+                elif tv >= 85:
+                    # Elite tier (85-94): Need fair value or slight overpay (100%+)
+                    min_package_ratio = 1.00
+                elif tv >= 75:
+                    # Star tier (75-84): Need close to fair (95%+)
+                    min_package_ratio = 0.95
+                else:
+                    # Standard tier: Normal matching (85%+)
+                    min_package_ratio = 0.85
+
+                # Check if our package meets the minimum for this tier
+                if combined_value >= tv * min_package_ratio and tv >= 55:
+                    # Also cap: package shouldn't massively overpay (max 130% of target)
+                    if combined_value <= tv * 1.30:
+                        offer_str = f"{package_candidates[0][0].name} + {package_candidates[1][0].name}"
+                        scenarios.append({
+                            'title': "Consolidate: 2-for-1 Upgrade",
+                            'target': f"{tp.name} ({other_team_name})",
+                            'target_value': tv,
+                            'offer': offer_str,
+                            'offer_value': combined_value,
+                            'reasoning': f"Package depth for star power. {tp.name} is worth the consolidation - fewer roster spots, more impact.",
+                            'trade_type': 'consolidate',
+                            'urgency': 'medium'
+                        })
+                        break
             if len([s for s in scenarios if s.get('trade_type') == 'consolidate']) >= 1:
                 break
 
@@ -6144,7 +7655,25 @@ def generate_gm_trade_scenarios(team_name, team):
                         )
                         if their_vets:
                             for vet, vet_v in their_vets:
-                                if abs(vet_v - young_v) <= 15:
+                                # Skip elite players - 1-for-1 for elite players is unrealistic
+                                # unless both players are elite (85+ each)
+                                if vet_v >= 85 and young_v < 80:
+                                    continue
+
+                                # Check positional depth - skip if we already have 4+ at this position
+                                vet_pos = vet.position.split('/')[0].split(',')[0].upper() if vet.position else 'UTIL'
+                                if vet_pos in ['LF', 'CF', 'RF']:
+                                    vet_pos = 'OF'
+                                if pos_counts.get(vet_pos, 0) >= 4:
+                                    continue
+
+                                # Tighter value matching: within 10% for high-value, 15 pts for lower value
+                                if vet_v >= 70:
+                                    value_diff_ok = abs(vet_v - young_v) <= vet_v * 0.12
+                                else:
+                                    value_diff_ok = abs(vet_v - young_v) <= 15
+
+                                if value_diff_ok:
                                     scenarios.append({
                                         'title': f"Rebalance: Youth → Production",
                                         'target': f"{vet.name} ({other_team_name})",
@@ -6176,7 +7705,20 @@ def generate_gm_trade_scenarios(team_name, team):
                     key=lambda x: x[1], reverse=True
                 )
                 for th, thv in their_hitters:
-                    if abs(thv - best_arm[1]) <= 15:
+                    # Check positional depth - skip if we already have 4+ at this position
+                    target_pos = th.position.split('/')[0].split(',')[0].upper() if th.position else 'UTIL'
+                    if target_pos in ['LF', 'CF', 'RF']:
+                        target_pos = 'OF'
+                    if pos_counts.get(target_pos, 0) >= 4:
+                        continue
+
+                    # Tighter value matching for high-value players
+                    if thv >= 70:
+                        value_ok = abs(thv - best_arm[1]) <= thv * 0.15
+                    else:
+                        value_ok = abs(thv - best_arm[1]) <= 15
+
+                    if value_ok:
                         scenarios.append({
                             'title': "Rebalance: Pitching → Hitting",
                             'target': f"{th.name} ({other_team_name})",
@@ -6203,7 +7745,17 @@ def generate_gm_trade_scenarios(team_name, team):
                     key=lambda x: x[1], reverse=True
                 )
                 for tp, tpv in their_pitchers:
-                    if abs(tpv - best_bat[1]) <= 15:
+                    # Check positional depth - skip if we already have 4+ SP
+                    if pos_counts.get('SP', 0) >= 4:
+                        continue
+
+                    # Tighter value matching for high-value players
+                    if tpv >= 70:
+                        value_ok = abs(tpv - best_bat[1]) <= tpv * 0.15
+                    else:
+                        value_ok = abs(tpv - best_bat[1]) <= 15
+
+                    if value_ok:
                         scenarios.append({
                             'title': "Rebalance: Hitting → Pitching",
                             'target': f"{tp.name} ({other_team_name})",
@@ -6308,20 +7860,34 @@ def generate_gm_trade_scenarios(team_name, team):
             stack_targets.sort(key=lambda x: x['cat_value'], reverse=True)
 
             if stack_targets:
-                best = stack_targets[0]
-                package = build_trade_package(best['value'], prefer_prospects=True)
-                if package:
-                    offer_str = " + ".join([f"{p.name}" for p, v in package[:2]])
-                    scenarios.append({
-                        'title': f"Category Stack: Dominate {best_cat}",
-                        'target': f"{best['player'].name} ({best['team']})",
-                        'target_value': best['value'],
-                        'offer': offer_str,
-                        'offer_value': sum(v for p, v in package[:2]),
-                        'reasoning': f"You're already strong in {best_cat}. Stack more to guarantee winning this category weekly. {best['player'].name} projects for {best['cat_value']:.0f} {best_cat}.",
-                        'trade_type': 'stack',
-                        'urgency': 'low'
-                    })
+                # Filter out positions we're already deep at
+                filtered_targets = []
+                for t in stack_targets:
+                    target_pos = t['player'].position.split('/')[0].split(',')[0].upper() if t['player'].position else 'UTIL'
+                    if target_pos in ['LF', 'CF', 'RF']:
+                        target_pos = 'OF'
+                    # Skip if we have 4+ at this position OR if player is a true superstar (98+)
+                    if pos_counts.get(target_pos, 0) >= 4:
+                        continue
+                    if t['value'] >= 98:  # True superstars can't be acquired in package deals
+                        continue
+                    filtered_targets.append(t)
+
+                if filtered_targets:
+                    best = filtered_targets[0]
+                    package = build_trade_package(best['value'], prefer_prospects=True)
+                    if package:
+                        offer_str = " + ".join([f"{p.name}" for p, v in package[:2]])
+                        scenarios.append({
+                            'title': f"Category Stack: Dominate {best_cat}",
+                            'target': f"{best['player'].name} ({best['team']})",
+                            'target_value': best['value'],
+                            'offer': offer_str,
+                            'offer_value': sum(v for p, v in package[:2]),
+                            'reasoning': f"You're already strong in {best_cat}. Stack more to guarantee winning this category weekly. {best['player'].name} projects for {best['cat_value']:.0f} {best_cat}.",
+                            'trade_type': 'stack',
+                            'urgency': 'low'
+                        })
 
     # 7. POSITIONAL UPGRADE PATH - Upgrade weak positions to elite
     for pos in thin_positions[:2]:
@@ -6374,8 +7940,21 @@ def generate_gm_trade_scenarios(team_name, team):
                     [(p, calculator.calculate_player_value(p)) for p in other_team.players],
                     key=lambda x: x[1], reverse=True
                 )
-                if their_stars and their_stars[0][1] >= 70:
-                    star = their_stars[0]
+                # Skip true superstars (98+) - they don't get traded in package deals
+                # Also check position depth
+                valid_stars = []
+                for sp, sv in their_stars:
+                    if sv >= 98:  # True superstar - skip
+                        continue
+                    target_pos = sp.position.split('/')[0].split(',')[0].upper() if sp.position else 'UTIL'
+                    if target_pos in ['LF', 'CF', 'RF']:
+                        target_pos = 'OF'
+                    if pos_counts.get(target_pos, 0) >= 4:  # Already deep - skip
+                        continue
+                    valid_stars.append((sp, sv))
+
+                if valid_stars and valid_stars[0][1] >= 70:
+                    star = valid_stars[0]
                     # Build a 3-player package
                     package = []
                     remaining = star[1] * 1.1  # Slight overpay for star
@@ -7112,6 +8691,116 @@ def search_players():
     return jsonify({"results": results[:limit]})
 
 
+def generate_personalized_trade_advice(player, value, projections):
+    """Generate personalized trade advice based on player attributes."""
+
+    # Position scarcity analysis
+    premium_positions = {'C': 'Catcher', 'SS': 'Shortstop', 'SP': 'Starting Pitcher'}
+    scarce_positions = {'2B': 'Second Base', '3B': 'Third Base', 'RP': 'Reliever'}
+
+    pos_premium = None
+    for pos, name in premium_positions.items():
+        if pos in player.position:
+            pos_premium = f"Premium {name} scarcity adds significant trade value."
+            break
+    if not pos_premium:
+        for pos, name in scarce_positions.items():
+            if pos in player.position:
+                pos_premium = f"{name} depth is valuable in category leagues."
+                break
+
+    # Age context
+    age = player.age if player.age else 25
+    if age <= 21:
+        age_note = f"At just {age}, has elite development runway - value will likely increase."
+    elif age <= 24:
+        age_note = f"At {age}, prime prospect age with years of team control ahead."
+    elif age <= 26:
+        age_note = f"At {age}, entering prime years - peak value window opening."
+    elif age <= 29:
+        age_note = f"At {age}, in prime production years - maximize value now."
+    elif age <= 32:
+        age_note = f"At {age}, still productive but decline approaching - consider selling high."
+    else:
+        age_note = f"At {age}, in decline phase - trade value diminishing yearly."
+
+    # === PROSPECT ADVICE ===
+    if player.is_prospect and player.prospect_rank:
+        rank = player.prospect_rank
+
+        if rank <= 3:
+            tier = f"🌟 GENERATIONAL TALENT (#{rank})"
+            advice = "Franchise-altering prospect. Untouchable in most scenarios - only move for a proven superstar (100+ value) or league-winning package."
+        elif rank <= 5:
+            tier = f"🌟 ELITE TOP-5 (#{rank})"
+            advice = "Cornerstone prospect with star ceiling. Demand elite proven talent (85+ value) or multiple top-50 prospects."
+        elif rank <= 10:
+            tier = f"⭐ TOP-10 PROSPECT (#{rank})"
+            advice = "High-floor, high-ceiling asset. Worth a proven starter (70+ value) or 2-3 quality pieces in return."
+        elif rank <= 15:
+            tier = f"⭐ TOP-15 PROSPECT (#{rank})"
+            advice = "Strong dynasty asset with starter upside. Can headline trades for established players (60+ value)."
+        elif rank <= 25:
+            tier = f"💎 TOP-25 PROSPECT (#{rank})"
+            advice = "Quality prospect with solid floor. Good centerpiece for trades targeting 50-65 value players."
+        elif rank <= 40:
+            tier = f"TOP-40 PROSPECT (#{rank})"
+            advice = "Above-average prospect. Can be primary piece in trades for proven contributors (40-55 value)."
+        elif rank <= 50:
+            tier = f"TOP-50 PROSPECT (#{rank})"
+            advice = "Solid prospect with starter potential. Useful trade chip - pair with another piece to upgrade."
+        elif rank <= 75:
+            tier = f"TOP-75 PROSPECT (#{rank})"
+            advice = "Decent upside but higher bust risk. Good secondary piece in trade packages."
+        elif rank <= 100:
+            tier = f"TOP-100 PROSPECT (#{rank})"
+            advice = "Fringe prospect with some upside. Use as sweetener in deals or hold as depth."
+        elif rank <= 150:
+            tier = f"RANKED PROSPECT (#{rank})"
+            advice = "Lottery ticket - minimal standalone value but can tip trade balances."
+        else:
+            tier = f"DEEP PROSPECT (#{rank})"
+            advice = "Long-shot upside only. Roster stash if space allows, minimal trade value."
+
+        # Combine elements
+        parts = [f"{tier} - {advice}"]
+        if pos_premium:
+            parts.append(pos_premium)
+        parts.append(age_note)
+        return " ".join(parts)
+
+    # === PROVEN PLAYER ADVICE ===
+    else:
+        if value >= 100:
+            tier = f"🏆 SUPERSTAR ({value:.0f} pts)"
+            advice = "Elite foundational piece. Only trade for another superstar or overwhelming prospect haul (3+ top-50 prospects)."
+        elif value >= 85:
+            tier = f"🏆 ELITE ASSET ({value:.0f} pts)"
+            advice = "Cornerstone player. Demand elite return - top-15 prospect plus quality pieces, or proven star."
+        elif value >= 70:
+            tier = f"⭐ HIGH-VALUE STARTER ({value:.0f} pts)"
+            advice = "Key roster piece. Can fetch a top-25 prospect or 2-3 solid contributors in return."
+        elif value >= 55:
+            tier = f"⭐ QUALITY STARTER ({value:.0f} pts)"
+            advice = "Reliable contributor. Good trade chip for top-50 prospect or roster upgrade."
+        elif value >= 40:
+            tier = f"SOLID CONTRIBUTOR ({value:.0f} pts)"
+            advice = "Useful roster piece. Package with picks/prospects to upgrade, or trade for younger upside."
+        elif value >= 25:
+            tier = f"DEPTH PLAYER ({value:.0f} pts)"
+            advice = "Roster filler with some value. Include in packages to balance trades."
+        else:
+            tier = f"FRINGE ROSTER ({value:.0f} pts)"
+            advice = "Minimal trade value. Replacement-level player - use as throw-in only."
+
+        # Combine elements
+        parts = [f"{tier} - {advice}"]
+        if pos_premium:
+            parts.append(pos_premium)
+        parts.append(age_note)
+        return " ".join(parts)
+
+
 @app.route('/player/<player_name>')
 def get_player(player_name):
     # Find player on a team roster first
@@ -7279,21 +8968,8 @@ def get_player(player_name):
         if (projections.get('SV', 0) + projections.get('HD', 0)) >= 20:
             category_contributions.append("Saves/Holds")
 
-    # Trade advice
-    if player.is_prospect and player.prospect_rank and player.prospect_rank <= 25:
-        trade_advice = "Elite prospect - only trade for proven star or massive overpay. These players are franchise-changers."
-    elif player.is_prospect and player.prospect_rank and player.prospect_rank <= 50:
-        trade_advice = "Quality prospect - can be centerpiece of trade package. Don't sell low - wait for the right deal."
-    elif player.is_prospect:
-        trade_advice = "Lottery ticket prospect - use as sweetener in deals to upgrade your roster."
-    elif value >= 80:
-        trade_advice = "Cornerstone player - only trade for another cornerstone or elite package. Building blocks are rare."
-    elif value >= 60:
-        trade_advice = "Quality starter - good trade chip for upgrading or acquiring prospects. Solid contributor."
-    elif value >= 40:
-        trade_advice = "Solid contributor - useful in packages or to fill roster holes."
-    else:
-        trade_advice = "Depth piece - can be packaged in larger deals or used for roster flexibility."
+    # Trade advice - personalized based on rank, position, and age
+    trade_advice = generate_personalized_trade_advice(player, value, projections)
 
     # Get actual stats and fantasy points
     actual_stats = player_actual_stats.get(player.name)
@@ -7552,8 +9228,7 @@ def analyze_trade():
         detailed_analysis += position_analysis
     if prospect_analysis:
         detailed_analysis += prospect_analysis
-    if category_analysis:
-        detailed_analysis += "\n\n" + category_analysis
+    # Category impacts shown as badges below, not in text
     if window_analysis:
         detailed_analysis += "\n\n" + window_analysis
 
@@ -7715,6 +9390,14 @@ def analyze_trade():
         "prospect_rank": p.prospect_rank if p.is_prospect else None
     } for p in found_players_b]
 
+    # Calculate trade impact simulation (category ranking and championship odds changes)
+    trade_impact = None
+    if found_players_a or found_players_b:  # Only simulate if there are players involved
+        try:
+            trade_impact = simulate_trade_impact(team_a, team_b, found_players_a, found_players_b)
+        except Exception as e:
+            print(f"Error simulating trade impact: {e}")
+
     return jsonify({
         "verdict": verdict,
         "value_a_sends": round(value_a_sends, 1),
@@ -7741,7 +9424,8 @@ def analyze_trade():
             "team_a_sends": {k: round(v, 3) if isinstance(v, float) else v for k, v in stats_a.items()},
             "team_b_sends": {k: round(v, 3) if isinstance(v, float) else v for k, v in stats_b.items()},
             "net_for_team_a": stat_diffs
-        }
+        },
+        "trade_impact": trade_impact
     })
 
 
@@ -8055,6 +9739,31 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
                 score += 5
                 reasons.append(f"Positional upgrade at {recv_pos}")
                 break
+
+    # POSITIONAL SURPLUS PENALTY - Penalize acquiring players at positions we're already deep in
+    my_team = teams.get(my_team_name)
+    if my_team:
+        my_pos_counts = {}
+        for p in my_team.players:
+            pos = p.position.split('/')[0].split(',')[0].upper() if p.position else 'UTIL'
+            if pos in ['LF', 'CF', 'RF']:
+                pos = 'OF'
+            my_pos_counts[pos] = my_pos_counts.get(pos, 0) + 1
+
+        for p_recv in you_receive:
+            recv_pos = p_recv.position.split('/')[0].split(',')[0].upper() if p_recv.position else 'UTIL'
+            if recv_pos in ['LF', 'CF', 'RF']:
+                recv_pos = 'OF'
+
+            current_count = my_pos_counts.get(recv_pos, 0)
+            if current_count >= 5:
+                # Already stacked at this position - significant penalty
+                score -= 25
+                reasons.append(f"Already deep at {recv_pos} ({current_count})")
+            elif current_count >= 4:
+                # Surplus at this position - moderate penalty
+                score -= 15
+                reasons.append(f"Position surplus at {recv_pos} ({current_count})")
 
     return score, reasons
 
@@ -8903,5 +10612,5 @@ load_draft_order_config()
 load_free_agents()
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

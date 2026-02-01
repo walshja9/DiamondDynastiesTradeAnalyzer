@@ -240,6 +240,8 @@ HITTER_PROJECTIONS = {
 
 # Top pitcher projections - parsed from FantasyPros
 PITCHER_PROJECTIONS = {
+    # Two-way player: Ohtani (projected for when healthy to pitch)
+    "Shohei Ohtani": {"IP": 140.0, "K": 180, "W": 10, "L": 5, "ERA": 3.00, "WHIP": 1.00, "QS": 14},
     "Tarik Skubal": {"IP": 194.9, "K": 237, "W": 14, "L": 7, "ERA": 2.74, "WHIP": 0.97, "QS": 21},
     "Paul Skenes": {"IP": 187.2, "K": 222, "W": 14, "L": 7, "ERA": 2.78, "WHIP": 1.03, "QS": 21},
     "Garrett Crochet": {"IP": 186.8, "K": 229, "W": 14, "L": 7, "ERA": 2.99, "WHIP": 1.06, "QS": 19},
@@ -534,32 +536,92 @@ class DynastyValueCalculator:
         
         if proj:
             value = 0.0
-            # AVG (normalize around .275 - above average)
-            avg_score = min((proj['AVG'] / 0.275) * 100, 115)
+
+            # AVG: .300+ elite, .270 average, .240 below average
+            # Steeper curve to penalize low averages
+            if proj['AVG'] >= 0.300:
+                avg_score = 100 + (proj['AVG'] - 0.300) * 300  # Elite bonus
+            elif proj['AVG'] >= 0.270:
+                avg_score = 75 + (proj['AVG'] - 0.270) * 833  # 75-100 for above avg
+            elif proj['AVG'] >= 0.240:
+                avg_score = 40 + (proj['AVG'] - 0.240) * 1167  # 40-75 for below avg
+            else:
+                avg_score = max(proj['AVG'] / 0.240 * 40, 10)  # Poor
+            avg_score = min(avg_score, 115)
             value += avg_score * DynastyValueCalculator.HITTING_WEIGHTS['avg']
-            
-            # OPS (normalize around .825 - above average)
-            ops_score = min((proj['OPS'] / 0.825) * 100, 115)
+
+            # OPS: .950+ elite, .800 average, .700 below average
+            if proj['OPS'] >= 0.950:
+                ops_score = 100 + (proj['OPS'] - 0.950) * 200
+            elif proj['OPS'] >= 0.850:
+                ops_score = 85 + (proj['OPS'] - 0.850) * 150
+            elif proj['OPS'] >= 0.750:
+                ops_score = 55 + (proj['OPS'] - 0.750) * 300
+            elif proj['OPS'] >= 0.650:
+                ops_score = 25 + (proj['OPS'] - 0.650) * 300
+            else:
+                ops_score = max(proj['OPS'] / 0.650 * 25, 5)
+            ops_score = min(ops_score, 115)
             value += ops_score * DynastyValueCalculator.HITTING_WEIGHTS['ops']
-            
-            # HR (normalize around 30 - star level)
-            hr_score = min((proj['HR'] / 30) * 100, 115)
+
+            # HR: 40+ elite, 25 average, 15 below average
+            if proj['HR'] >= 40:
+                hr_score = 100 + (proj['HR'] - 40) * 2
+            elif proj['HR'] >= 25:
+                hr_score = 70 + (proj['HR'] - 25) * 2
+            elif proj['HR'] >= 15:
+                hr_score = 40 + (proj['HR'] - 15) * 3
+            else:
+                hr_score = max(proj['HR'] / 15 * 40, 5)
+            hr_score = min(hr_score, 115)
             value += hr_score * DynastyValueCalculator.HITTING_WEIGHTS['hr']
-            
-            # R (normalize around 90 - above average)
-            r_score = min((proj['R'] / 90) * 100, 115)
+
+            # R: 100+ elite, 80 average, 60 below average
+            if proj['R'] >= 100:
+                r_score = 95 + (proj['R'] - 100) * 1
+            elif proj['R'] >= 80:
+                r_score = 70 + (proj['R'] - 80) * 1.25
+            elif proj['R'] >= 60:
+                r_score = 40 + (proj['R'] - 60) * 1.5
+            else:
+                r_score = max(proj['R'] / 60 * 40, 10)
+            r_score = min(r_score, 115)
             value += r_score * DynastyValueCalculator.HITTING_WEIGHTS['r']
-            
-            # RBI (normalize around 90 - above average)
-            rbi_score = min((proj['RBI'] / 90) * 100, 115)
+
+            # RBI: 100+ elite, 80 average, 60 below average
+            if proj['RBI'] >= 100:
+                rbi_score = 95 + (proj['RBI'] - 100) * 1
+            elif proj['RBI'] >= 80:
+                rbi_score = 70 + (proj['RBI'] - 80) * 1.25
+            elif proj['RBI'] >= 60:
+                rbi_score = 40 + (proj['RBI'] - 60) * 1.5
+            else:
+                rbi_score = max(proj['RBI'] / 60 * 40, 10)
+            rbi_score = min(rbi_score, 115)
             value += rbi_score * DynastyValueCalculator.HITTING_WEIGHTS['rbi']
-            
-            # SB (normalize around 25 - plus runner)
-            sb_score = min((proj['SB'] / 25) * 100, 115)
+
+            # SB: 30+ elite, 15 average, 5 below average
+            if proj['SB'] >= 30:
+                sb_score = 95 + (proj['SB'] - 30) * 2
+            elif proj['SB'] >= 15:
+                sb_score = 60 + (proj['SB'] - 15) * 2.33
+            elif proj['SB'] >= 5:
+                sb_score = 30 + (proj['SB'] - 5) * 3
+            else:
+                sb_score = max(proj['SB'] * 6, 5)
+            sb_score = min(sb_score, 115)
             value += sb_score * DynastyValueCalculator.HITTING_WEIGHTS['sb']
-            
-            # SO (inverse - normalize around 130, lower is better)
-            so_score = max(100 - ((proj['SO'] / 130) * 50), 0)
+
+            # SO (inverse - lower is better): 90 elite, 130 average, 170 poor
+            if proj['SO'] <= 90:
+                so_score = 95 + (90 - proj['SO']) * 0.5
+            elif proj['SO'] <= 130:
+                so_score = 70 + (130 - proj['SO']) * 0.625
+            elif proj['SO'] <= 170:
+                so_score = 35 + (170 - proj['SO']) * 0.875
+            else:
+                so_score = max(35 - (proj['SO'] - 170) * 0.5, 5)
+            so_score = min(so_score, 115)
             value += so_score * DynastyValueCalculator.HITTING_WEIGHTS['so']
             
         else:
@@ -575,8 +637,8 @@ class DynastyValueCalculator:
         
         # Dynasty adjustments (with reduced stacking)
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=True)
-        
-        return min(value, 100)
+
+        return value  # No cap - show true dynasty value
     
     @staticmethod
     def calculate_pitcher_value(player: Player) -> float:
@@ -609,7 +671,7 @@ class DynastyValueCalculator:
                 value *= 0.70
             
             value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
-            return min(value, 60)  # Cap non-projected players
+            return value  # No cap - show true dynasty value
     
     @staticmethod
     def _calculate_sp_value(player: Player, proj: dict) -> float:
@@ -670,7 +732,7 @@ class DynastyValueCalculator:
         value += l_score * sp_weights['l']
 
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
-        return min(value, 100)
+        return value  # No cap - show true dynasty value
     
     @staticmethod
     def _calculate_reliever_value(player: Player, proj: dict) -> float:
@@ -718,78 +780,84 @@ class DynastyValueCalculator:
         # Apply dynasty adjustments (age, prospect status) - same as SP and hitters
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
 
-        # Cap reliever value - prospects can exceed this via the prospect bonus above
-        return min(value, 92)
+        return value  # No cap - show true dynasty value
     
     @staticmethod
     def _apply_dynasty_adjustments(player: Player, base_value: float, is_hitter: bool) -> float:
         """Apply dynasty-specific adjustments (age, prospect status, position scarcity)."""
         value = base_value
         bonus_multiplier = 1.0  # Track bonuses to cap stacking
-        
-        # Age adjustments - Dynasty leagues value youth heavily due to years of future production
+
+        # Age adjustments - Dynasty leagues value youth heavily, older players decline steeply
+        # Young players have longest runway, older players are rental value only
+        # Prime years (25-29) hold full value, decline starts at 30+
         if player.age > 0:
-            if is_hitter:
-                if player.age <= 22:
-                    bonus_multiplier += 0.20  # Elite youth - 10+ prime years ahead
-                elif player.age <= 24:
-                    bonus_multiplier += 0.14  # Young stars - 8+ prime years
-                elif player.age <= 26:
-                    bonus_multiplier += 0.08  # Entering prime
-                elif player.age <= 28:
-                    bonus_multiplier += 0.02  # Prime age but shorter window
-                elif player.age >= 34:
-                    bonus_multiplier -= 0.15  # Aging decline
-                elif player.age >= 32:
-                    bonus_multiplier -= 0.08
-                elif player.age >= 30:
-                    bonus_multiplier -= 0.03
-            else:  # Pitchers - same bonuses as hitters for dynasty consistency
-                if player.age <= 22:
-                    bonus_multiplier += 0.20  # Elite youth - 10+ prime years ahead
-                elif player.age <= 24:
-                    bonus_multiplier += 0.14  # Young stars - 8+ prime years
-                elif player.age <= 26:
-                    bonus_multiplier += 0.08  # Entering prime
-                elif player.age <= 28:
-                    bonus_multiplier += 0.02  # Prime age but shorter window
-                elif player.age >= 34:
-                    bonus_multiplier -= 0.15  # Aging decline
-                elif player.age >= 32:
-                    bonus_multiplier -= 0.08
-                elif player.age >= 30:
-                    bonus_multiplier -= 0.03
-        
+            # Same curve for hitters and pitchers in dynasty
+            if player.age <= 19:
+                bonus_multiplier += 0.20  # Extreme youth premium
+            elif player.age <= 21:
+                bonus_multiplier += 0.15  # Youth premium
+            elif player.age <= 24:
+                bonus_multiplier += 0.10  # Approaching prime
+            elif player.age <= 29:
+                bonus_multiplier += 0.00  # Peak prime years (baseline)
+            elif player.age <= 31:
+                bonus_multiplier -= 0.10  # Late prime, still valuable
+            elif player.age <= 33:
+                bonus_multiplier -= 0.25  # Early 30s decline
+            elif player.age <= 35:
+                bonus_multiplier -= 0.45  # Mid 30s decline
+            elif player.age <= 37:
+                bonus_multiplier -= 0.65  # Late 30s steep decline
+            else:  # 38+
+                bonus_multiplier -= 0.80  # End of career
+
         # Position scarcity (for hitters) - small adjustments
         if is_hitter:
             pos_bonus = 0
             if 'C' in player.position:
                 pos_bonus = 0.06  # Catchers are scarce
             elif 'SS' in player.position:
-                pos_bonus = 0.03  # Reduced from 6%
+                pos_bonus = 0.03
             elif '2B' in player.position:
                 pos_bonus = 0.02
             elif '1B' in player.position:
                 pos_bonus = -0.02
             bonus_multiplier += pos_bonus
-        
-        # Cap the total bonus/penalty - allow higher for elite youth in dynasty
-        bonus_multiplier = max(0.80, min(bonus_multiplier, 1.25))
+
+        # Cap the total bonus/penalty - lowered floor to allow steep age decline
+        bonus_multiplier = max(0.20, min(bonus_multiplier, 1.25))
         value *= bonus_multiplier
         
-        # Prospect adjustments - smooth linear scale from rank 1 to 300
-        # Rank 1 = 68 value, Rank 300 = 0.5 value
-        # Formula: value = 0.5 + (67.5 * (300 - rank) / 299)
+        # Prospect adjustments - aligned with new dynasty value tiers
+        # Top prospects are valuable dynasty assets with high upside
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
 
-            # Cap rank at 300 for the formula (anything beyond gets minimum)
-            if rank <= 300:
-                # Linear scale: Rank 1 = 68, Rank 300 = 0.5
-                prospect_value = 0.5 + (67.5 * (300 - rank) / 299)
-            else:
-                # Beyond rank 300: minimal value
+            # Tiered prospect valuation (aligned with Superstar 90+, Elite 75+, Star 60+, Solid 40+)
+            if rank <= 0 or rank > 300:
                 prospect_value = 0.5
+            elif rank <= 5:
+                # Top 5: 90 at rank 1, 80 at rank 5 (SUPERSTAR/ELITE)
+                prospect_value = 90 - (rank - 1) * 2.5
+            elif rank <= 10:
+                # Top 10: 78 at rank 6, 70 at rank 10 (ELITE/STAR)
+                prospect_value = 78 - (rank - 6) * 1.6
+            elif rank <= 25:
+                # 11-25: 68 at rank 11, 53 at rank 25 (STAR/SOLID)
+                prospect_value = 68 - (rank - 11) * 1.07
+            elif rank <= 50:
+                # 26-50: 52 at rank 26, 35 at rank 50 (SOLID)
+                prospect_value = 52 - (rank - 26) * 0.68
+            elif rank <= 100:
+                # 51-100: 34 at rank 51, 15 at rank 100 (SOLID/DEPTH)
+                prospect_value = 34 - (rank - 51) * 0.39
+            elif rank <= 200:
+                # 101-200: 14 at rank 101, 5 at rank 200 (DEPTH)
+                prospect_value = 14 - (rank - 101) * 0.09
+            else:
+                # 201-300: 4.5 at rank 201, 1 at rank 300 (DEPTH)
+                prospect_value = 4.5 - (rank - 201) * 0.035
 
             # Use prospect value directly - rank determines value for prospects
             value = prospect_value
@@ -802,19 +870,23 @@ class DynastyValueCalculator:
         # Check projections first to handle two-way players (like Ohtani)
         in_hitter_proj = player.name in HITTER_PROJECTIONS
         in_pitcher_proj = player.name in PITCHER_PROJECTIONS or player.name in RELIEVER_PROJECTIONS
-        
-        # If in hitter projections, calculate as hitter (even if also has SP/RP position)
+
+        # If in hitter projections only, calculate as hitter
         if in_hitter_proj and not in_pitcher_proj:
             return DynastyValueCalculator.calculate_hitter_value(player)
-        # If in pitcher projections, calculate as pitcher
+        # If in pitcher projections only, calculate as pitcher
         elif in_pitcher_proj and not in_hitter_proj:
             return DynastyValueCalculator.calculate_pitcher_value(player)
-        # If in both (true two-way), use the higher value
+        # If in both (true two-way player like Ohtani), combine values with premium
+        # Two-way players are extraordinarily valuable - they provide dual production in one roster spot
         elif in_hitter_proj and in_pitcher_proj:
-            return max(
-                DynastyValueCalculator.calculate_hitter_value(player),
-                DynastyValueCalculator.calculate_pitcher_value(player)
-            )
+            hitter_val = DynastyValueCalculator.calculate_hitter_value(player)
+            pitcher_val = DynastyValueCalculator.calculate_pitcher_value(player)
+            # Take higher value as base, add 40% of secondary value, plus 10% two-way premium
+            primary = max(hitter_val, pitcher_val)
+            secondary = min(hitter_val, pitcher_val)
+            two_way_value = primary + (secondary * 0.40) + (primary * 0.10)
+            return two_way_value  # Can exceed 100 for exceptional two-way players
         # Fall back to position-based detection
         elif player.is_pitcher():
             return DynastyValueCalculator.calculate_pitcher_value(player)
