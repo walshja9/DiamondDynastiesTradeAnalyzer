@@ -8493,20 +8493,23 @@ def generate_gm_trade_scenarios(team_name, team):
                             remaining -= v
 
                     if len(package) >= 2:
-                        offer_str = " + ".join([f"{p.name}" for p, v in package])
                         pkg_value = sum(v for p, v in package)
-                        scenarios.append({
-                            'title': "Blockbuster: 3-for-1 Star",
-                            'target': f"{star[0].name} ({other_team_name})",
-                            'target_value': star[1],
-                            'offer': offer_str,
-                            'offer_value': pkg_value,
-                            'reasoning': f"Rebuilding teams love quantity. Package depth for {star[0].name} - a true difference-maker.",
-                            'trade_type': 'blockbuster',
-                            'urgency': 'medium',
-                            'counter_offer': f"If they want more, ask which piece they'd swap. Adding a 2nd Rd pick often closes these."
-                        })
-                        break
+                        # CRITICAL: Validate ratio is between 0.85 and 1.15
+                        ratio = pkg_value / star[1] if star[1] > 0 else 0
+                        if ratio >= 0.85 and ratio <= 1.15:
+                            offer_str = " + ".join([f"{p.name}" for p, v in package])
+                            scenarios.append({
+                                'title': "Blockbuster: 3-for-1 Star",
+                                'target': f"{star[0].name} ({other_team_name})",
+                                'target_value': star[1],
+                                'offer': offer_str,
+                                'offer_value': pkg_value,
+                                'reasoning': f"Rebuilding teams love quantity. Package depth for {star[0].name} - a true difference-maker.",
+                                'trade_type': 'blockbuster',
+                                'urgency': 'medium',
+                                'counter_offer': f"If they want more, ask which piece they'd swap. Adding a 2nd Rd pick often closes these."
+                            })
+                            break
 
     # ============ SMART SCENARIO RANKING ============
     # Score and filter scenarios based on GM personality parameters
@@ -8572,11 +8575,23 @@ def generate_gm_trade_scenarios(team_name, team):
     # Sort by score descending
     scored_scenarios.sort(key=lambda x: x.get('_score', 0), reverse=True)
 
-    # Remove score from output and return top 4
+    # CRITICAL: Filter out scenarios with unrealistic ratios (< 0.75 or > 1.25)
+    # Trades way outside this range would never be accepted
+    filtered_scenarios = []
     for s in scored_scenarios:
+        target_val = s.get('target_value', 0)
+        offer_val = s.get('offer_value', 0)
+        if target_val > 0 and offer_val > 0:
+            ratio = offer_val / target_val
+            if ratio < 0.75 or ratio > 1.25:
+                continue  # Skip this scenario - unrealistic
+        filtered_scenarios.append(s)
+
+    # Remove score from output and return top 4
+    for s in filtered_scenarios:
         s.pop('_score', None)
 
-    return scored_scenarios[:4]
+    return filtered_scenarios[:4]
 
 
 def generate_rivalry_analysis(team_name, rival_name):
