@@ -6226,37 +6226,49 @@ INSTRUCTIONS:
   * Only suggest trade targets from the "REALISTIC TRADE TARGETS" list above - these are players on OTHER teams
   * If a player is in our ROSTER section, they are OURS - don't suggest acquiring them
 
-TRADE VALUE GUIDELINES (CRITICAL - MUST FOLLOW THESE RULES):
-- Every player has a VALUE number - USE THESE VALUES to validate ALL trade suggestions
-- HARD RULE: Total value given MUST be within 15% of total value received
-  * Maximum overpay: 1.15x the target value (e.g., for a 78-value player, max offer is ~90)
-  * Maximum underpay: 0.85x the target value (e.g., for a 78-value player, min offer is ~66)
+TRADE VALUE MATH (YOU MUST FOLLOW THIS EXACTLY):
+
+STEP 1 - Calculate the RATIO before suggesting ANY trade:
+  RATIO = (Sum of ALL player values you GIVE) ÷ (Sum of ALL player values you GET)
+
+STEP 2 - Check if ratio is between 0.85 and 1.15:
+  - If ratio > 1.15 = YOU ARE OVERPAYING = DO NOT SUGGEST THIS TRADE
+  - If ratio < 0.85 = YOU ARE UNDERPAYING = Other team won't accept
+  - If ratio is 0.85 to 1.15 = FAIR TRADE = OK to suggest
+
+EXAMPLE CALCULATIONS (study these carefully):
+
+WRONG - 3-for-1 for an 80-value player:
+  You give: Player A (92) + Player B (83) + Player C (51) = 226 TOTAL
+  You get: Player D (80) = 80 TOTAL
+  RATIO = 226 ÷ 80 = 2.83 = MASSIVE OVERPAY = NEVER SUGGEST THIS!
+
+WRONG - 3-for-1 for an 80-value player:
+  You give: Player A (92) + Player B (74) + Player C (49) = 215 TOTAL
+  You get: Player D (80) = 80 TOTAL
+  RATIO = 215 ÷ 80 = 2.69 = MASSIVE OVERPAY = NEVER SUGGEST THIS!
+
+RIGHT - 1-for-1 for an 80-value player:
+  You give: Player A (85) = 85 TOTAL
+  You get: Player B (80) = 80 TOTAL
+  RATIO = 85 ÷ 80 = 1.06 = FAIR = OK TO SUGGEST
+
+RIGHT - 2-for-1 for an 80-value player:
+  You give: Player A (45) + Player B (40) = 85 TOTAL
+  You get: Player C (80) = 80 TOTAL
+  RATIO = 85 ÷ 80 = 1.06 = FAIR = OK TO SUGGEST
+
+FOR A ~80 VALUE TARGET, FAIR OFFERS ARE:
+  - One player worth 68-92, OR
+  - Two players totaling 68-92 (like 45+40=85, or 50+35=85)
+  - NOT three players totaling 200+ (that's 2.5x overpay!)
+
+CRITICAL RULES:
 - Value tiers: 90+ = Superstar, 75-89 = Elite, 60-74 = Star, 40-59 = Solid, <40 = Depth
-
-BEFORE SUGGESTING ANY TRADE, DO THIS MATH:
-1. Add up the VALUE of all players you're suggesting to give away
-2. Add up the VALUE of all players you're suggesting to receive
-3. Check: Is the ratio between 0.85 and 1.15? If NO, do NOT suggest the trade!
-
-MULTI-PLAYER TRADE RULES:
-- 2-for-1: The 2 players combined should be 0.85x to 1.15x of the 1 player's value
-- 3-for-1: ONLY valid for 90+ superstars, and even then total must be within 15%
-- NEVER suggest a 3-for-1 where you give 150+ value for a 78-value player - that's insane!
-
-BAD TRADE EXAMPLES (NEVER SUGGEST THESE):
-- Giving 92 + 58 + 49 (=199) for a 78-value player = 2.5x OVERPAY = TERRIBLE
-- Giving 60 + 50 + 40 (=150) for a 70-value player = 2.1x OVERPAY = TERRIBLE
-- Giving 45 + 40 (=85) for a 50-value player = 1.7x OVERPAY = BAD
-
-GOOD TRADE EXAMPLES:
-- Giving 85 for a 78-value player = 1.09x = FAIR (within 15%)
-- Giving 45 + 40 (=85) for an 80-value player = 1.06x = FAIR
-- Giving 55 for a 60-value player = 0.92x = FAIR (slight underpay, may need sweetener)
-
-CRITICAL: If the user asks about acquiring a player, calculate what fair value looks like FIRST.
-- For a 78-value player: Fair offer range is 66-90 in total value
-- If you can't make a fair offer with available pieces, SAY SO instead of suggesting a bad trade
-- Be realistic - other teams won't accept obvious underpays, and YOU shouldn't massively overpay
+- 3-for-1 trades are ONLY valid when acquiring a 100+ superstar
+- For players valued 75-90, suggest 1-for-1 or 2-for-1 trades with SIMILAR total value
+- If you cannot construct a fair offer, SAY SO: "We'd need to overpay significantly to get this player"
+- ALWAYS show your math: "Player A (45) + Player B (40) = 85 total for Player C (80) = ratio 1.06 = fair"
 
 REALISTIC TRADE TARGET GUIDELINES (CRITICAL):
 - "Realistic targets" means players your team can ACTUALLY acquire without gutting the roster
@@ -6268,9 +6280,11 @@ REALISTIC TRADE TARGET GUIDELINES (CRITICAL):
 - Don't suggest trading your best players (top 3-4 by value) unless specifically asked
 
 ALWAYS SHOW YOUR MATH WHEN SUGGESTING TRADES:
-- Format: "Player A (52) + Player B (35) = 87 total → for Player C (80) = 1.09x ratio = FAIR"
-- If ratio is outside 0.85-1.15 range, DO NOT suggest the trade
-- If you can't construct a fair deal, tell the user honestly: "We don't have the pieces to make a fair offer for this player"
+- Format: "Player A (52) + Player B (35) = 87 total → for Player C (80) = ratio 87÷80 = 1.09 = FAIR"
+- STOP AND VERIFY: Before writing the trade, calculate the ratio yourself
+- If your GIVE total is more than 1.15x the GET total, DO NOT suggest it
+- Example: Giving 200+ for an 80-value player = ratio 2.5+ = NEVER SUGGEST
+- If you can't construct a fair deal, tell the user: "A fair offer for this player would be 68-92 in value - we'd need to find pieces in that range"
 
 TRADE APPROACH GUIDELINES (based on your personality):
 - Your minimum value threshold is {min_value} - don't waste time discussing players below this value
