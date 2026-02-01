@@ -443,7 +443,7 @@ PLAYER_AGES = {
     "Oneil Cruz": 27, "Royce Lewis": 27, "Teoscar Hernandez": 33, "Nick Castellanos": 34,
     "Adolis Garcia": 33, "Bryan Reynolds": 31, "Isaac Paredes": 27, "Luis Arraez": 29,
     "Nolan Arenado": 35, "Alec Bohm": 29, "Tommy Edman": 30, "Daulton Varsho": 29,
-    "Lawrence Butler": 25, "Austin Wells": 25, "Chandler Simpson": 25, "Victor Scott II": 25,
+    "Lawrence Butler": 25, "Austin Wells": 25, "Logan O'Hoppe": 26, "Chandler Simpson": 25, "Victor Scott II": 25,
     "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29, "Ryan O'Hearn": 31,
     "Jose Caballero": 28,
     # Elite Pitchers (ages verified for 2026 season)
