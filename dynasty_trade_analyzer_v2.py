@@ -65,7 +65,7 @@ class Player:
     fantasy_team: str = ""
     roster_status: str = "Active"  # Active, Reserve, Minors, Inj Res
     age: int = 0
-    fantrax_score: float = 0.0
+    fantrax_score: float = 100.0  # Default to established (only explicitly low scores trigger discount)
     fantrax_rank: int = 9999  # Default to high rank (unranked/unknown player)
     throws: str = ""  # L = Left, R = Right (for pitchers)
 
