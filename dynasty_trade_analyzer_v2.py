@@ -785,19 +785,20 @@ DYNASTY_PITCHER_DISCOUNT = 0.55
 # This manual list is for truly exceptional talents whose dynasty value exceeds even that
 # Format: "Player Name": bonus_multiplier (1.15 = +15% ADDITIONAL boost, stacks with automatic)
 ELITE_YOUNG_PLAYERS = {
-    # Tier 1: Generational/MVP-caliber young superstars (20%+ additional boost)
-    "Juan Soto": 1.20,            # 27yo OF, elite plate discipline, perennial MVP candidate
-    "Elly De La Cruz": 1.20,      # 24yo SS, elite speed/power combo, 40+ SB, 25+ HR upside
-    "Bobby Witt Jr.": 1.20,       # 26yo SS, 30/30 caliber, MVP candidate
-    "Gunnar Henderson": 1.20,     # 24yo SS, elite power, future MVP
-    "Julio Rodriguez": 1.15,      # 25yo OF, superstar ceiling when healthy
-    "Corbin Carroll": 1.15,       # 25yo OF, elite speed/plate discipline
+    # Tier 1: Consensus Top 5 dynasty assets
+    "Bobby Witt Jr.": 1.30,       # 26yo SS, consensus #1-2, 30/30 MVP caliber
+    "Juan Soto": 1.20,            # 27yo OF, consensus #3, elite plate discipline
+    "Corbin Carroll": 1.20,       # 25yo OF, consensus #5, elite speed/plate discipline
+    # Tier 2: Consensus Top 10 dynasty assets
+    "Elly De La Cruz": 1.12,      # 24yo SS, consensus #7, elite speed/power upside
+    "Gunnar Henderson": 1.12,     # 24yo SS, consensus #10, elite power
     "Jackson Chourio": 1.18,      # 22yo OF, 5-tool potential, youngest superstar
     "Jackson Holliday": 1.18,     # 22yo 2B, #1 prospect pedigree, elite bat
+    "Julio Rodriguez": 1.15,      # 25yo OF, superstar ceiling when healthy
     # Elite young pitchers - dynasty premium for young aces with elite stuff
-    "Paul Skenes": 1.45,          # 23yo SP, elite stuff, #1 pick, potential best pitcher in baseball
-    "Garrett Crochet": 1.35,      # 26yo SP, elite strikeout ability, ace upside
-    "Tarik Skubal": 1.55,         # 29yo SP, 2025 AL Cy Young winner, elite ace
+    "Paul Skenes": 1.25,          # 23yo SP, consensus #4-6, elite stuff, #1 pick
+    "Garrett Crochet": 1.30,      # 26yo SP, elite strikeout ability, ace upside
+    "Tarik Skubal": 1.40,         # 29yo SP, 2025 AL Cy Young winner, consensus #11
     # Tier 2: Elite young stars with consensus backing (18-22% boost)
     "James Wood": 1.22,           # 23yo OF, elite prospect pedigree, consensus top 20
     "Wyatt Langford": 1.20,       # 25yo OF, power upside, consensus top 30
