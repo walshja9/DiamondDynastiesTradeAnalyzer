@@ -821,7 +821,7 @@ PROVEN_VETERAN_STARS = {
     "Vladimir Guerrero Jr.": 1.05, # 27yo 1B, elite bat
     # Shohei Ohtani - unique two-way player, consensus #1-2 dynasty asset
     # His two-way production is unprecedented and age penalty doesn't apply normally
-    "Shohei Ohtani": 1.25,  # 31yo but only true two-way player in baseball history
+    "Shohei Ohtani": 1.45,  # 31yo but only true two-way player in baseball history
 }
 
 # Pitcher handedness (L = Left, R = Right)
