@@ -52,6 +52,72 @@ def load_prospect_rankings() -> Dict[str, int]:
     print("Warning: prospects.json not found. Prospect rankings will be empty.")
     return {}
 
+
+def load_consensus_rankings() -> Dict[str, float]:
+    """Load consensus dynasty rankings from external sources (FHQ, HKB).
+
+    Returns a dict mapping player name to average consensus rank.
+    This is used for hybrid value calculation - pulling projection-based
+    values toward market consensus when there's significant deviation.
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    consensus = {}
+
+    # Load FantraxHQ rankings
+    fhq_path = os.path.join(script_dir, "Top-500 Fantasy Baseball Dynasty Rankings - FantraxHQ.csv")
+    fhq_ranks = {}
+    try:
+        with open(fhq_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = row.get('Player', '').strip()
+                roto_rank = row.get('Roto', '')
+                if name and roto_rank:
+                    try:
+                        fhq_ranks[name] = int(roto_rank)
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+
+    # Load harryknowsball rankings
+    hkb_path = os.path.join(script_dir, "harryknowsball_players.csv")
+    hkb_ranks = {}
+    try:
+        with open(hkb_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = row.get('Name', '').strip()
+                rank = row.get('Rank', '')
+                if name and rank:
+                    try:
+                        hkb_ranks[name] = int(rank)
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+
+    # Combine into average consensus rank
+    all_players = set(fhq_ranks.keys()) | set(hkb_ranks.keys())
+    for name in all_players:
+        ranks = []
+        if name in fhq_ranks and fhq_ranks[name] <= 500:
+            ranks.append(fhq_ranks[name])
+        if name in hkb_ranks and hkb_ranks[name] <= 500:
+            ranks.append(hkb_ranks[name])
+        if ranks:
+            consensus[name] = sum(ranks) / len(ranks)
+
+    if consensus:
+        print(f"Loaded consensus rankings for {len(consensus)} players (FHQ + HKB)")
+
+    return consensus
+
+
+# Global consensus rankings - loaded once at module import
+CONSENSUS_RANKINGS = load_consensus_rankings()
+
+
 # ============================================================================
 # DATA STRUCTURES
 # ============================================================================
@@ -1193,27 +1259,98 @@ class DynastyValueCalculator:
         in_hitter_proj = player.name in HITTER_PROJECTIONS
         in_pitcher_proj = player.name in PITCHER_PROJECTIONS or player.name in RELIEVER_PROJECTIONS
 
-        # If in hitter projections only, calculate as hitter
+        # Calculate base value from projections
         if in_hitter_proj and not in_pitcher_proj:
-            return DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
-        # If in pitcher projections only, calculate as pitcher
+            base_value = DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
         elif in_pitcher_proj and not in_hitter_proj:
-            return DynastyValueCalculator.calculate_pitcher_value(player)
-        # If in both (true two-way player like Ohtani), combine values with premium
-        # Two-way players are extraordinarily valuable - they provide dual production in one roster spot
+            base_value = DynastyValueCalculator.calculate_pitcher_value(player)
         elif in_hitter_proj and in_pitcher_proj:
+            # Two-way player like Ohtani
             hitter_val = DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
             pitcher_val = DynastyValueCalculator.calculate_pitcher_value(player)
-            # Take higher value as base, add 40% of secondary value, plus 10% two-way premium
             primary = max(hitter_val, pitcher_val)
             secondary = min(hitter_val, pitcher_val)
-            two_way_value = primary + (secondary * 0.40) + (primary * 0.10)
-            return two_way_value  # Can exceed 100 for exceptional two-way players
-        # Fall back to position-based detection
+            base_value = primary + (secondary * 0.40) + (primary * 0.10)
         elif player.is_pitcher():
-            return DynastyValueCalculator.calculate_pitcher_value(player)
+            base_value = DynastyValueCalculator.calculate_pitcher_value(player)
         else:
-            return DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
+            base_value = DynastyValueCalculator.calculate_hitter_value(player, actual_stats)
+
+        # Apply consensus adjustment - pulls value toward market consensus
+        final_value = DynastyValueCalculator._apply_consensus_adjustment(player.name, base_value)
+
+        return final_value
+
+    @staticmethod
+    def _apply_consensus_adjustment(player_name: str, base_value: float) -> float:
+        """Apply hybrid consensus adjustment to pull values toward market consensus.
+
+        This is the key to the hybrid approach:
+        - Start with projection-based value (analytical foundation)
+        - Check against dynasty consensus rankings (FHQ + HKB average)
+        - If significantly off, apply correction factor
+
+        Correction logic:
+        - Within 15 ranks: No adjustment (projections are reasonable)
+        - 15-40 ranks off: 25% correction toward consensus
+        - 40+ ranks off: 50% correction toward consensus
+        """
+        if player_name not in CONSENSUS_RANKINGS:
+            return base_value  # No consensus data, use projection value
+
+        consensus_rank = CONSENSUS_RANKINGS[player_name]
+
+        # Estimate what rank our value implies
+        # Using rough scale: value 100+ = top 5, 90 = top 10, 80 = top 20, etc.
+        # This is approximate and based on our value distribution
+        if base_value >= 100:
+            implied_rank = max(1, 5 - (base_value - 100) / 5)
+        elif base_value >= 85:
+            implied_rank = 5 + (100 - base_value) * 1.0  # 85-100 maps to ranks 5-20
+        elif base_value >= 70:
+            implied_rank = 20 + (85 - base_value) * 2.0  # 70-85 maps to ranks 20-50
+        elif base_value >= 55:
+            implied_rank = 50 + (70 - base_value) * 3.0  # 55-70 maps to ranks 50-95
+        elif base_value >= 40:
+            implied_rank = 95 + (55 - base_value) * 4.0  # 40-55 maps to ranks 95-155
+        else:
+            implied_rank = 155 + (40 - base_value) * 5.0  # Below 40 maps to 155+
+
+        rank_diff = implied_rank - consensus_rank  # Positive = we rank lower than consensus
+
+        # Determine correction strength
+        abs_diff = abs(rank_diff)
+        if abs_diff <= 15:
+            # Within tolerance - no adjustment
+            return base_value
+        elif abs_diff <= 40:
+            # Moderate deviation - 25% correction
+            correction_strength = 0.25
+        else:
+            # Large deviation - 50% correction
+            correction_strength = 0.50
+
+        # Calculate target value based on consensus rank
+        # Inverse of the implied_rank calculation
+        if consensus_rank <= 5:
+            target_value = 100 + (5 - consensus_rank) * 5
+        elif consensus_rank <= 20:
+            target_value = 100 - (consensus_rank - 5) * 1.0
+        elif consensus_rank <= 50:
+            target_value = 85 - (consensus_rank - 20) / 2.0
+        elif consensus_rank <= 95:
+            target_value = 70 - (consensus_rank - 50) / 3.0
+        elif consensus_rank <= 155:
+            target_value = 55 - (consensus_rank - 95) / 4.0
+        else:
+            target_value = 40 - (consensus_rank - 155) / 5.0
+
+        target_value = max(target_value, 10)  # Floor of 10
+
+        # Apply correction: blend base_value toward target_value
+        adjusted_value = base_value + (target_value - base_value) * correction_strength
+
+        return adjusted_value
     
     @staticmethod
     def calculate_pick_value(pick: str) -> float:
