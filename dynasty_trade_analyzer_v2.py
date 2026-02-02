@@ -802,6 +802,7 @@ ELITE_YOUNG_PLAYERS = {
     "Tarik Skubal": 1.40,         # 29yo SP, 2025 AL Cy Young winner, consensus #11
     "Yoshinobu Yamamoto": 1.18,   # 27yo SP, 3rd in 2025 NL Cy Young, premium ace
     "Cristopher Sanchez": 1.12,   # 29yo SP, 2nd in 2025 NL Cy Young, elite LHP
+    "Hunter Brown": 1.15,         # 27yo SP, 3rd in 2025 AL Cy Young, emerging ace
     # Tier 2: Elite young stars with consensus backing (18-22% boost)
     "James Wood": 1.22,           # 23yo OF, elite prospect pedigree, consensus top 20
     "Wyatt Langford": 1.20,       # 25yo OF, power upside, consensus top 30
