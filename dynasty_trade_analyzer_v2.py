@@ -472,6 +472,7 @@ HITTER_PROJECTIONS = {
     "Michael Harris II": {"AB": 545, "R": 78, "HR": 22, "RBI": 75, "SB": 18, "AVG": .270, "OPS": .778, "SO": 120},
     "Willy Adames": {"AB": 565, "R": 88, "HR": 28, "RBI": 86, "SB": 14, "AVG": .236, "OPS": .765, "SO": 172},
     "Ezequiel Tovar": {"AB": 588, "R": 82, "HR": 23, "RBI": 78, "SB": 18, "AVG": .265, "OPS": .753, "SO": 152},
+    "Marcelo Mayer": {"AB": 500, "R": 70, "HR": 18, "RBI": 68, "SB": 8, "AVG": .255, "OPS": .740, "SO": 105},  # Rookie SS, graduated prospect
     "James Wood": {"AB": 550, "R": 79, "HR": 21, "RBI": 72, "SB": 22, "AVG": .262, "OPS": .775, "SO": 165},
     "Randy Arozarena": {"AB": 536, "R": 78, "HR": 22, "RBI": 74, "SB": 26, "AVG": .258, "OPS": .765, "SO": 145},
     "CJ Abrams": {"AB": 595, "R": 89, "HR": 16, "RBI": 68, "SB": 28, "AVG": .260, "OPS": .725, "SO": 148},
@@ -721,7 +722,8 @@ PLAYER_AGES = {
     "Nolan Arenado": 35, "Alec Bohm": 29, "Tommy Edman": 30, "Daulton Varsho": 29,
     "Lawrence Butler": 25, "Austin Wells": 25, "Logan O'Hoppe": 26, "Chandler Simpson": 25, "Victor Scott II": 25,
     "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29, "Ryan O'Hearn": 31,
-    "Jose Caballero": 28,
+    "Jose Caballero": 28, "Ryan Ward": 27,  # AAA player, born Feb 5, 1998
+    "Marcelo Mayer": 23,  # Born Dec 12, 2002, graduated prospect
     # Elite Pitchers (ages verified for 2026 season)
     "Tarik Skubal": 29, "Paul Skenes": 23, "Garrett Crochet": 26, "Cristopher Sanchez": 29,  # Skenes: May 29, 2002
     "Logan Webb": 29, "Logan Gilbert": 29, "Bryan Woo": 26, "Hunter Brown": 27,  # Woo: Jan 30, 2000
@@ -784,6 +786,7 @@ DYNASTY_PITCHER_DISCOUNT = 0.55
 # Format: "Player Name": bonus_multiplier (1.15 = +15% ADDITIONAL boost, stacks with automatic)
 ELITE_YOUNG_PLAYERS = {
     # Tier 1: Generational/MVP-caliber young superstars (20%+ additional boost)
+    "Juan Soto": 1.25,            # 27yo OF, elite plate discipline, perennial MVP candidate
     "Elly De La Cruz": 1.20,      # 24yo SS, elite speed/power combo, 40+ SB, 25+ HR upside
     "Bobby Witt Jr.": 1.20,       # 26yo SS, 30/30 caliber, MVP candidate
     "Gunnar Henderson": 1.20,     # 24yo SS, elite power, future MVP
@@ -794,7 +797,7 @@ ELITE_YOUNG_PLAYERS = {
     # Elite young pitchers - dynasty premium for young aces with elite stuff
     "Paul Skenes": 1.45,          # 23yo SP, elite stuff, #1 pick, potential best pitcher in baseball
     "Garrett Crochet": 1.35,      # 26yo SP, elite strikeout ability, ace upside
-    "Tarik Skubal": 1.35,         # 28yo SP, Cy Young caliber, still in prime
+    "Tarik Skubal": 1.55,         # 29yo SP, 2025 AL Cy Young winner, elite ace
     # Tier 2: Elite young stars with consensus backing (18-22% boost)
     "James Wood": 1.22,           # 23yo OF, elite prospect pedigree, consensus top 20
     "Wyatt Langford": 1.20,       # 25yo OF, power upside, consensus top 30
@@ -806,7 +809,7 @@ ELITE_YOUNG_PLAYERS = {
     # Tier 4: Rising young stars (5-8% boost)
     "Jordan Lawlar": 1.05,        # 23yo SS, elite prospect pedigree
     "Jackson Merrill": 1.08,      # 23yo OF, breakout 2024
-    "Pete Crow-Armstrong": 1.06,  # 24yo OF, 30/30 potential
+    "Pete Crow-Armstrong": 1.12,  # 24yo OF, 30/30 potential, elite dynasty asset
 }
 
 # Proven veteran stars - REMOVED most entries after calibration analysis
