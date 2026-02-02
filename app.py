@@ -1486,6 +1486,18 @@ HTML_CONTENT = '''<!DOCTYPE html>
             #gm-profile > div {
                 padding: 10px !important;
             }
+            /* Make reset buttons more prominent on mobile */
+            #gm-prefs-section button,
+            #gm-manager-style-section button,
+            #gm-mobile-reset-section button {
+                padding: 12px !important;
+                font-size: 0.9rem !important;
+                min-height: 44px;
+            }
+            /* Show mobile reset section */
+            #gm-mobile-reset-section {
+                display: block !important;
+            }
         }
 
         /* Touch-friendly buttons */
@@ -1801,6 +1813,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 <div id="gm-manager-style" style="color: #fff; font-weight: bold; margin-bottom: 4px;"></div>
                                 <div id="gm-manager-desc" style="color: #888; font-size: 0.8rem; line-height: 1.4;"></div>
                                 <button onclick="resetManagerStyle()" style="margin-top: 10px; width: 100%; padding: 6px; background: rgba(102,126,234,0.2); border: 1px solid rgba(102,126,234,0.3); border-radius: 6px; color: #667eea; font-size: 0.75rem; cursor: pointer;">Change Manager Style</button>
+                            </div>
+
+                            <!-- Mobile-friendly Reset Section (hidden on desktop, shown on mobile) -->
+                            <div id="gm-mobile-reset-section" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin-top: 12px; display: none;">
+                                <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 10px;">Settings</div>
+                                <button onclick="resetManagerStyle()" style="width: 100%; padding: 12px; background: rgba(102,126,234,0.2); border: 1px solid rgba(102,126,234,0.3); border-radius: 6px; color: #667eea; font-size: 0.9rem; cursor: pointer; margin-bottom: 8px;">Change Manager Style</button>
+                                <button onclick="resetPreferences()" style="width: 100%; padding: 12px; background: rgba(255,100,100,0.2); border: 1px solid rgba(255,100,100,0.3); border-radius: 6px; color: #ff6b6b; font-size: 0.9rem; cursor: pointer;">Reset All Preferences</button>
                             </div>
                         </div>
 
@@ -2594,6 +2613,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     document.getElementById('gm-manager-style-section').style.display = 'block';
                 } else {
                     document.getElementById('gm-manager-style-section').style.display = 'none';
+                }
+
+                // Show mobile reset section on small screens (CSS handles display, JS just ensures it exists)
+                const mobileResetSection = document.getElementById('gm-mobile-reset-section');
+                if (mobileResetSection && window.innerWidth <= 480) {
+                    mobileResetSection.style.display = 'block';
                 }
 
                 // Enable chat if API is available
