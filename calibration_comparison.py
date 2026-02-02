@@ -21,7 +21,7 @@ from collections import defaultdict
 # Add the current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from dynasty_trade_analyzer_v2 import DynastyValueCalculator, Player, HITTER_PROJECTIONS, PITCHER_PROJECTIONS
+from dynasty_trade_analyzer_v2 import DynastyValueCalculator, Player, HITTER_PROJECTIONS, PITCHER_PROJECTIONS, PLAYER_AGES
 
 
 def load_fantraxhq_rankings(filepath):
@@ -186,7 +186,8 @@ def get_our_player_values():
 
     # Process hitters
     for name, proj in HITTER_PROJECTIONS.items():
-        player = Player(name=name, position="UTIL")
+        age = PLAYER_AGES.get(name, 0)
+        player = Player(name=name, position="UTIL", age=age)
         try:
             value = calculator.calculate_player_value(player)
             our_values[name] = {
@@ -199,7 +200,8 @@ def get_our_player_values():
     # Process pitchers
     for name, proj in PITCHER_PROJECTIONS.items():
         if name not in our_values:  # Don't overwrite hitters (e.g., Ohtani)
-            player = Player(name=name, position="SP")
+            age = PLAYER_AGES.get(name, 0)
+            player = Player(name=name, position="SP", age=age)
             try:
                 value = calculator.calculate_player_value(player)
                 our_values[name] = {

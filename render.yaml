@@ -9,3 +9,5 @@ services:
         value: 3iibc548mhhszwor
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: ANTHROPIC_API_KEY
+        sync: false  # Set this in Render dashboard

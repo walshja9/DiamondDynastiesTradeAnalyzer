@@ -56,41 +56,43 @@ except ImportError:
 def calculate_prospect_value(rank):
     """
     Calculate prospect dynasty value using tiered decay.
-    Aligned with dynasty value tiers: Superstar 90+, Elite 75+, Star 60+, Solid 40+
+    CALIBRATED against 5-source consensus (MLB Pipeline, PL, CFR, HKB):
+    - #1 prospect = 76 (near Elite tier, reflecting premium dynasty value)
+    - Mid-tier prospects reduced to not exceed proven contributors
 
-    Tier breakdown:
-    - Rank 1-5:    Superstar/Elite (90 → 80)  - Franchise-changing talents
-    - Rank 6-10:   Elite/Star (78 → 70)       - High-ceiling assets
-    - Rank 11-25:  Star/Solid (68 → 53)       - Quality dynasty pieces
-    - Rank 26-50:  Solid (52 → 35)            - Meaningful trade chips
-    - Rank 51-100: Solid/Depth (34 → 15)      - Upside plays
-    - Rank 101-200: Depth (14 → 5)            - Organizational depth
-    - Rank 201-300: Minimal (4.5 → 1)         - Barely rosterable
+    Tier breakdown (adjusted for risk vs proven production):
+    - Rank 1-5:    Star/Elite (76 → 68)  - Premium dynasty assets
+    - Rank 6-10:   Star (66 → 60)        - High ceiling assets
+    - Rank 11-25:  Star (58 → 46)        - Quality dynasty pieces
+    - Rank 26-50:  Solid (38 → 26)       - Trade chips (reduced)
+    - Rank 51-100: Depth (25 → 14)       - Upside plays (reduced)
+    - Rank 101-200: Depth (13 → 5)       - Organizational depth
+    - Rank 201-300: Minimal (4.5 → 2)    - Deep league stashes
     """
     if rank <= 0 or rank > 300:
         return 0.5
 
     if rank <= 5:
-        # Top 5: 90 at rank 1, 80 at rank 5 (SUPERSTAR/ELITE)
-        return 90 - (rank - 1) * 2.5
+        # Top 5: 76 at rank 1, 68 at rank 5 (STAR/ELITE - premium assets)
+        return 76 - (rank - 1) * 2.0
     elif rank <= 10:
-        # Top 10: 78 at rank 6, 70 at rank 10 (ELITE/STAR)
-        return 78 - (rank - 6) * 1.6
+        # Top 10: 66 at rank 6, 60 at rank 10 (STAR)
+        return 66 - (rank - 6) * 1.5
     elif rank <= 25:
-        # 11-25: 68 at rank 11, 53 at rank 25 (STAR/SOLID)
-        return 68 - (rank - 11) * 1.07
+        # 11-25: 58 at rank 11, 46 at rank 25 (STAR)
+        return 58 - (rank - 11) * 0.857
     elif rank <= 50:
-        # 26-50: 52 at rank 26, 35 at rank 50 (SOLID)
-        return 52 - (rank - 26) * 0.68
+        # 26-50: 38 at rank 26, 26 at rank 50 (SOLID - reduced for risk)
+        return 38 - (rank - 26) * 0.5
     elif rank <= 100:
-        # 51-100: 34 at rank 51, 15 at rank 100 (SOLID/DEPTH)
-        return 34 - (rank - 51) * 0.39
+        # 51-100: 25 at rank 51, 14 at rank 100 (DEPTH - reduced)
+        return 25 - (rank - 51) * 0.224
     elif rank <= 200:
-        # 101-200: 14 at rank 101, 5 at rank 200 (DEPTH)
-        return 14 - (rank - 101) * 0.09
+        # 101-200: 13 at rank 101, 5 at rank 200 (DEPTH)
+        return 13 - (rank - 101) * 0.08
     else:
-        # 201-300: 4.5 at rank 201, 1 at rank 300 (DEPTH)
-        return 4.5 - (rank - 201) * 0.035
+        # 201-300: 4.5 at rank 201, 2 at rank 300 (DEPTH)
+        return 4.5 - (rank - 201) * 0.025
 
 
 # ============================================================================
@@ -1522,6 +1524,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
         <div class="tabs">
             <button class="tab active" onclick="showPanel('analyze')">Analyze Trade</button>
             <button class="tab" onclick="showPanel('teams')">Teams</button>
+            <button class="tab" onclick="showPanel('topplayers')">Top 50</button>
             <button class="tab" onclick="showPanel('prospects')">Top Prospects</button>
             <button class="tab" onclick="showPanel('suggest')">Trade Suggestions</button>
             <button class="tab" onclick="showPanel('freeagents')">Free Agents</button>
@@ -1605,6 +1608,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <h3 style="margin-bottom: 15px;">All Teams</h3>
             <div id="teams-loading" class="loading">Loading teams...</div>
             <div id="teams-grid" class="team-grid"></div>
+        </div>
+
+        <div id="topplayers-panel" class="panel">
+            <h3 style="margin-bottom: 15px;">Top 50 Players in the League</h3>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">The most valuable dynasty assets currently on team rosters.</p>
+            <div id="topplayers-loading" class="loading">Loading top players...</div>
+            <div id="topplayers-grid" style="display: grid; gap: 10px;"></div>
         </div>
 
         <div id="prospects-panel" class="panel">
@@ -1853,12 +1863,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         </div>
                     </div>
                     <div style="padding: 15px; border-top: 1px solid #333; background: rgba(0,0,0,0.3);">
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="chat-input" placeholder="Ask your GM anything..."
-                                   style="flex: 1; padding: 12px 15px; border-radius: 8px; background: #1a1a2e; border: 1px solid #444; color: #fff; font-size: 14px;"
-                                   onkeypress="if(event.key === 'Enter') sendChatMessage()" disabled>
+                        <div style="display: flex; gap: 10px; align-items: flex-end;">
+                            <textarea id="chat-input" placeholder="Ask your GM anything..." rows="1"
+                                   style="flex: 1; padding: 12px 15px; border-radius: 8px; background: #1a1a2e; border: 1px solid #444; color: #fff; font-size: 14px; resize: none; min-height: 44px; max-height: 150px; overflow-y: auto; line-height: 1.4; font-family: inherit;"
+                                   onkeydown="handleChatKeydown(event)" oninput="autoResizeChatInput(this)" disabled></textarea>
                             <button onclick="sendChatMessage()" id="chat-send-btn"
-                                    style="padding: 12px 25px; border-radius: 8px; background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: #fff; font-weight: bold; cursor: pointer; opacity: 0.5;" disabled>
+                                    style="padding: 12px 25px; border-radius: 8px; background: linear-gradient(135deg, #667eea, #764ba2); border: none; color: #fff; font-weight: bold; cursor: pointer; opacity: 0.5; height: 44px;" disabled>
                                 Send
                             </button>
                         </div>
@@ -2061,6 +2071,48 @@ HTML_CONTENT = '''<!DOCTYPE html>
             }
         }
 
+        async function loadTopPlayers() {
+            const grid = document.getElementById('topplayers-grid');
+            const loading = document.getElementById('topplayers-loading');
+
+            try {
+                const res = await fetch(`${API_BASE}/top-players`);
+                const data = await res.json();
+                loading.style.display = 'none';
+
+                if (data.players && data.players.length > 0) {
+                    grid.innerHTML = data.players.map(p => {
+                        const tierColor = p.rank <= 5 ? '#ffd700' : p.rank <= 10 ? '#00d4ff' : p.rank <= 20 ? '#7b2cbf' : p.rank <= 35 ? '#4a90d9' : '#6b7280';
+                        const tierBg = p.rank <= 5 ? 'linear-gradient(145deg, #3d3d00, #4a4a00)' : p.rank <= 10 ? 'linear-gradient(145deg, #002a33, #003d4d)' : p.rank <= 20 ? 'linear-gradient(145deg, #2a1a3d, #3d2a50)' : 'linear-gradient(145deg, #151535, #1e1e50)';
+                        const prospectBadge = p.is_prospect ? '<span style="background: #7b2cbf; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">PROSPECT #' + p.prospect_rank + '</span>' : '';
+                        const escapedName = p.name.replace(/'/g, "\\'");
+                        return `
+                            <div onclick="showPlayerModal('${escapedName}')" style="background: ${tierBg}; border: 1px solid ${tierColor}40; border-radius: 10px; padding: 12px 15px; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='translateX(5px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                                <div style="background: ${tierColor}20; border: 2px solid ${tierColor}; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${tierColor}; font-size: 1.1rem;">
+                                    ${p.rank}
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #fff; font-size: 1rem;">${p.name}${prospectBadge}</div>
+                                    <div style="color: #888; font-size: 0.85rem;">${p.position} | ${p.mlb_team} | Age ${p.age}</div>
+                                    <div style="color: #c0c0e0; font-size: 0.8rem; margin-top: 2px;">Owner: ${p.fantasy_team}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 1.4rem; font-weight: bold; color: ${tierColor};">${p.value}</div>
+                                    <div style="color: #888; font-size: 0.75rem;">Dynasty Value</div>
+                                </div>
+                                <div style="color: ${tierColor}; font-size: 1.2rem;">›</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    grid.innerHTML = '<p style="color: #888;">No players found.</p>';
+                }
+            } catch (e) {
+                console.error('Failed to load top players:', e);
+                loading.innerHTML = 'Failed to load top players.';
+            }
+        }
+
         async function loadProspects() {
             const grid = document.getElementById('prospects-grid');
             const loading = document.getElementById('prospects-loading');
@@ -2162,6 +2214,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
             if (panel === 'league') loadLeagueData();
             if (panel === 'freeagents') loadFASuggestions();
             if (panel === 'gmchat') initGMChat();
+            if (panel === 'topplayers') loadTopPlayers();
 
             // Hide back button if navigating to analyze panel manually (not from suggestions)
             if (panel === 'analyze' && !cameFromSuggestions) {
@@ -2689,6 +2742,20 @@ HTML_CONTENT = '''<!DOCTYPE html>
             }
         }
 
+        // Handle chat input keyboard events (Enter to send, Shift+Enter for new line)
+        function handleChatKeydown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChatMessage();
+            }
+        }
+
+        // Auto-resize chat textarea as user types
+        function autoResizeChatInput(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+        }
+
         function askQuestion(question) {
             if (!gmChatTeam) {
                 alert('Please select a team first');
@@ -2720,6 +2787,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             // Clear input and show loading
             input.value = '';
+            input.style.height = '44px';  // Reset textarea height
             const loadingId = 'loading-' + Date.now();
             chatMessages.innerHTML += `
                 <div id="${loadingId}" style="display: flex; gap: 12px; align-items: flex-start;">
@@ -3493,8 +3561,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         ${players.map((p, i) => {
                             const val = parseFloat(p.value);
                             let tierClass = 'tier-depth'; let tierLabel = 'D';
-                            if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
-                            else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'E'; }
+                            if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
+                            else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'E'; }
                             else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'S'; }
                             else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'B'; }
                             return `
@@ -3555,8 +3623,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             }
                             return '<div class="stat-box"><div class="label">' + key + '</div><div class="value">' + displayVal + '</div></div>';
                         }).join('');
-                    projectionsHtml = '<div style="margin-top:15px;"><div style="color:#888;font-size:0.85rem;margin-bottom:10px;">' +
-                        (data.projections_estimated ? 'Estimated Projections' : 'Projections') +
+                    projectionsHtml = '<div style="margin-top:20px; background: linear-gradient(145deg, #1a1a2e, #12121f); border: 1px solid #333; border-radius: 12px; padding: 15px;">' +
+                        '<div style="color:#60a5fa;font-size:0.9rem;margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:8px;">' +
+                        '<span style="font-size:1.1rem;">📊</span> ' +
+                        (data.projections_estimated ? 'Estimated 2026 Projections' : '2026 Projections') +
                         '</div><div class="player-stats">' + projItems + '</div></div>';
                 } else {
                     projectionsHtml = '<div style="color:#888;margin-top:15px;">No projections available</div>';
@@ -3590,6 +3660,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         '</div></div>';
                 }
 
+                // Build overall dynasty rank box
+                let overallRankHtml = '';
+                if (data.overall_rank) {
+                    const rankColor = data.overall_rank <= 10 ? '#ffd700' : data.overall_rank <= 25 ? '#00d4ff' : data.overall_rank <= 50 ? '#7b2cbf' : '#4ade80';
+                    overallRankHtml = '<div class="stat-box" style="border-color: ' + rankColor + '40;"><div class="label">Dynasty Rank</div><div class="value" style="color: ' + rankColor + ';">#' + data.overall_rank + '</div></div>';
+                }
+
                 // Build prospect rank box
                 let prospectRankHtml = '';
                 if (data.is_prospect) {
@@ -3610,8 +3687,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 let tierClass = 'tier-depth';
                 let tierLabel = 'Depth';
                 const val = parseFloat(data.dynasty_value);
-                if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
-                else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
+                if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
+                else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
                 else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'Star'; }
                 else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
 
@@ -3624,6 +3701,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     </div>
 
                     <div class="player-stats" style="margin-top:20px;">
+                        ${overallRankHtml}
                         <div class="stat-box">
                             <div class="label">Age</div>
                             <div class="value">${data.age}</div>
@@ -3644,11 +3722,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         <div style="color:#888;font-size:0.85rem;">${data.trajectory_desc}</div>
                     </div>
 
+                    ${projectionsHtml}
+
                     ${actualStatsHtml}
 
                     ${fantasyPtsHtml}
-
-                    ${projectionsHtml}
 
                     ${categoryHtml}
 
@@ -3786,8 +3864,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             // Helper to get tier info
             function getTier(val) {
-                if (val >= 90) return { class: 'tier-superstar', label: 'Superstar' };
-                if (val >= 75) return { class: 'tier-elite', label: 'Elite' };
+                if (val >= 100) return { class: 'tier-superstar', label: 'Superstar' };
+                if (val >= 80) return { class: 'tier-elite', label: 'Elite' };
                 if (val >= 60) return { class: 'tier-star', label: 'Star' };
                 if (val >= 40) return { class: 'tier-solid', label: 'Solid' };
                 return { class: 'tier-depth', label: 'Depth' };
@@ -3941,8 +4019,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         const val = p.value;
                         let tierClass = 'tier-depth';
                         let tierLabel = 'Depth';
-                        if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
-                        else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
+                        if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
+                        else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
                         else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'Star'; }
                         else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
                         return `
@@ -4259,8 +4337,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     const fitColor = fa.fit_score >= 90 ? '#4ade80' : (fa.fit_score >= 75 ? '#ffd700' : (fa.fit_score >= 60 ? '#60a5fa' : '#888'));
                     const val = parseFloat(fa.dynasty_value);
                     let tierClass = 'tier-depth'; let tierLabel = 'D';
-                    if (val >= 90) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
-                    else if (val >= 75) { tierClass = 'tier-elite'; tierLabel = 'E'; }
+                    if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
+                    else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'E'; }
                     else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'S'; }
                     else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'B'; }
                     const reasonsHtml = fa.reasons && fa.reasons.length > 0
@@ -4809,6 +4887,13 @@ def calculate_fa_dynasty_value(fa):
 
     # Non-prospect FA value calculation
     value = (base_value * age_mult) + rank_bonus + ros_bonus
+
+    # Fantrax reality check: unrosterable players should be replacement level
+    # If Fantrax rank > 1000 AND roster % <= 5%, they're not worth much
+    if rank > 1000 and roster_pct <= 5:
+        value = min(value, 2.0)
+        print(f"  -> UNROSTERABLE FLOOR: {fa.get('name')} rank={rank}, roster_pct={roster_pct} -> capped at 2.0")
+
     final_value = round(value, 1)
     print(f"  -> NON-PROSPECT PATH: {fa.get('name')} -> value {final_value}")
     return final_value
@@ -5992,6 +6077,129 @@ def get_team(team_name):
         return jsonify({"error": str(e), "team_name": team_name, "traceback": error_details}), 500
 
 
+@app.route('/best-trade-partners/<team_name>')
+def get_best_trade_partners(team_name):
+    """Analyze and rank the best trade partners for a team based on complementary needs."""
+    if team_name not in teams:
+        return jsonify({"error": f"Team '{team_name}' not found"}), 404
+
+    my_cats, my_pos, my_window = calculate_team_needs(team_name)
+
+    # Window compatibility - who makes a good trade partner
+    WINDOW_COMPAT = {
+        'rebuilding': ['win-now', 'contender', 'teardown'],
+        'win-now': ['rebuilding', 'rising', 'retooling'],
+        'contender': ['rebuilding', 'retooling', 'teardown'],
+        'rising': ['declining', 'win-now'],
+        'declining': ['rising', 'rebuilding'],
+        'retooling': ['contender', 'win-now'],
+        'teardown': ['contender', 'win-now'],
+        'dynasty': ['teardown', 'declining'],
+        'competitive': ['any'],
+    }
+
+    # Find team weaknesses and strengths
+    my_weaknesses = [cat for cat, score in my_cats.items() if score < 0]
+    my_strengths = [cat for cat, score in my_cats.items() if score > 0]
+
+    trade_partners = []
+
+    for other_team_name in teams.keys():
+        if other_team_name == team_name:
+            continue
+
+        their_cats, their_pos, their_window = calculate_team_needs(other_team_name)
+        their_weaknesses = [cat for cat, score in their_cats.items() if score < 0]
+        their_strengths = [cat for cat, score in their_cats.items() if score > 0]
+
+        # Calculate compatibility score
+        score = 50  # Base score
+        reasons = []
+
+        # Window compatibility
+        compat_windows = WINDOW_COMPAT.get(my_window, [])
+        if their_window in compat_windows or 'any' in compat_windows:
+            score += 20
+            reasons.append(f"✓ Window match ({my_window} ↔ {their_window})")
+        elif my_window == their_window:
+            score -= 10  # Same window = competing for same assets
+            reasons.append(f"⚠ Same window ({their_window})")
+
+        # Category complementarity - they have what I need
+        overlap_i_need = set(my_weaknesses) & set(their_strengths)
+        if overlap_i_need:
+            score += len(overlap_i_need) * 10
+            reasons.append(f"✓ They're strong in: {', '.join(overlap_i_need)}")
+
+        # Category complementarity - I have what they need
+        overlap_they_need = set(their_weaknesses) & set(my_strengths)
+        if overlap_they_need:
+            score += len(overlap_they_need) * 8
+            reasons.append(f"✓ I can help them in: {', '.join(overlap_they_need)}")
+
+        # Find specific trade targets - players who fill my needs
+        other_team = teams[other_team_name]
+        target_players = []
+        for p in other_team.players:
+            value = calc_player_value(p)
+            if value < 20:
+                continue  # Skip low-value players
+
+            # Check if player helps my weaknesses
+            proj = HITTER_PROJECTIONS.get(p.name, {})
+            helps = []
+            if proj:
+                if 'HR' in my_weaknesses and proj.get('HR', 0) >= 20:
+                    helps.append(f"HR ({proj.get('HR', 0)})")
+                if 'SB' in my_weaknesses and proj.get('SB', 0) >= 15:
+                    helps.append(f"SB ({proj.get('SB', 0)})")
+                if 'RBI' in my_weaknesses and proj.get('RBI', 0) >= 70:
+                    helps.append(f"RBI ({proj.get('RBI', 0)})")
+                if 'R' in my_weaknesses and proj.get('R', 0) >= 70:
+                    helps.append(f"R ({proj.get('R', 0)})")
+
+            proj = PITCHER_PROJECTIONS.get(p.name, {}) or RELIEVER_PROJECTIONS.get(p.name, {})
+            if proj:
+                if 'K' in my_weaknesses and proj.get('K', 0) >= 100:
+                    helps.append(f"K ({proj.get('K', 0)})")
+                if 'SV+HLD' in my_weaknesses and (proj.get('SV', 0) + proj.get('HD', 0)) >= 15:
+                    helps.append(f"SV/HLD ({proj.get('SV', 0) + proj.get('HD', 0)})")
+                if 'ERA' in my_weaknesses and proj.get('ERA', 5.00) <= 3.50:
+                    helps.append(f"ERA ({proj.get('ERA', 0):.2f})")
+
+            if helps:
+                target_players.append({
+                    'name': p.name,
+                    'position': p.position,
+                    'value': round(value, 1),
+                    'helps': helps
+                })
+
+        # Sort targets by value
+        target_players.sort(key=lambda x: x['value'], reverse=True)
+
+        trade_partners.append({
+            'team': other_team_name,
+            'window': their_window,
+            'compatibility_score': score,
+            'reasons': reasons,
+            'their_weaknesses': their_weaknesses,
+            'their_strengths': their_strengths,
+            'target_players': target_players[:5]  # Top 5 targets
+        })
+
+    # Sort by compatibility score
+    trade_partners.sort(key=lambda x: x['compatibility_score'], reverse=True)
+
+    return jsonify({
+        'team': team_name,
+        'my_window': my_window,
+        'my_weaknesses': my_weaknesses,
+        'my_strengths': my_strengths,
+        'trade_partners': trade_partners
+    })
+
+
 @app.route('/team-profile/<team_name>', methods=['GET'])
 def get_team_profile_route(team_name):
     profile = get_team_profile(team_name)
@@ -6289,9 +6497,15 @@ FOR A ~80 VALUE TARGET, FAIR OFFERS ARE:
   - NOT three players totaling 200+ (that's 2.5x overpay!)
 
 CRITICAL RULES:
-- Value tiers: 90+ = Superstar, 75-89 = Elite, 60-74 = Star, 40-59 = Solid, <40 = Depth
-- 3-for-1 trades are ONLY valid when acquiring a 100+ superstar
-- For players valued 75-90, suggest 1-for-1 or 2-for-1 trades with SIMILAR total value
+- Value tiers (CALIBRATED to industry consensus - FHQ, HKB, Steamer, ZiPS, etc.):
+  * 100+ = Superstar (top 5 overall dynasty assets)
+  * 80-99 = Elite (consensus top 6-15)
+  * 60-79 = Star (consensus top 16-35)
+  * 40-59 = Solid (consensus top 36-75)
+  * <40 = Depth/Role player
+- PROSPECT VALUES are discounted for bust risk: #1 prospect ≈ 72, #10 prospect ≈ 56, #25 prospect ≈ 42
+- 3-for-1 trades are ONLY valid when acquiring a 120+ superstar (Skenes, De La Cruz tier)
+- For players valued 75-100, suggest 1-for-1 or 2-for-1 trades with SIMILAR total value
 - If you cannot construct a fair offer, SAY SO: "We'd need to overpay significantly to get this player"
 - ALWAYS show your math: "Player A (45) + Player B (40) = 85 total for Player C (80) = ratio 1.06 = fair"
 
@@ -6366,6 +6580,45 @@ def build_client_preferences_context(prefs):
     return ""
 
 
+def validate_trade_in_response(response_text, my_team_name):
+    """
+    Parse GM response for trade suggestions and validate the math.
+    Returns validation warnings if trades are unbalanced.
+    """
+    import re
+    warnings = []
+
+    # Common patterns for trade mentions
+    # Look for "trade X for Y", "send X to get Y", "give up X for Y"
+    trade_patterns = [
+        r'trade\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:for|to get)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
+        r'send\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:for|to get)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
+        r'give\s+(?:up\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:for|to acquire)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
+    ]
+
+    # Build player value lookup from all teams
+    player_values = {}
+    for team in teams.values():
+        for p in team.players:
+            player_values[p.name.lower()] = calc_player_value(p)
+
+    for pattern in trade_patterns:
+        matches = re.findall(pattern, response_text, re.IGNORECASE)
+        for match in matches:
+            send_name, receive_name = match
+            send_val = player_values.get(send_name.lower(), 0)
+            receive_val = player_values.get(receive_name.lower(), 0)
+
+            if send_val > 0 and receive_val > 0:
+                ratio = send_val / receive_val if receive_val > 0 else 999
+                if ratio > 1.25:
+                    warnings.append(f"⚠️ Trade check: {send_name} ({send_val:.0f}) for {receive_name} ({receive_val:.0f}) - You'd be overpaying by {((ratio-1)*100):.0f}%")
+                elif ratio < 0.75:
+                    warnings.append(f"💡 Trade check: {send_name} ({send_val:.0f}) for {receive_name} ({receive_val:.0f}) - Great value for you! ({((1-ratio)*100):.0f}% discount)")
+
+    return warnings
+
+
 @app.route('/gm-chat/<team_name>', methods=['POST'])
 def gm_chat(team_name):
     """Chat with the AI GM for a specific team."""
@@ -6415,13 +6668,17 @@ def gm_chat(team_name):
 
         assistant_message = response.content[0].text
 
+        # POST-VALIDATION: Check any trade suggestions for value imbalance
+        trade_warnings = validate_trade_in_response(assistant_message, team_name)
+
         # Chat history and preferences are now stored client-side in localStorage
         # No server-side storage needed
 
         return jsonify({
             "response": assistant_message,
             "team": team_name,
-            "model": "claude-sonnet-4"
+            "model": "claude-sonnet-4",
+            "trade_warnings": trade_warnings  # New: validation warnings
         })
 
     except Exception as e:
@@ -6513,11 +6770,14 @@ def reset_preferences(team_name):
 
 @app.route('/find-trades-for-player')
 def find_trades_for_player():
+    """Enhanced Trade Finder with multi-player packages, category filtering, and window compatibility."""
     player_name = request.args.get('player_name', '')
     my_team_name = request.args.get('my_team', '')
     direction = request.args.get('direction', 'send')
     target_team_name = request.args.get('target_team', '')
-    limit = int(request.args.get('limit', 20))
+    limit = int(request.args.get('limit', 30))
+    category_filter = request.args.get('category', '')  # Filter by category need (HR, SB, K, etc.)
+    include_packages = request.args.get('packages', 'true').lower() == 'true'  # Include 2-for-1, 2-for-2
 
     if not player_name or not my_team_name:
         return jsonify({"error": "Missing player_name or my_team"}), 400
@@ -6528,44 +6788,129 @@ def find_trades_for_player():
     my_team = teams[my_team_name]
     packages = []
 
+    # Get team windows and needs for enhanced scoring
+    my_cats, my_pos, my_window = calculate_team_needs(my_team_name)
+
+    # Window compatibility matrix (higher = better trade partner)
+    WINDOW_COMPAT = {
+        ('rebuilding', 'win-now'): 15, ('win-now', 'rebuilding'): 15,
+        ('rebuilding', 'contender'): 12, ('contender', 'rebuilding'): 12,
+        ('teardown', 'win-now'): 15, ('win-now', 'teardown'): 15,
+        ('teardown', 'contender'): 12, ('contender', 'teardown'): 12,
+        ('rising', 'declining'): 10, ('declining', 'rising'): 10,
+        ('retooling', 'contender'): 8, ('contender', 'retooling'): 8,
+    }
+
+    def score_package(my_send, their_receive, other_team_name, their_window):
+        """Score a trade package considering value, categories, and windows."""
+        send_total = sum(s['value'] for s in my_send)
+        receive_total = sum(r['value'] for r in their_receive)
+        value_diff = receive_total - send_total
+
+        # Base score from value fairness (±25 tolerance for packages)
+        base_score = 100 - abs(value_diff) * 2
+
+        # Window compatibility bonus
+        window_key = (my_window, their_window)
+        window_bonus = WINDOW_COMPAT.get(window_key, 0)
+        base_score += window_bonus
+
+        # Category fit bonus - check if we're gaining in weak categories
+        cat_bonus = 0
+        cat_reasons = []
+        for r in their_receive:
+            proj = HITTER_PROJECTIONS.get(r['name'], {})
+            if proj:
+                if category_filter == 'HR' or (my_cats.get('HR', 0) < 0 and proj.get('HR', 0) >= 20):
+                    cat_bonus += 8
+                    cat_reasons.append(f"+HR ({proj.get('HR', 0)})")
+                if category_filter == 'SB' or (my_cats.get('SB', 0) < 0 and proj.get('SB', 0) >= 15):
+                    cat_bonus += 8
+                    cat_reasons.append(f"+SB ({proj.get('SB', 0)})")
+            proj = PITCHER_PROJECTIONS.get(r['name'], {}) or RELIEVER_PROJECTIONS.get(r['name'], {})
+            if proj:
+                if category_filter == 'K' or (my_cats.get('K', 0) < 0 and proj.get('K', 0) >= 100):
+                    cat_bonus += 8
+                    cat_reasons.append(f"+K ({proj.get('K', 0)})")
+                if category_filter == 'SV' or category_filter == 'SV+HLD':
+                    sv_hld = proj.get('SV', 0) + proj.get('HD', 0)
+                    if my_cats.get('SV+HLD', 0) < 0 and sv_hld >= 10:
+                        cat_bonus += 8
+                        cat_reasons.append(f"+SV/HLD ({sv_hld})")
+
+        # Category filter: if specified but not met, penalize
+        if category_filter and not cat_reasons:
+            base_score -= 20
+
+        return base_score + cat_bonus, cat_reasons, window_bonus
+
     if direction == 'send':
         # TRADE AWAY: I'm trading away one of MY players
-        # Find the player on MY team
-        player = None
-        for p in my_team.players:
-            if p.name == player_name:
-                player = p
-                break
-
+        player = next((p for p in my_team.players if p.name == player_name), None)
         if not player:
             return jsonify({"error": f"Player '{player_name}' not found on your team"}), 404
 
         player_value = calc_player_value(player)
+        my_other_players = [(p, calc_player_value(p)) for p in my_team.players if p.name != player_name and calc_player_value(p) >= 10]
+        my_other_players.sort(key=lambda x: x[1], reverse=True)
 
-        # Find what other teams can offer in return
         other_teams = [t for t in teams.keys() if t != my_team_name]
         if target_team_name and target_team_name in other_teams:
             other_teams = [target_team_name]
 
         for other_team_name in other_teams:
             other_team = teams[other_team_name]
+            _, _, their_window = calculate_team_needs(other_team_name)
             other_players = [(p, calc_player_value(p)) for p in other_team.players]
             other_players.sort(key=lambda x: x[1], reverse=True)
 
             # 1-for-1 trades
-            for op, ov in other_players[:15]:
+            for op, ov in other_players[:20]:
                 value_diff = ov - player_value
-                if -20 <= value_diff <= 20:
+                if -25 <= value_diff <= 25:
+                    send_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
+                    receive_list = [{'name': op.name, 'position': op.position, 'value': round(ov, 1)}]
+                    fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, other_team_name, their_window)
                     packages.append({
                         'other_team': other_team_name,
                         'trade_type': '1-for-1',
-                        'send': [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}],
-                        'receive': [{'name': op.name, 'position': op.position, 'value': round(ov, 1)}],
+                        'send': send_list,
+                        'receive': receive_list,
                         'send_total': round(player_value, 1),
                         'receive_total': round(ov, 1),
                         'value_diff': round(value_diff, 1),
-                        'fit_score': 100 - abs(value_diff) * 2
+                        'fit_score': round(fit_score, 1),
+                        'window_match': their_window,
+                        'window_bonus': window_bonus,
+                        'category_fit': cat_reasons
                     })
+
+            # 1-for-2 trades (give 1, get 2)
+            if include_packages:
+                for i, (op1, ov1) in enumerate(other_players[:12]):
+                    for op2, ov2 in other_players[i+1:15]:
+                        combined_receive = ov1 + ov2
+                        value_diff = combined_receive - player_value
+                        if -20 <= value_diff <= 30 and ov1 <= player_value * 0.85:  # Getting 2 lesser for 1 star
+                            send_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
+                            receive_list = [
+                                {'name': op1.name, 'position': op1.position, 'value': round(ov1, 1)},
+                                {'name': op2.name, 'position': op2.position, 'value': round(ov2, 1)}
+                            ]
+                            fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, other_team_name, their_window)
+                            packages.append({
+                                'other_team': other_team_name,
+                                'trade_type': '1-for-2',
+                                'send': send_list,
+                                'receive': receive_list,
+                                'send_total': round(player_value, 1),
+                                'receive_total': round(combined_receive, 1),
+                                'value_diff': round(value_diff, 1),
+                                'fit_score': round(fit_score - 5, 1),  # Slight penalty for complexity
+                                'window_match': their_window,
+                                'window_bonus': window_bonus,
+                                'category_fit': cat_reasons
+                            })
 
     else:
         # ACQUIRE: I want to acquire a player from ANOTHER team
@@ -6576,45 +6921,116 @@ def find_trades_for_player():
             return jsonify({"error": f"Target team '{target_team_name}' not found"}), 404
 
         target_team = teams[target_team_name]
+        _, _, their_window = calculate_team_needs(target_team_name)
 
-        # Find the player on the TARGET team
-        player = None
-        for p in target_team.players:
-            if p.name == player_name:
-                player = p
-                break
-
+        player = next((p for p in target_team.players if p.name == player_name), None)
         if not player:
             return jsonify({"error": f"Player '{player_name}' not found on {target_team_name}"}), 404
 
         player_value = calc_player_value(player)
-
-        # Find what MY team can offer
-        my_players = [(p, calc_player_value(p)) for p in my_team.players]
+        my_players = [(p, calc_player_value(p)) for p in my_team.players if calc_player_value(p) >= 10]
         my_players.sort(key=lambda x: x[1], reverse=True)
 
         # 1-for-1 trades
-        for mp, mv in my_players[:15]:
+        for mp, mv in my_players[:20]:
             value_diff = player_value - mv
-            if -20 <= value_diff <= 20:
+            if -25 <= value_diff <= 25:
+                send_list = [{'name': mp.name, 'position': mp.position, 'value': round(mv, 1)}]
+                receive_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
+                fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, target_team_name, their_window)
                 packages.append({
                     'other_team': target_team_name,
                     'trade_type': '1-for-1',
-                    'send': [{'name': mp.name, 'position': mp.position, 'value': round(mv, 1)}],
-                    'receive': [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}],
+                    'send': send_list,
+                    'receive': receive_list,
                     'send_total': round(mv, 1),
                     'receive_total': round(player_value, 1),
                     'value_diff': round(value_diff, 1),
-                    'fit_score': 100 - abs(value_diff) * 2
+                    'fit_score': round(fit_score, 1),
+                    'window_match': their_window,
+                    'window_bonus': window_bonus,
+                    'category_fit': cat_reasons
                 })
 
-    # Sort by fit score
-    packages.sort(key=lambda x: x['fit_score'], reverse=True)
+        # 2-for-1 trades (give 2, get 1)
+        if include_packages:
+            for i, (mp1, mv1) in enumerate(my_players[:15]):
+                for mp2, mv2 in my_players[i+1:18]:
+                    combined_send = mv1 + mv2
+                    value_diff = player_value - combined_send
+                    # Fair if combined value is within 20% of target
+                    if -15 <= value_diff <= 20 and mv1 <= player_value * 0.85:
+                        send_list = [
+                            {'name': mp1.name, 'position': mp1.position, 'value': round(mv1, 1)},
+                            {'name': mp2.name, 'position': mp2.position, 'value': round(mv2, 1)}
+                        ]
+                        receive_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
+                        fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, target_team_name, their_window)
+                        packages.append({
+                            'other_team': target_team_name,
+                            'trade_type': '2-for-1',
+                            'send': send_list,
+                            'receive': receive_list,
+                            'send_total': round(combined_send, 1),
+                            'receive_total': round(player_value, 1),
+                            'value_diff': round(value_diff, 1),
+                            'fit_score': round(fit_score - 3, 1),  # Slight penalty for complexity
+                            'window_match': their_window,
+                            'window_bonus': window_bonus,
+                            'category_fit': cat_reasons
+                        })
+
+            # 2-for-2 trades
+            other_players = [(p, calc_player_value(p)) for p in target_team.players if p.name != player_name and calc_player_value(p) >= 10]
+            other_players.sort(key=lambda x: x[1], reverse=True)
+
+            for i, (mp1, mv1) in enumerate(my_players[:10]):
+                for mp2, mv2 in my_players[i+1:12]:
+                    for op, ov in other_players[:8]:
+                        combined_send = mv1 + mv2
+                        combined_receive = player_value + ov
+                        value_diff = combined_receive - combined_send
+                        if -20 <= value_diff <= 20:
+                            send_list = [
+                                {'name': mp1.name, 'position': mp1.position, 'value': round(mv1, 1)},
+                                {'name': mp2.name, 'position': mp2.position, 'value': round(mv2, 1)}
+                            ]
+                            receive_list = [
+                                {'name': player.name, 'position': player.position, 'value': round(player_value, 1)},
+                                {'name': op.name, 'position': op.position, 'value': round(ov, 1)}
+                            ]
+                            fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, target_team_name, their_window)
+                            packages.append({
+                                'other_team': target_team_name,
+                                'trade_type': '2-for-2',
+                                'send': send_list,
+                                'receive': receive_list,
+                                'send_total': round(combined_send, 1),
+                                'receive_total': round(combined_receive, 1),
+                                'value_diff': round(value_diff, 1),
+                                'fit_score': round(fit_score - 5, 1),  # Penalty for complexity
+                                'window_match': their_window,
+                                'window_bonus': window_bonus,
+                                'category_fit': cat_reasons
+                            })
+
+    # Sort by fit score, then by value diff
+    packages.sort(key=lambda x: (x['fit_score'], -abs(x['value_diff'])), reverse=True)
+
+    # Dedupe similar packages (same players involved)
+    seen = set()
+    unique_packages = []
+    for pkg in packages:
+        key = tuple(sorted([p['name'] for p in pkg['send']] + [p['name'] for p in pkg['receive']]))
+        if key not in seen:
+            seen.add(key)
+            unique_packages.append(pkg)
 
     return jsonify({
         'player_name': player_name,
         'player_value': round(player_value, 1),
-        'packages': packages[:limit]
+        'my_window': my_window,
+        'packages': unique_packages[:limit]
     })
 
 
@@ -8712,9 +9128,9 @@ def calculate_championship_score(team_name, power_rank, total_teams, players_wit
 
     # 3. ROSTER DEPTH AND ELITE TALENT
     if players_with_value:
-        # Multi-elite bonus: each player with value 70+ adds to championship score
-        elite_count = len([v for p, v in players_with_value if v >= 70])
-        superstar_count = len([v for p, v in players_with_value if v >= 85])
+        # Multi-elite bonus: each player with value 80+ adds to championship score
+        elite_count = len([v for p, v in players_with_value if v >= 80])
+        superstar_count = len([v for p, v in players_with_value if v >= 100])
 
         # Scaling bonus: 1 elite = +2, 2 = +5, 3 = +8, 4+ = +12
         if elite_count >= 4:
@@ -9387,15 +9803,15 @@ def generate_personalized_trade_advice(player, value, projections):
     else:
         if value >= 100:
             tier = f"🏆 SUPERSTAR ({value:.0f} pts)"
-            advice = "Elite foundational piece. Only trade for another superstar or overwhelming prospect haul (3+ top-50 prospects)."
-        elif value >= 85:
+            advice = "Elite foundational piece. Only trade for another superstar or overwhelming prospect haul (3+ top-25 prospects)."
+        elif value >= 80:
             tier = f"🏆 ELITE ASSET ({value:.0f} pts)"
-            advice = "Cornerstone player. Demand elite return - top-15 prospect plus quality pieces, or proven star."
-        elif value >= 70:
-            tier = f"⭐ HIGH-VALUE STARTER ({value:.0f} pts)"
-            advice = "Key roster piece. Can fetch a top-25 prospect or 2-3 solid contributors in return."
-        elif value >= 55:
-            tier = f"⭐ QUALITY STARTER ({value:.0f} pts)"
+            advice = "Cornerstone player. Demand elite return - top-10 prospect plus quality pieces, or proven star."
+        elif value >= 60:
+            tier = f"⭐ STAR ({value:.0f} pts)"
+            advice = "Key roster piece. Can fetch a top-25 prospect or 2 solid contributors in return."
+        elif value >= 40:
+            tier = f"⭐ SOLID STARTER ({value:.0f} pts)"
             advice = "Reliable contributor. Good trade chip for top-50 prospect or roster upgrade."
         elif value >= 40:
             tier = f"SOLID CONTRIBUTOR ({value:.0f} pts)"
@@ -9482,6 +9898,21 @@ def get_player(player_name):
         else:
             trade_advice = f"Free agent with {fa_data['roster_pct']:.0f}% roster rate. Fantrax rank #{fa_data['rank']}. Consider adding if he fills a need."
 
+        # Calculate overall dynasty rank (including rostered + this FA)
+        all_player_values = []
+        for team_name, team in teams.items():
+            for p in team.players:
+                pval = calc_player_value(p)
+                all_player_values.append((p.name, pval))
+        # Add this free agent
+        all_player_values.append((fa_data['name'], fa_data['dynasty_value']))
+        all_player_values.sort(key=lambda x: -x[1])
+        fa_overall_rank = None
+        for i, (pname, pval) in enumerate(all_player_values, 1):
+            if pname == fa_data['name']:
+                fa_overall_rank = i
+                break
+
         return jsonify({
             "name": fa_data['name'],
             "position": fa_data['position'],
@@ -9489,6 +9920,7 @@ def get_player(player_name):
             "fantasy_team": "Free Agent",
             "age": fa_data['age'],
             "dynasty_value": fa_data['dynasty_value'],
+            "overall_rank": fa_overall_rank,
             "is_prospect": is_fa_prospect,
             "prospect_rank": fa_prospect_rank,
             "trajectory": "Ascending" if fa_data['age'] <= 26 else ("Prime" if fa_data['age'] <= 30 else "Declining"),
@@ -9589,6 +10021,19 @@ def get_player(player_name):
     actual_stats = player_actual_stats.get(player.name)
     fantasy_pts = player_fantasy_points.get(player.name, {})
 
+    # Calculate overall dynasty rank
+    all_player_values = []
+    for team_name, team in teams.items():
+        for p in team.players:
+            pval = calc_player_value(p)
+            all_player_values.append((p.name, pval))
+    all_player_values.sort(key=lambda x: -x[1])
+    overall_rank = None
+    for i, (pname, pval) in enumerate(all_player_values, 1):
+        if pname == player.name:
+            overall_rank = i
+            break
+
     return jsonify({
         "name": player.name,
         "position": player.position,
@@ -9597,6 +10042,7 @@ def get_player(player_name):
         "fantasy_team": fantasy_team,
         "age": player.age,
         "dynasty_value": round(value, 1),
+        "overall_rank": overall_rank,
         "is_prospect": player.is_prospect,
         "prospect_rank": player.prospect_rank if player.is_prospect else None,
         "projections": projections,
@@ -10401,7 +10847,8 @@ def get_suggestions():
         suggestions = []
         my_players = [(p, calc_player_value(p)) for p in teams[my_team].players]
         my_players.sort(key=lambda x: x[1], reverse=True)
-        my_tradeable = [(p, v) for p, v in my_players if 15 <= v <= 85][:12]  # Reduced from 15
+        # EXPANDED: Include stars (85+) and depth pieces (10+) for more trade options
+        my_tradeable = [(p, v) for p, v in my_players if v >= 10][:15]
 
         # Get my team's needs for insights
         my_cats, my_pos, my_window = calculate_team_needs(my_team)
@@ -10417,8 +10864,9 @@ def get_suggestions():
             their_players = [(p, calc_player_value(p)) for p in teams[other_team].players]
             their_players.sort(key=lambda x: x[1], reverse=True)
             # Use fewer players when searching all teams
-            max_tradeable = 8 if all_teams_mode else 12
-            their_tradeable = [(p, v) for p, v in their_players if 15 <= v <= 85][:max_tradeable]
+            max_tradeable = 10 if all_teams_mode else 15
+            # EXPANDED: Include all valuable players, not just mid-tier (was 15-85)
+            their_tradeable = [(p, v) for p, v in their_players if v >= 10][:max_tradeable]
 
             # 1-for-1 trades
             if trade_type in ['any', '1-for-1']:
@@ -11119,6 +11567,37 @@ def get_free_agent_suggestions():
 @app.route('/standings')
 def get_standings():
     return jsonify({"standings": league_standings})
+
+
+@app.route('/top-players')
+def get_top_players():
+    """Get the top 50 players in the league by dynasty value."""
+    all_players = []
+
+    # Collect all players from all teams
+    for team_name, team in teams.items():
+        for player in team.players:
+            value = calc_player_value(player)
+            all_players.append({
+                "name": player.name,
+                "position": player.position,
+                "mlb_team": player.mlb_team,
+                "fantasy_team": team_name,
+                "age": player.age,
+                "value": round(value, 1),
+                "is_prospect": player.is_prospect,
+                "prospect_rank": player.prospect_rank if player.is_prospect else None
+            })
+
+    # Sort by value descending and take top 50
+    all_players.sort(key=lambda x: -x["value"])
+    top_players = all_players[:50]
+
+    # Add rank
+    for i, player in enumerate(top_players, 1):
+        player["rank"] = i
+
+    return jsonify({"players": top_players})
 
 
 @app.route('/matchups')

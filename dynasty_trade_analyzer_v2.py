@@ -13,6 +13,31 @@ League Settings:
 - Hitting Categories: AVG, OPS, HR, R, RBI, SB, SO (7 cats)
 - Pitching Categories: ERA, WHIP, K, QS, SV+HLD, L, K/BB (7 cats)
 - Positions: C, 1B, 2B, SS, 3B, MI, CI, INF, 5 OF, 3 UTIL, 6 SP, 5 RP, 1 P
+
+Value Calculation System:
+==========================
+Values are calculated using a hybrid approach that combines:
+1. Projection-based value (actual expected production)
+2. Weighted consensus from 10 external ranking sources
+
+Consensus Sources & Weights:
+- Dynasty Rankings (50% total): FHQ (25%), HKB (25%)
+- Production Projections (30% total): Steamer (15%), ZiPS (15%)
+- Supplemental (20% total): STS (10%), CFR (5%), PL (5%)
+
+In-Season Blending:
+===================
+During the season, values blend projections with actual performance.
+Early on, projections matter more. As the season progresses, actual stats take over.
+
+Games Played    Projection Weight    Actual Pace Weight
+------------    -----------------    ------------------
+< 20            100%                 0%     (Too early, projections only)
+20-40           80%                  20%    (April - small sample)
+40-60           65%                  35%    (May - emerging trends)
+60-90           50%                  50%    (June/July - even blend)
+90-120          35%                  65%    (August - actual dominates)
+120+            20%                  80%    (September - nearly all actual)
 """
 
 import csv
@@ -54,19 +79,36 @@ def load_prospect_rankings() -> Dict[str, int]:
 
 
 def load_consensus_rankings() -> Dict[str, float]:
-    """Load consensus dynasty rankings from external sources (FHQ, HKB).
+    """Load weighted consensus dynasty rankings from 10 external sources.
 
-    Returns a dict mapping player name to average consensus rank.
+    Sources & Weights:
+    - Dynasty Rankings (50% total): FHQ (25%), HKB (25%)
+    - Production Projections (30% total): Steamer (15%), ZiPS (15%)
+    - Supplemental (20% total): STS (10%), CFR (5%), PL (5%)
+
+    Returns a dict mapping player name to weighted average consensus rank.
     This is used for hybrid value calculation - pulling projection-based
     values toward market consensus when there's significant deviation.
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    consensus = {}
+
+    # Source weights (must sum to 1.0 when all sources present)
+    SOURCE_WEIGHTS = {
+        'FHQ': 0.25,      # Dynasty rankings
+        'HKB': 0.25,      # Dynasty rankings
+        'Steamer': 0.15,  # Production projections
+        'ZiPS': 0.15,     # Production projections
+        'STS': 0.10,      # Scout the Statline
+        'CFR': 0.05,      # Consensus Formulated Ranks
+        'PL': 0.05,       # Prospects Live
+    }
+
+    all_sources = {}
 
     # Load FantraxHQ rankings
     fhq_path = os.path.join(script_dir, "Top-500 Fantasy Baseball Dynasty Rankings - FantraxHQ.csv")
-    fhq_ranks = {}
     try:
+        fhq_ranks = {}
         with open(fhq_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -77,13 +119,14 @@ def load_consensus_rankings() -> Dict[str, float]:
                         fhq_ranks[name] = int(roto_rank)
                     except ValueError:
                         pass
+        all_sources['FHQ'] = fhq_ranks
     except Exception:
         pass
 
     # Load harryknowsball rankings
     hkb_path = os.path.join(script_dir, "harryknowsball_players.csv")
-    hkb_ranks = {}
     try:
+        hkb_ranks = {}
         with open(hkb_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -94,22 +137,138 @@ def load_consensus_rankings() -> Dict[str, float]:
                         hkb_ranks[name] = int(rank)
                     except ValueError:
                         pass
+        all_sources['HKB'] = hkb_ranks
     except Exception:
         pass
 
-    # Combine into average consensus rank
-    all_players = set(fhq_ranks.keys()) | set(hkb_ranks.keys())
+    # Load Scout the Statline rankings
+    sts_path = os.path.join(script_dir, "Scout the Statline Peak Projections_ Members - MLB_Combined_Table.csv")
+    try:
+        sts_ranks = {}
+        with open(sts_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = row.get('Player', '').strip()
+                rank = row.get('Rank', '')
+                if name and rank:
+                    try:
+                        sts_ranks[name] = int(rank)
+                    except ValueError:
+                        pass
+        all_sources['STS'] = sts_ranks
+    except Exception:
+        pass
+
+    # Load Steamer hitter projections (rank by WAR)
+    steamer_h_path = os.path.join(script_dir, "fangraphs-leaderboard-projections-steamer.csv")
+    try:
+        players = []
+        with open(steamer_h_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = row.get('Name', '').strip().strip('"')
+                war = row.get('WAR', '')
+                if name and war:
+                    try:
+                        players.append((name, float(war)))
+                    except ValueError:
+                        pass
+        players.sort(key=lambda x: -x[1])
+        steamer_ranks = {name: i for i, (name, _) in enumerate(players, 1)}
+        all_sources['Steamer'] = steamer_ranks
+    except Exception:
+        pass
+
+    # Load ZiPS hitter projections (rank by WAR)
+    zips_h_path = os.path.join(script_dir, "fangraphs-leaderboard-projections-zips.csv")
+    try:
+        players = []
+        with open(zips_h_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = row.get('Name', '').strip().strip('"')
+                war = row.get('WAR', '')
+                if name and war:
+                    try:
+                        players.append((name, float(war)))
+                    except ValueError:
+                        pass
+        players.sort(key=lambda x: -x[1])
+        zips_ranks = {name: i for i, (name, _) in enumerate(players, 1)}
+        all_sources['ZiPS'] = zips_ranks
+    except Exception:
+        pass
+
+    # Load Consensus Formulated Ranks (hitters)
+    cfr_h_path = os.path.join(script_dir, "Consensus Formulated Ranks_Hitters_2026.csv")
+    cfr_ranks = {}
+    try:
+        with open(cfr_h_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for i, row in enumerate(reader, 1):
+                name = row.get('Name', '').strip()
+                if name:
+                    cfr_ranks[name] = i
+    except Exception:
+        pass
+
+    # Load Consensus Formulated Ranks (pitchers)
+    cfr_p_path = os.path.join(script_dir, "Consensus Formulated Ranks_Pitchers_2026.csv")
+    try:
+        with open(cfr_p_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for i, row in enumerate(reader, 1):
+                name = row.get('Name', '').strip()
+                if name and name not in cfr_ranks:
+                    cfr_ranks[name] = i
+    except Exception:
+        pass
+    if cfr_ranks:
+        all_sources['CFR'] = cfr_ranks
+
+    # Load Prospects Live
+    pl_path = os.path.join(script_dir, "Prospects Live Top 500 Fantasy Prospects.csv")
+    try:
+        pl_ranks = {}
+        with open(pl_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = row.get('Name_FG', '').strip().strip('"')
+                rank = row.get('Rank', '')
+                if name and rank:
+                    try:
+                        pl_ranks[name] = int(rank)
+                    except ValueError:
+                        pass
+        all_sources['PL'] = pl_ranks
+    except Exception:
+        pass
+
+    # Combine into weighted consensus rank
+    all_players = set()
+    for source_data in all_sources.values():
+        all_players.update(source_data.keys())
+
+    consensus = {}
     for name in all_players:
-        ranks = []
-        if name in fhq_ranks and fhq_ranks[name] <= 500:
-            ranks.append(fhq_ranks[name])
-        if name in hkb_ranks and hkb_ranks[name] <= 500:
-            ranks.append(hkb_ranks[name])
-        if ranks:
-            consensus[name] = sum(ranks) / len(ranks)
+        weighted_sum = 0.0
+        total_weight = 0.0
+
+        for source_name, source_data in all_sources.items():
+            if name in source_data:
+                rank = source_data[name]
+                # Filter out extreme ranks (>500) to avoid noise
+                if rank <= 500:
+                    weight = SOURCE_WEIGHTS.get(source_name, 0.05)
+                    weighted_sum += rank * weight
+                    total_weight += weight
+
+        if total_weight > 0:
+            consensus[name] = weighted_sum / total_weight
 
     if consensus:
-        print(f"Loaded consensus rankings for {len(consensus)} players (FHQ + HKB)")
+        sources_loaded = list(all_sources.keys())
+        print(f"Loaded weighted consensus for {len(consensus)} players from {len(sources_loaded)} sources: {', '.join(sources_loaded)}")
 
     return consensus
 
@@ -121,6 +280,33 @@ CONSENSUS_RANKINGS = load_consensus_rankings()
 # ============================================================================
 # DATA STRUCTURES
 # ============================================================================
+
+def get_inseason_weights(games_played: int) -> Tuple[float, float]:
+    """Get projection vs actual performance weights based on games played.
+
+    Returns (projection_weight, actual_weight) tuple that sums to 1.0.
+
+    In-Season Blending:
+    - < 20 GP:   100% projection, 0% actual (too early)
+    - 20-40 GP:  80% projection, 20% actual (April - small sample)
+    - 40-60 GP:  65% projection, 35% actual (May - emerging trends)
+    - 60-90 GP:  50% projection, 50% actual (June/July - even blend)
+    - 90-120 GP: 35% projection, 65% actual (August - actual dominates)
+    - 120+ GP:   20% projection, 80% actual (September - nearly all actual)
+    """
+    if games_played < 20:
+        return (1.0, 0.0)
+    elif games_played < 40:
+        return (0.80, 0.20)
+    elif games_played < 60:
+        return (0.65, 0.35)
+    elif games_played < 90:
+        return (0.50, 0.50)
+    elif games_played < 120:
+        return (0.35, 0.65)
+    else:
+        return (0.20, 0.80)
+
 
 @dataclass
 class Player:
@@ -135,7 +321,7 @@ class Player:
     fantrax_rank: int = 9999  # Default to high rank (unranked/unknown player)
     throws: str = ""  # L = Left, R = Right (for pitchers)
 
-    # Hitting projections
+    # Hitting projections (preseason/ROS projections)
     proj_avg: float = 0.0
     proj_ops: float = 0.0
     proj_hr: int = 0
@@ -144,8 +330,8 @@ class Player:
     proj_sb: int = 0
     proj_so: int = 0  # Lower is better
     proj_ab: int = 0
-    
-    # Pitching projections
+
+    # Pitching projections (preseason/ROS projections)
     proj_era: float = 0.0
     proj_whip: float = 0.0
     proj_k: int = 0
@@ -153,16 +339,40 @@ class Player:
     proj_sv_hld: int = 0
     proj_l: int = 0  # Lower is better
     proj_ip: float = 0.0
-    
+
+    # Actual in-season stats (for blending)
+    games_played: int = 0  # G for hitters, GS for pitchers
+    actual_avg: float = 0.0
+    actual_ops: float = 0.0
+    actual_hr: int = 0
+    actual_r: int = 0
+    actual_rbi: int = 0
+    actual_sb: int = 0
+    actual_so: int = 0
+    actual_ab: int = 0
+    actual_era: float = 0.0
+    actual_whip: float = 0.0
+    actual_k: int = 0
+    actual_qs: int = 0
+    actual_sv_hld: int = 0
+    actual_l: int = 0
+    actual_ip: float = 0.0
+
     # Dynasty/Prospect value
     prospect_rank: int = 999  # Top 100 rank (999 = not ranked)
     is_prospect: bool = False
-    
+
     def is_hitter(self) -> bool:
         return self.position not in ['SP', 'RP', 'P'] and self.position != 'N/A'
-    
+
     def is_pitcher(self) -> bool:
         return self.position in ['SP', 'RP', 'P'] or 'SP' in self.position or 'RP' in self.position
+
+    def get_blended_stat(self, proj_stat: float, actual_stat: float, games: int = None) -> float:
+        """Blend projection with actual stat based on games played."""
+        gp = games if games is not None else self.games_played
+        proj_weight, actual_weight = get_inseason_weights(gp)
+        return proj_stat * proj_weight + actual_stat * actual_weight
 
 
 @dataclass
@@ -606,6 +816,9 @@ ELITE_YOUNG_PLAYERS = {
 PROVEN_VETERAN_STARS = {
     # Only elite young veterans (under 28) get minimal boosts
     "Vladimir Guerrero Jr.": 1.05, # 27yo 1B, elite bat
+    # Shohei Ohtani - unique two-way player, consensus #1-2 dynasty asset
+    # His two-way production is unprecedented and age penalty doesn't apply normally
+    "Shohei Ohtani": 1.25,  # 31yo but only true two-way player in baseball history
 }
 
 # Pitcher handedness (L = Left, R = Right)
@@ -1135,9 +1348,9 @@ class DynastyValueCalculator:
 
         bonus_multiplier = 1.0  # Track bonuses to cap stacking
 
-        # Age adjustments - Dynasty leagues value youth heavily, older players decline steeply
-        # Calibration data shows we need MUCH steeper decline starting at 27+
-        # Young players have longest runway, older players lose value quickly
+        # Age adjustments - Dynasty leagues value youth but elite veterans still have significant value
+        # Calibration against FHQ/HKB consensus shows we need moderate decline, not extreme
+        # Young players have longest runway, older players decline but elite production matters
         if player.age > 0:
             # Same curve for hitters and pitchers in dynasty
             if player.age <= 19:
@@ -1149,17 +1362,17 @@ class DynastyValueCalculator:
             elif player.age <= 26:
                 bonus_multiplier += 0.00  # Peak prime years (baseline)
             elif player.age <= 28:
-                bonus_multiplier -= 0.15  # Late prime starts declining
+                bonus_multiplier -= 0.10  # Late prime, slight decline
             elif player.age <= 30:
-                bonus_multiplier -= 0.38  # Post-prime, significant decline
+                bonus_multiplier -= 0.22  # Post-prime, moderate decline
             elif player.age <= 32:
-                bonus_multiplier -= 0.58  # Early 30s steep decline (Harper, Schwarber)
+                bonus_multiplier -= 0.35  # Early 30s (Judge, Ramirez still elite)
             elif player.age <= 34:
-                bonus_multiplier -= 0.72  # Mid 30s decline (Betts, Seiya)
+                bonus_multiplier -= 0.50  # Mid 30s decline (Betts, Harper)
             elif player.age <= 36:
-                bonus_multiplier -= 0.82  # Late 30s steep decline (Freeman)
+                bonus_multiplier -= 0.65  # Late 30s (Freeman)
             else:  # 37+
-                bonus_multiplier -= 0.88  # End of career
+                bonus_multiplier -= 0.78  # End of career
 
         # Position scarcity (for hitters) - small adjustments
         if is_hitter:
@@ -1190,35 +1403,37 @@ class DynastyValueCalculator:
             vet_boost = PROVEN_VETERAN_STARS[player.name]
             value *= vet_boost
 
-        # Prospect adjustments - reduced values to reflect bust risk vs proven MLB players
-        # Proven stars (Tucker ~91, Crow-Armstrong ~83) should beat prospects with similar "ceiling"
+        # Prospect adjustments - CALIBRATED against 5-source consensus
+        # (MLB Pipeline, Prospects Live, CFR, harryknowsball)
+        # #1 prospect = 76 (near Elite tier, premium dynasty asset)
+        # Prospects are valuable but still unproven vs MLB-proven superstars
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
 
-            # Tiered prospect valuation - discounted for uncertainty
+            # Tiered prospect valuation - adjusted for risk vs proven production
             if rank <= 0 or rank > 300:
                 prospect_value = 0.5
             elif rank <= 5:
-                # Top 5: 85 at rank 1, 73 at rank 5 (elite ceiling, unproven)
-                prospect_value = 85 - (rank - 1) * 3.0
+                # Top 5: 76 at rank 1, 68 at rank 5 (STAR/ELITE - premium assets)
+                prospect_value = 76 - (rank - 1) * 2.0
             elif rank <= 10:
-                # Top 10: 71 at rank 6, 63 at rank 10 (star ceiling)
-                prospect_value = 71 - (rank - 6) * 2.0
+                # Top 10: 66 at rank 6, 60 at rank 10 (STAR)
+                prospect_value = 66 - (rank - 6) * 1.5
             elif rank <= 25:
-                # 11-25: 62 at rank 11, 45 at rank 25 (solid ceiling)
-                prospect_value = 62 - (rank - 11) * 1.21
+                # 11-25: 58 at rank 11, 46 at rank 25 (STAR)
+                prospect_value = 58 - (rank - 11) * 0.857
             elif rank <= 50:
-                # 26-50: 44 at rank 26, 28 at rank 50 (lottery tickets)
-                prospect_value = 44 - (rank - 26) * 0.67
+                # 26-50: 38 at rank 26, 26 at rank 50 (SOLID - reduced for risk)
+                prospect_value = 38 - (rank - 26) * 0.5
             elif rank <= 100:
-                # 51-100: 27.5 at rank 51, 12 at rank 100 (depth with upside)
-                prospect_value = 27.5 - (rank - 51) * 0.316
+                # 51-100: 25 at rank 51, 14 at rank 100 (DEPTH - reduced)
+                prospect_value = 25 - (rank - 51) * 0.224
             elif rank <= 200:
-                # 101-200: 11.7 at rank 101, 5 at rank 200 (deep depth)
-                prospect_value = 11.7 - (rank - 101) * 0.068
+                # 101-200: 13 at rank 101, 5 at rank 200 (DEPTH)
+                prospect_value = 13 - (rank - 101) * 0.08
             else:
-                # 201-300: 4.9 at rank 201, 1 at rank 300 (long shots)
-                prospect_value = 4.9 - (rank - 201) * 0.039
+                # 201-300: 4.5 at rank 201, 2 at rank 300 (DEPTH)
+                prospect_value = 4.5 - (rank - 201) * 0.025
 
             # Use prospect value directly - rank determines value for prospects
             value = prospect_value
