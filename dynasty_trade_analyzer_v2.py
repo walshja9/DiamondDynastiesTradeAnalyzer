@@ -440,6 +440,8 @@ HITTER_PROJECTIONS = {
     "Francisco Lindor": {"AB": 595, "R": 93, "HR": 27, "RBI": 81, "SB": 24, "AVG": .257, "OPS": .775, "SO": 125},
     "Jackson Chourio": {"AB": 576, "R": 85, "HR": 24, "RBI": 81, "SB": 24, "AVG": .270, "OPS": .779, "SO": 126},
     "Nick Kurtz": {"AB": 506, "R": 89, "HR": 36, "RBI": 90, "SB": 4, "AVG": .258, "OPS": .880, "SO": 173},
+    "Jacob Wilson": {"AB": 486, "R": 62, "HR": 13, "RBI": 63, "SB": 5, "AVG": .311, "OPS": .800, "SO": 85},
+    "Caleb Durbin": {"AB": 445, "R": 60, "HR": 11, "RBI": 53, "SB": 18, "AVG": .256, "OPS": .721, "SO": 105},
     "Ketel Marte": {"AB": 547, "R": 89, "HR": 28, "RBI": 88, "SB": 5, "AVG": .275, "OPS": .846, "SO": 104},
     "Zach Neto": {"AB": 578, "R": 86, "HR": 27, "RBI": 79, "SB": 28, "AVG": .252, "OPS": .757, "SO": 157},
     "Trea Turner": {"AB": 579, "R": 86, "HR": 18, "RBI": 71, "SB": 27, "AVG": .280, "OPS": .766, "SO": 115},
@@ -725,6 +727,8 @@ PLAYER_AGES = {
     "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29, "Ryan O'Hearn": 31,
     "Jose Caballero": 28, "Ryan Ward": 27,  # AAA player, born Feb 5, 1998
     "Marcelo Mayer": 23,  # Born Dec 12, 2002, graduated prospect
+    # 2025 Award Winners
+    "Cal Raleigh": 29, "Nick Kurtz": 24, "Jacob Wilson": 24, "Drake Baldwin": 25, "Caleb Durbin": 25,
     # Elite Pitchers (ages verified for 2026 season)
     "Tarik Skubal": 29, "Paul Skenes": 23, "Garrett Crochet": 26, "Cristopher Sanchez": 29,  # Skenes: May 29, 2002
     "Logan Webb": 29, "Logan Gilbert": 29, "Bryan Woo": 26, "Hunter Brown": 27,  # Woo: Jan 30, 2000
@@ -797,12 +801,17 @@ ELITE_YOUNG_PLAYERS = {
     "Jackson Holliday": 1.18,     # 22yo 2B, #1 prospect pedigree, elite bat
     "Julio Rodriguez": 1.15,      # 25yo OF, superstar ceiling when healthy
     # Elite young pitchers - dynasty premium for young aces with elite stuff
-    "Paul Skenes": 1.25,          # 23yo SP, consensus #4-6, elite stuff, #1 pick
+    "Paul Skenes": 1.38,          # 23yo SP, 2025 NL Cy Young winner, elite stuff, #1 pick
     "Garrett Crochet": 1.30,      # 26yo SP, elite strikeout ability, ace upside
     "Tarik Skubal": 1.40,         # 29yo SP, 2025 AL Cy Young winner, consensus #11
     "Yoshinobu Yamamoto": 1.18,   # 27yo SP, 3rd in 2025 NL Cy Young, premium ace
     "Cristopher Sanchez": 1.12,   # 29yo SP, 2nd in 2025 NL Cy Young, elite LHP
     "Hunter Brown": 1.15,         # 27yo SP, 3rd in 2025 AL Cy Young, emerging ace
+    # 2025 Award Winners - ROY and MVP contenders
+    "Cal Raleigh": 1.18,          # 28yo C, 2nd in 2025 AL MVP, 60 HR catcher (historic)
+    "Nick Kurtz": 1.18,           # 24yo 1B, 2025 AL ROY winner, 36 HR rookie season
+    "Drake Baldwin": 1.12,        # 25yo C, 2025 NL ROY winner, catcher scarcity
+    "Jacob Wilson": 1.10,         # 24yo SS, 2nd in 2025 AL ROY, .311 AVG
     # Tier 2: Elite young stars with consensus backing (18-22% boost)
     "James Wood": 1.22,           # 23yo OF, elite prospect pedigree, consensus top 20
     "Wyatt Langford": 1.20,       # 25yo OF, power upside, consensus top 30
