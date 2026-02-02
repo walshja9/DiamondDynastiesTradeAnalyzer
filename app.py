@@ -5290,130 +5290,58 @@ def load_projection_csvs():
 
 
 def load_prospect_rankings():
-    """Load prospect rankings from prospects.json and Consensus CSV files, average them,
-    then re-rank sequentially 1-200+ to eliminate duplicates."""
+    """Load prospect rankings from prospects.json (single source of truth).
+
+    Rankings are pre-merged by update_prospect_rankings.py script.
+    This function only loads metadata from CSV files for display purposes.
+    """
     import csv
     import glob
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Store the original rankings from prospects.json (already loaded)
-    json_rankings = dict(PROSPECT_RANKINGS)
+    # prospects.json is the single source of truth (already loaded into PROSPECT_RANKINGS)
+    # Just load metadata from CSV files for display purposes
+    csv_metadata = {}
 
-    # Load rankings and metadata from CSV files (multiple formats supported)
-    csv_rankings = {}
-    csv_metadata = {}  # name -> {position, age, mlb_team}
-
-    # Support multiple file patterns
     file_patterns = [
         'Consensus*Ranks*.csv',
         'Prospects Live*.csv',
-        '*Prospect*Ranking*.csv'
+        '*Prospect*Ranking*.csv',
+        'mlb_pipeline_prospects.csv'
     ]
 
     prospect_files = []
     for pattern in file_patterns:
         prospect_files.extend(glob.glob(os.path.join(script_dir, pattern)))
-    prospect_files = list(set(prospect_files))  # Remove duplicates
+    prospect_files = list(set(prospect_files))
 
     for csv_file in prospect_files:
         try:
             with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
-                count = 0
                 for row in reader:
-                    # Support multiple column name formats
                     name = (row.get('Name') or row.get('Name_FG') or row.get('Player') or '').strip()
-                    avg_rank_str = row.get('Avg Rank') or row.get('Rank') or row.get('Overall') or ''
-
-                    if not name or not avg_rank_str:
+                    if not name:
                         continue
-
-                    try:
-                        avg_rank = float(avg_rank_str)
-                        # Keep the better (lower) rank if player appears in multiple CSV files
-                        if name not in csv_rankings or avg_rank < csv_rankings[name]:
-                            csv_rankings[name] = avg_rank
-                            # Store metadata for this prospect (support multiple column names)
-                            age_str = row.get('Age', '')
-                            csv_metadata[name] = {
-                                'position': row.get('Pos') or row.get('Position') or 'UTIL',
-                                'age': int(age_str) if age_str and age_str.isdigit() else 0,
-                                'mlb_team': row.get('Team') or row.get('Org') or 'N/A',
-                                'level': row.get('Level', 'N/A')
-                            }
-                            count += 1
-                    except (ValueError, TypeError):
-                        continue
-
-            print(f"Loaded {count} prospect rankings from {os.path.basename(csv_file)}")
+                    # Only store metadata for prospects in our rankings
+                    if name in PROSPECT_RANKINGS and name not in csv_metadata:
+                        age_str = row.get('Age', '')
+                        csv_metadata[name] = {
+                            'position': row.get('Pos') or row.get('Position') or 'UTIL',
+                            'age': int(age_str) if age_str and age_str.isdigit() else 0,
+                            'mlb_team': row.get('Team') or row.get('Org') or 'N/A',
+                            'level': row.get('Level', 'N/A')
+                        }
         except Exception as e:
-            print(f"Warning: Could not load prospect rankings from {csv_file}: {e}")
+            print(f"Warning: Could not load metadata from {csv_file}: {e}")
 
-    # Merge rankings - average when player is in both sources
-    merged_rankings = {}  # name -> averaged float rank
-
-    # Process all players from both sources
-    all_names = set(json_rankings.keys()) | set(csv_rankings.keys())
-
-    for name in all_names:
-        json_rank = json_rankings.get(name)
-        csv_rank = csv_rankings.get(name)
-
-        if json_rank is not None and csv_rank is not None:
-            # In both - average them
-            merged_rankings[name] = (json_rank + csv_rank) / 2
-        elif json_rank is not None:
-            # Only in JSON
-            merged_rankings[name] = float(json_rank)
-        else:
-            # Only in CSV
-            merged_rankings[name] = csv_rank
-
-    # Sort by averaged rank and re-assign sequential rankings (1, 2, 3, ...) to eliminate duplicates
-    sorted_prospects = sorted(merged_rankings.items(), key=lambda x: x[1])
-
-    # Exclude specific players who are established MLB players, not true prospects
-    EXCLUDED_PLAYERS = {
-        "Munetaka Murakami",  # Japanese MLB player
-        "Kazuma Okamoto",     # Japanese MLB player
-        "Tatsuya Imai",       # Japanese MLB player
-        "Ben Joyce",          # MLB debut 2023, no longer a prospect
-        "Mick Abel",          # No longer considered a top prospect
-        "Marcelo Mayer",      # Called up to MLB in 2025, no longer a prospect
-        "Roman Anthony",      # Called up to MLB in 2025, no longer a prospect
-    }
-
-    # Filter out players who are too old to be considered prospects (26+ years old)
-    # Also filter out explicitly excluded players
-    MAX_PROSPECT_AGE = 25
-    filtered_prospects = []
-    excluded_count = 0
-    for name, avg_rank in sorted_prospects:
-        # Skip excluded players
-        if name in EXCLUDED_PLAYERS:
-            excluded_count += 1
-            continue
-        age = csv_metadata.get(name, {}).get('age', 0)
-        # Keep if age is unknown (0) or under the max age
-        if age == 0 or age <= MAX_PROSPECT_AGE:
-            filtered_prospects.append((name, avg_rank))
-
-    print(f"Excluded {excluded_count} specific players: {EXCLUDED_PLAYERS}")
-    print(f"Filtered {len(sorted_prospects) - len(filtered_prospects) - excluded_count} players over age {MAX_PROSPECT_AGE}")
-
-    # Clear and rebuild PROSPECT_RANKINGS with sequential ranks
-    # Include up to 500 prospects so value caps apply to fringe prospects too
-    # (The UI shows top 300 prospects, value calculator uses ranks 301-500 for caps)
-    PROSPECT_RANKINGS.clear()
+    # Store metadata for all prospects
     PROSPECT_METADATA.clear()
-    for new_rank, (name, _) in enumerate(filtered_prospects[:500], start=1):
-        PROSPECT_RANKINGS[name] = new_rank
-        # Store metadata if available from CSV
+    for name in PROSPECT_RANKINGS:
         if name in csv_metadata:
             PROSPECT_METADATA[name] = csv_metadata[name]
         else:
-            # Default metadata for prospects only in JSON
             PROSPECT_METADATA[name] = {
                 'position': 'UTIL',
                 'age': 0,
@@ -5421,29 +5349,12 @@ def load_prospect_rankings():
                 'level': 'N/A'
             }
 
-    print(f"Prospect rankings merged and re-ranked: {len(PROSPECT_RANKINGS)} total (up to 500 for value caps)")
-    print(f"Prospect metadata stored for {len(PROSPECT_METADATA)} prospects")
+    print(f"Loaded {len(PROSPECT_RANKINGS)} prospects from prospects.json")
+    print(f"Loaded metadata for {len(csv_metadata)} prospects from CSV files")
 
-    # Debug: Print top 10 prospects to verify correct ordering
+    # Debug: Print top 10 prospects
     top_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r <= 10], key=lambda x: x[1])
     print(f"Top 10 prospects: {[(n, r) for n, r in top_prospects]}")
-
-    # Debug: Print prospects around rank 195-200 to verify we have full 200
-    bottom_prospects = sorted([(n, r) for n, r in PROSPECT_RANKINGS.items() if r >= 195], key=lambda x: x[1])
-    print(f"Bottom 6 prospects (195-200): {[(n, r) for n, r in bottom_prospects]}")
-
-    # Debug: Check specific rostered prospects
-    test_players = ["Marcelo Mayer", "Johnny King", "Quinn Mathews"]
-    print(f"\n=== DEBUG: Checking specific rostered prospects ===")
-    for name in test_players:
-        rank = PROSPECT_RANKINGS.get(name)
-        if rank:
-            print(f"  {name}: Rank {rank} - IN PROSPECT_RANKINGS")
-        else:
-            # Check if it's a close match
-            close_matches = [n for n in PROSPECT_RANKINGS.keys() if name.lower() in n.lower() or n.lower() in name.lower()]
-            print(f"  {name}: NOT FOUND. Close matches: {close_matches[:3]}")
-    print(f"=== END DEBUG ===\n")
 
 
 def load_data_from_json():

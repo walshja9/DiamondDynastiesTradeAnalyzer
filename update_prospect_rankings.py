@@ -23,7 +23,8 @@ def merge_prospect_rankings():
     file_patterns = [
         'Consensus*Ranks*.csv',
         'Prospects Live*.csv',
-        '*Prospect*Ranking*.csv'
+        '*Prospect*Ranking*.csv',
+        'mlb_pipeline_prospects.csv'
     ]
 
     prospect_files = []
@@ -81,7 +82,7 @@ def merge_prospect_rankings():
         "Munetaka Murakami", "Kazuma Okamoto", "Tatsuya Imai",
         "Ben Joyce", "Mick Abel", "Marcelo Mayer", "Roman Anthony",
         "Junior Caminero", "Nick Kurtz", "Jackson Chourio", "Jackson Holliday",
-        "Wyatt Langford", "James Wood", "Leodalis De Vries",
+        "Wyatt Langford", "James Wood",
     }
 
     MAX_PROSPECT_AGE = 25
