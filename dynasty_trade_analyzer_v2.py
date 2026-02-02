@@ -519,17 +519,18 @@ ELITE_YOUNG_PLAYERS = {
     "Paul Skenes": 1.75,          # 23yo SP, elite stuff, #1 pick, potential best pitcher in baseball
     "Garrett Crochet": 1.35,      # 26yo SP, elite strikeout ability, ace upside
     "Tarik Skubal": 1.35,         # 28yo SP, Cy Young caliber, still in prime
-    # Tier 2: Established young stars (12-15% boost)
-    "CJ Abrams": 1.12,            # 25yo SS, speed/power (reduced - consensus lower)
-    "Anthony Volpe": 1.10,        # 25yo SS, premium position, solid production
-    "Evan Carter": 1.10,          # 24yo OF, elite plate discipline
-    "Masyn Winn": 1.10,           # 24yo SS, speed/defense combo
-    "Colton Cowser": 1.08,        # 25yo OF, balanced offensive profile
-    # Tier 3: Rising young stars (8-10% boost)
-    "Jordan Lawlar": 1.08,        # 23yo SS, elite prospect pedigree
-    "Jackson Merrill": 1.10,      # 23yo OF, breakout 2024
-    "Wyatt Langford": 1.08,       # 25yo OF, power upside
-    "Pete Crow-Armstrong": 1.10,  # 24yo OF, 30/30 potential (reduced from 1.15)
+    # Tier 2: Elite young stars with consensus backing (18-22% boost)
+    "James Wood": 1.22,           # 23yo OF, elite prospect pedigree, consensus top 20
+    "Wyatt Langford": 1.20,       # 25yo OF, power upside, consensus top 30
+    # Tier 3: Established young stars (6-10% boost)
+    "CJ Abrams": 1.08,            # 25yo SS, speed/power (consensus ~47)
+    "Anthony Volpe": 1.06,        # 25yo SS, premium position
+    "Evan Carter": 1.06,          # 24yo OF, elite plate discipline
+    "Masyn Winn": 1.06,           # 24yo SS, speed/defense combo
+    # Tier 4: Rising young stars (5-8% boost)
+    "Jordan Lawlar": 1.05,        # 23yo SS, elite prospect pedigree
+    "Jackson Merrill": 1.08,      # 23yo OF, breakout 2024
+    "Pete Crow-Armstrong": 1.06,  # 24yo OF, 30/30 potential
 }
 
 # Proven veteran stars - REMOVED most entries after calibration analysis
@@ -1082,17 +1083,17 @@ class DynastyValueCalculator:
             elif player.age <= 26:
                 bonus_multiplier += 0.00  # Peak prime years (baseline)
             elif player.age <= 28:
-                bonus_multiplier -= 0.12  # Late prime starts declining
+                bonus_multiplier -= 0.15  # Late prime starts declining
             elif player.age <= 30:
-                bonus_multiplier -= 0.32  # Post-prime, significant decline
+                bonus_multiplier -= 0.38  # Post-prime, significant decline
             elif player.age <= 32:
-                bonus_multiplier -= 0.52  # Early 30s steep decline
+                bonus_multiplier -= 0.58  # Early 30s steep decline (Harper, Schwarber)
             elif player.age <= 34:
-                bonus_multiplier -= 0.68  # Mid 30s decline
+                bonus_multiplier -= 0.72  # Mid 30s decline (Betts, Seiya)
             elif player.age <= 36:
-                bonus_multiplier -= 0.78  # Late 30s steep decline
+                bonus_multiplier -= 0.82  # Late 30s steep decline (Freeman)
             else:  # 37+
-                bonus_multiplier -= 0.85  # End of career
+                bonus_multiplier -= 0.88  # End of career
 
         # Position scarcity (for hitters) - small adjustments
         if is_hitter:
