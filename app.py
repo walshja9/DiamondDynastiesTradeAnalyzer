@@ -2644,11 +2644,22 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                     if (hasPref) {
                         let prefsHtml = '';
+                        // Helper to filter valid player names (remove garbage data)
+                        const isValidPlayerName = (name) => {
+                            if (!name || typeof name !== 'string') return false;
+                            if (name.length < 4 || name.length > 40) return false;
+                            // Filter out common garbage phrases that might have been saved
+                            const invalidPhrases = ['in trades', 'preference', 'target', 'avoid', 'player', 'trade for', 'trade away'];
+                            const lowerName = name.toLowerCase();
+                            return !invalidPhrases.some(phrase => lowerName.includes(phrase));
+                        };
                         if (prefs.trade_style) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Style:</span> ${prefs.trade_style}</div>`;
                         if (prefs.priority_positions?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Positions:</span> ${prefs.priority_positions.join(', ')}</div>`;
                         if (prefs.priority_categories?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Categories:</span> ${prefs.priority_categories.join(', ')}</div>`;
-                        if (prefs.target_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #00ff88;">Targets:</span> ${prefs.target_players.slice(0, 3).join(', ')}</div>`;
-                        if (prefs.avoid_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #ff6b6b;">Avoid:</span> ${prefs.avoid_players.slice(0, 3).join(', ')}</div>`;
+                        const validTargets = prefs.target_players?.filter(isValidPlayerName) || [];
+                        if (validTargets.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #00ff88;">Targets:</span> ${validTargets.slice(0, 3).join(', ')}</div>`;
+                        const validAvoid = prefs.avoid_players?.filter(isValidPlayerName) || [];
+                        if (validAvoid.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #ff6b6b;">Avoid:</span> ${validAvoid.slice(0, 3).join(', ')}</div>`;
                         prefsContainer.innerHTML = prefsHtml;
                         prefsContainer.style.display = 'block';
                         document.getElementById('gm-prefs-section').style.display = 'block';
@@ -2881,15 +2892,27 @@ HTML_CONTENT = '''<!DOCTYPE html>
             const prefsContainer = document.getElementById('gm-learned-prefs');
             if (!prefsContainer) return;
 
-            const hasPref = prefs.trade_style || prefs.priority_positions?.length || prefs.priority_categories?.length || prefs.target_players?.length || prefs.avoid_players?.length;
+            // Helper to filter valid player names (remove garbage data)
+            const isValidPlayerName = (name) => {
+                if (!name || typeof name !== 'string') return false;
+                if (name.length < 4 || name.length > 40) return false;
+                // Filter out common garbage phrases that might have been saved
+                const invalidPhrases = ['in trades', 'preference', 'target', 'avoid', 'player', 'trade for', 'trade away'];
+                const lowerName = name.toLowerCase();
+                return !invalidPhrases.some(phrase => lowerName.includes(phrase));
+            };
+
+            const validTargets = prefs.target_players?.filter(isValidPlayerName) || [];
+            const validAvoid = prefs.avoid_players?.filter(isValidPlayerName) || [];
+            const hasPref = prefs.trade_style || prefs.priority_positions?.length || prefs.priority_categories?.length || validTargets.length || validAvoid.length;
 
             if (hasPref) {
                 let prefsHtml = '';
                 if (prefs.trade_style) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Style:</span> ${prefs.trade_style}</div>`;
                 if (prefs.priority_positions?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Positions:</span> ${prefs.priority_positions.join(', ')}</div>`;
                 if (prefs.priority_categories?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #667eea;">Categories:</span> ${prefs.priority_categories.join(', ')}</div>`;
-                if (prefs.target_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #00ff88;">Targets:</span> ${prefs.target_players.slice(0, 3).join(', ')}</div>`;
-                if (prefs.avoid_players?.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #ff6b6b;">Avoid:</span> ${prefs.avoid_players.slice(0, 3).join(', ')}</div>`;
+                if (validTargets.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #00ff88;">Targets:</span> ${validTargets.slice(0, 3).join(', ')}</div>`;
+                if (validAvoid.length) prefsHtml += `<div style="margin-bottom: 4px;"><span style="color: #ff6b6b;">Avoid:</span> ${validAvoid.slice(0, 3).join(', ')}</div>`;
                 prefsContainer.innerHTML = prefsHtml;
                 prefsContainer.style.display = 'block';
                 document.getElementById('gm-prefs-section').style.display = 'block';
@@ -3606,28 +3629,50 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 // Build projections HTML
                 let projectionsHtml = '';
                 if (data.projections && Object.keys(data.projections).length > 0) {
-                    const projItems = Object.entries(data.projections)
-                        .filter(([key]) => !['estimated_pitcher', 'estimated_hitter'].includes(key))
-                        .map(([key, val]) => {
-                            let displayVal;
-                            if (typeof val === 'number') {
-                                if (key === 'AVG' || key === 'OBP' || key === 'SLG' || key === 'OPS' || key === 'WHIP') {
-                                    displayVal = val.toFixed(3);
-                                } else if (key === 'ERA' || key === 'K/BB') {
-                                    displayVal = val.toFixed(2);
-                                } else {
-                                    displayVal = Math.round(val);
-                                }
+                    // Separate hitting and pitching projections (P_ prefix indicates pitching for two-way players)
+                    const hittingKeys = Object.entries(data.projections).filter(([key]) => !key.startsWith('P_') && !['estimated_pitcher', 'estimated_hitter'].includes(key));
+                    const pitchingKeys = Object.entries(data.projections).filter(([key]) => key.startsWith('P_'));
+
+                    const formatStat = (key, val) => {
+                        let displayKey = key.startsWith('P_') ? key.substring(2) : key;
+                        let displayVal;
+                        if (typeof val === 'number') {
+                            if (['AVG', 'OBP', 'SLG', 'OPS', 'WHIP', 'P_WHIP'].includes(key)) {
+                                displayVal = val.toFixed(3);
+                            } else if (['ERA', 'K/BB', 'P_ERA'].includes(key)) {
+                                displayVal = val.toFixed(2);
                             } else {
-                                displayVal = val;
+                                displayVal = Math.round(val);
                             }
-                            return '<div class="stat-box"><div class="label">' + key + '</div><div class="value">' + displayVal + '</div></div>';
-                        }).join('');
+                        } else {
+                            displayVal = val;
+                        }
+                        return '<div class="stat-box"><div class="label">' + displayKey + '</div><div class="value">' + displayVal + '</div></div>';
+                    };
+
+                    const hittingItems = hittingKeys.map(([key, val]) => formatStat(key, val)).join('');
+                    const pitchingItems = pitchingKeys.map(([key, val]) => formatStat(key, val)).join('');
+
+                    // Check if this is a two-way player (has both hitting and pitching projections)
+                    const isTwoWay = hittingKeys.length > 0 && pitchingKeys.length > 0;
+
                     projectionsHtml = '<div style="margin-top:20px; background: linear-gradient(145deg, #1a1a2e, #12121f); border: 1px solid #333; border-radius: 12px; padding: 15px;">' +
                         '<div style="color:#60a5fa;font-size:0.9rem;margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:8px;">' +
                         '<span style="font-size:1.1rem;">📊</span> ' +
                         (data.projections_estimated ? 'Estimated 2026 Projections' : '2026 Projections') +
-                        '</div><div class="player-stats">' + projItems + '</div></div>';
+                        (isTwoWay ? ' <span style="background:#764ba2;padding:2px 8px;border-radius:10px;font-size:0.75rem;">Two-Way</span>' : '') +
+                        '</div>';
+
+                    if (isTwoWay) {
+                        projectionsHtml += '<div style="color:#4ade80;font-size:0.8rem;margin-bottom:8px;margin-top:10px;">Hitting</div>';
+                    }
+                    projectionsHtml += '<div class="player-stats">' + hittingItems + '</div>';
+
+                    if (pitchingItems) {
+                        projectionsHtml += '<div style="color:#60a5fa;font-size:0.8rem;margin-bottom:8px;margin-top:15px;padding-top:10px;border-top:1px solid #333;">Pitching</div>' +
+                            '<div class="player-stats">' + pitchingItems + '</div>';
+                    }
+                    projectionsHtml += '</div>';
                 } else {
                     projectionsHtml = '<div style="color:#888;margin-top:15px;">No projections available</div>';
                 }
@@ -9959,11 +10004,27 @@ def get_player(player_name):
     # Get projections
     projections = {}
     projections_estimated = False
-    if player.name in HITTER_PROJECTIONS:
+    # Check if player is a two-way player (in both hitter and pitcher projections)
+    in_hitter_proj = player.name in HITTER_PROJECTIONS
+    in_pitcher_proj = player.name in PITCHER_PROJECTIONS
+    in_reliever_proj = player.name in RELIEVER_PROJECTIONS
+
+    if in_hitter_proj and in_pitcher_proj:
+        # Two-way player like Ohtani - combine both projections
         projections = dict(HITTER_PROJECTIONS[player.name])
-    elif player.name in PITCHER_PROJECTIONS:
+        pitcher_proj = PITCHER_PROJECTIONS[player.name]
+        # Add pitching stats with prefix to distinguish
+        projections['P_IP'] = pitcher_proj.get('IP', 0)
+        projections['P_K'] = pitcher_proj.get('K', 0)
+        projections['P_ERA'] = pitcher_proj.get('ERA', 0)
+        projections['P_WHIP'] = pitcher_proj.get('WHIP', 0)
+        projections['P_W'] = pitcher_proj.get('W', 0)
+        projections['P_QS'] = pitcher_proj.get('QS', 0)
+    elif in_hitter_proj:
+        projections = dict(HITTER_PROJECTIONS[player.name])
+    elif in_pitcher_proj:
         projections = dict(PITCHER_PROJECTIONS[player.name])
-    elif player.name in RELIEVER_PROJECTIONS:
+    elif in_reliever_proj:
         projections = dict(RELIEVER_PROJECTIONS[player.name])
     elif player.is_prospect and player.prospect_rank:
         # Estimate projections for prospects without data

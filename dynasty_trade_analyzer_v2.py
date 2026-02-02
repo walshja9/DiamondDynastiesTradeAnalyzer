@@ -792,7 +792,7 @@ ELITE_YOUNG_PLAYERS = {
     "Jackson Chourio": 1.18,      # 22yo OF, 5-tool potential, youngest superstar
     "Jackson Holliday": 1.18,     # 22yo 2B, #1 prospect pedigree, elite bat
     # Elite young pitchers - dynasty premium for young aces with elite stuff
-    "Paul Skenes": 1.75,          # 23yo SP, elite stuff, #1 pick, potential best pitcher in baseball
+    "Paul Skenes": 1.45,          # 23yo SP, elite stuff, #1 pick, potential best pitcher in baseball
     "Garrett Crochet": 1.35,      # 26yo SP, elite strikeout ability, ace upside
     "Tarik Skubal": 1.35,         # 28yo SP, Cy Young caliber, still in prime
     # Tier 2: Elite young stars with consensus backing (18-22% boost)
