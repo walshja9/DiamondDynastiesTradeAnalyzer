@@ -786,7 +786,7 @@ DYNASTY_PITCHER_DISCOUNT = 0.55
 # Format: "Player Name": bonus_multiplier (1.15 = +15% ADDITIONAL boost, stacks with automatic)
 ELITE_YOUNG_PLAYERS = {
     # Tier 1: Generational/MVP-caliber young superstars (20%+ additional boost)
-    "Juan Soto": 1.25,            # 27yo OF, elite plate discipline, perennial MVP candidate
+    "Juan Soto": 1.20,            # 27yo OF, elite plate discipline, perennial MVP candidate
     "Elly De La Cruz": 1.20,      # 24yo SS, elite speed/power combo, 40+ SB, 25+ HR upside
     "Bobby Witt Jr.": 1.20,       # 26yo SS, 30/30 caliber, MVP candidate
     "Gunnar Henderson": 1.20,     # 24yo SS, elite power, future MVP
