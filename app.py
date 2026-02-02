@@ -1525,6 +1525,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <button class="tab active" onclick="showPanel('analyze')">Analyze Trade</button>
             <button class="tab" onclick="showPanel('teams')">Teams</button>
             <button class="tab" onclick="showPanel('topplayers')">Top 50</button>
+            <button class="tab" onclick="showPanel('toppitchers')">Top Pitchers</button>
+            <button class="tab" onclick="showPanel('tophitters')">Top Hitters</button>
             <button class="tab" onclick="showPanel('prospects')">Top Prospects</button>
             <button class="tab" onclick="showPanel('suggest')">Trade Suggestions</button>
             <button class="tab" onclick="showPanel('freeagents')">Free Agents</button>
@@ -1615,6 +1617,20 @@ HTML_CONTENT = '''<!DOCTYPE html>
             <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">The most valuable dynasty assets currently on team rosters.</p>
             <div id="topplayers-loading" class="loading">Loading top players...</div>
             <div id="topplayers-grid" style="display: grid; gap: 10px;"></div>
+        </div>
+
+        <div id="toppitchers-panel" class="panel">
+            <h3 style="margin-bottom: 15px;">Top 25 Pitchers in the League</h3>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">The most valuable dynasty pitchers currently on team rosters (SP + RP).</p>
+            <div id="toppitchers-loading" class="loading">Loading top pitchers...</div>
+            <div id="toppitchers-grid" style="display: grid; gap: 10px;"></div>
+        </div>
+
+        <div id="tophitters-panel" class="panel">
+            <h3 style="margin-bottom: 15px;">Top 25 Hitters in the League</h3>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 15px;">The most valuable dynasty hitters currently on team rosters.</p>
+            <div id="tophitters-loading" class="loading">Loading top hitters...</div>
+            <div id="tophitters-grid" style="display: grid; gap: 10px;"></div>
         </div>
 
         <div id="prospects-panel" class="panel">
@@ -2113,6 +2129,90 @@ HTML_CONTENT = '''<!DOCTYPE html>
             }
         }
 
+        async function loadTopPitchers() {
+            const grid = document.getElementById('toppitchers-grid');
+            const loading = document.getElementById('toppitchers-loading');
+
+            try {
+                const res = await fetch(`${API_BASE}/top-pitchers`);
+                const data = await res.json();
+                loading.style.display = 'none';
+
+                if (data.players && data.players.length > 0) {
+                    grid.innerHTML = data.players.map(p => {
+                        const tierColor = p.rank <= 5 ? '#ffd700' : p.rank <= 10 ? '#00d4ff' : p.rank <= 15 ? '#7b2cbf' : '#4a90d9';
+                        const tierBg = p.rank <= 5 ? 'linear-gradient(145deg, #3d3d00, #4a4a00)' : p.rank <= 10 ? 'linear-gradient(145deg, #002a33, #003d4d)' : p.rank <= 15 ? 'linear-gradient(145deg, #2a1a3d, #3d2a50)' : 'linear-gradient(145deg, #151535, #1e1e50)';
+                        const prospectBadge = p.is_prospect ? '<span style="background: #7b2cbf; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">PROSPECT #' + p.prospect_rank + '</span>' : '';
+                        const escapedName = p.name.replace(/'/g, "\\'");
+                        return `
+                            <div onclick="showPlayerModal('${escapedName}')" style="background: ${tierBg}; border: 1px solid ${tierColor}40; border-radius: 10px; padding: 12px 15px; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='translateX(5px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                                <div style="background: ${tierColor}20; border: 2px solid ${tierColor}; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${tierColor}; font-size: 1.1rem;">
+                                    ${p.rank}
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #fff; font-size: 1rem;">${p.name}${prospectBadge}</div>
+                                    <div style="color: #888; font-size: 0.85rem;">${p.position} | ${p.mlb_team} | Age ${p.age}</div>
+                                    <div style="color: #c0c0e0; font-size: 0.8rem; margin-top: 2px;">Owner: ${p.fantasy_team}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 1.4rem; font-weight: bold; color: ${tierColor};">${p.value}</div>
+                                    <div style="color: #888; font-size: 0.75rem;">Dynasty Value</div>
+                                </div>
+                                <div style="color: ${tierColor}; font-size: 1.2rem;">›</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    grid.innerHTML = '<p style="color: #888;">No pitchers found.</p>';
+                }
+            } catch (e) {
+                console.error('Failed to load top pitchers:', e);
+                loading.innerHTML = 'Failed to load top pitchers.';
+            }
+        }
+
+        async function loadTopHitters() {
+            const grid = document.getElementById('tophitters-grid');
+            const loading = document.getElementById('tophitters-loading');
+
+            try {
+                const res = await fetch(`${API_BASE}/top-hitters`);
+                const data = await res.json();
+                loading.style.display = 'none';
+
+                if (data.players && data.players.length > 0) {
+                    grid.innerHTML = data.players.map(p => {
+                        const tierColor = p.rank <= 5 ? '#ffd700' : p.rank <= 10 ? '#00d4ff' : p.rank <= 15 ? '#7b2cbf' : '#4a90d9';
+                        const tierBg = p.rank <= 5 ? 'linear-gradient(145deg, #3d3d00, #4a4a00)' : p.rank <= 10 ? 'linear-gradient(145deg, #002a33, #003d4d)' : p.rank <= 15 ? 'linear-gradient(145deg, #2a1a3d, #3d2a50)' : 'linear-gradient(145deg, #151535, #1e1e50)';
+                        const prospectBadge = p.is_prospect ? '<span style="background: #7b2cbf; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">PROSPECT #' + p.prospect_rank + '</span>' : '';
+                        const escapedName = p.name.replace(/'/g, "\\'");
+                        return `
+                            <div onclick="showPlayerModal('${escapedName}')" style="background: ${tierBg}; border: 1px solid ${tierColor}40; border-radius: 10px; padding: 12px 15px; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='translateX(5px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                                <div style="background: ${tierColor}20; border: 2px solid ${tierColor}; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${tierColor}; font-size: 1.1rem;">
+                                    ${p.rank}
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #fff; font-size: 1rem;">${p.name}${prospectBadge}</div>
+                                    <div style="color: #888; font-size: 0.85rem;">${p.position} | ${p.mlb_team} | Age ${p.age}</div>
+                                    <div style="color: #c0c0e0; font-size: 0.8rem; margin-top: 2px;">Owner: ${p.fantasy_team}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 1.4rem; font-weight: bold; color: ${tierColor};">${p.value}</div>
+                                    <div style="color: #888; font-size: 0.75rem;">Dynasty Value</div>
+                                </div>
+                                <div style="color: ${tierColor}; font-size: 1.2rem;">›</div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    grid.innerHTML = '<p style="color: #888;">No hitters found.</p>';
+                }
+            } catch (e) {
+                console.error('Failed to load top hitters:', e);
+                loading.innerHTML = 'Failed to load top hitters.';
+            }
+        }
+
         async function loadProspects() {
             const grid = document.getElementById('prospects-grid');
             const loading = document.getElementById('prospects-loading');
@@ -2215,6 +2315,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
             if (panel === 'freeagents') loadFASuggestions();
             if (panel === 'gmchat') initGMChat();
             if (panel === 'topplayers') loadTopPlayers();
+            if (panel === 'toppitchers') loadTopPitchers();
+            if (panel === 'tophitters') loadTopHitters();
 
             // Hide back button if navigating to analyze panel manually (not from suggestions)
             if (panel === 'analyze' && !cameFromSuggestions) {
@@ -11585,6 +11687,76 @@ def get_top_players():
         player["rank"] = i
 
     return jsonify({"players": top_players})
+
+
+@app.route('/top-pitchers')
+def get_top_pitchers():
+    """Get the top 25 pitchers in the league by dynasty value."""
+    all_pitchers = []
+    pitcher_positions = {'SP', 'RP', 'P'}
+
+    # Collect all pitchers from all teams
+    for team_name, team in teams.items():
+        for player in team.players:
+            # Check if player is a pitcher
+            player_positions = set(player.position.replace('/', ',').replace(' ', '').split(','))
+            if player_positions & pitcher_positions:
+                value = calc_player_value(player)
+                all_pitchers.append({
+                    "name": player.name,
+                    "position": player.position,
+                    "mlb_team": player.mlb_team,
+                    "fantasy_team": team_name,
+                    "age": player.age,
+                    "value": round(value, 1),
+                    "is_prospect": player.is_prospect,
+                    "prospect_rank": player.prospect_rank if player.is_prospect else None
+                })
+
+    # Sort by value descending and take top 25
+    all_pitchers.sort(key=lambda x: -x["value"])
+    top_pitchers = all_pitchers[:25]
+
+    # Add rank
+    for i, player in enumerate(top_pitchers, 1):
+        player["rank"] = i
+
+    return jsonify({"players": top_pitchers})
+
+
+@app.route('/top-hitters')
+def get_top_hitters():
+    """Get the top 25 hitters in the league by dynasty value."""
+    all_hitters = []
+    pitcher_positions = {'SP', 'RP', 'P'}
+
+    # Collect all hitters from all teams
+    for team_name, team in teams.items():
+        for player in team.players:
+            # Check if player is NOT a pitcher (is a hitter)
+            player_positions = set(player.position.replace('/', ',').replace(' ', '').split(','))
+            if not (player_positions & pitcher_positions):
+                value = calc_player_value(player)
+                all_hitters.append({
+                    "name": player.name,
+                    "position": player.position,
+                    "mlb_team": player.mlb_team,
+                    "fantasy_team": team_name,
+                    "age": player.age,
+                    "value": round(value, 1),
+                    "is_prospect": player.is_prospect,
+                    "prospect_rank": player.prospect_rank if player.is_prospect else None
+                })
+
+    # Sort by value descending and take top 25
+    all_hitters.sort(key=lambda x: -x["value"])
+    top_hitters = all_hitters[:25]
+
+    # Add rank
+    for i, player in enumerate(top_hitters, 1):
+        player["rank"] = i
+
+    return jsonify({"players": top_hitters})
 
 
 @app.route('/matchups')
