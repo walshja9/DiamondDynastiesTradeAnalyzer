@@ -3458,7 +3458,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 20px; border-radius: 12px; margin-bottom: 28px; border: 1px solid rgba(0, 212, 255, 0.1);">
                         <h4 style="color: #00d4ff; margin: 0 0 18px 0; font-size: 0.95rem; letter-spacing: 0.5px;">POSITIONAL DEPTH <span style="color: #888; font-size: 0.75rem; font-weight: normal;">(click to view all)</span></h4>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
-                            ${['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].map(pos => {
+                            ${['C', '1B', '2B', 'SS', '3B', 'OF', 'UT', 'SP', 'RP'].map(pos => {
                                 const players = posDepth[pos] || [];
                                 const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
                                 return `
@@ -3490,7 +3490,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 // Populate roster depth grid
                 const depthGrid = document.getElementById('roster-depth-grid');
                 if (depthGrid) {
-                    ['C', '1B', '2B', 'SS', '3B', 'OF', 'SP', 'RP'].forEach(pos => {
+                    ['C', '1B', '2B', 'SS', '3B', 'OF', 'UT', 'SP', 'RP'].forEach(pos => {
                         const players = posDepth[pos] || [];
                         const posColor = ['SP', 'RP'].includes(pos) ? '#00d4ff' : '#ffd700';
                         const depthColor = players.length >= 3 ? '#4ade80' : (players.length >= 2 ? '#ffd700' : '#f87171');
@@ -6003,26 +6003,39 @@ def get_team(team_name):
                 pitching_weaknesses.append(cat)
 
         # Positional depth analysis
-        pos_depth = {'C': [], '1B': [], '2B': [], 'SS': [], '3B': [], 'OF': [], 'SP': [], 'RP': []}
+        pos_depth = {'C': [], '1B': [], '2B': [], 'SS': [], '3B': [], 'OF': [], 'UT': [], 'SP': [], 'RP': []}
         for p, v in players_with_value:
             pos = p.position.upper() if p.position else ''
             player_info = {"name": p.name, "value": round(v, 1), "age": p.age}
+            matched_any = False
             if 'C' in pos and '1B' not in pos and 'CF' not in pos:
                 pos_depth['C'].append(player_info)
+                matched_any = True
             if '1B' in pos:
                 pos_depth['1B'].append(player_info)
+                matched_any = True
             if '2B' in pos:
                 pos_depth['2B'].append(player_info)
+                matched_any = True
             if 'SS' in pos:
                 pos_depth['SS'].append(player_info)
+                matched_any = True
             if '3B' in pos:
                 pos_depth['3B'].append(player_info)
+                matched_any = True
             if 'OF' in pos or 'LF' in pos or 'CF' in pos or 'RF' in pos:
                 pos_depth['OF'].append(player_info)
+                matched_any = True
             if 'SP' in pos:
                 pos_depth['SP'].append(player_info)
+                matched_any = True
             if 'RP' in pos or 'CL' in pos:
                 pos_depth['RP'].append(player_info)
+                matched_any = True
+            # UT/DH/UTIL - only add if they didn't match any specific position
+            # This prevents Ohtani (UT/SP) from double-counting as a hitter
+            if ('UT' in pos or 'DH' in pos or 'UTIL' in pos) and not matched_any:
+                pos_depth['UT'].append(player_info)
 
         # Sort each position by value (keep all players for full depth chart)
         for pos in pos_depth:
