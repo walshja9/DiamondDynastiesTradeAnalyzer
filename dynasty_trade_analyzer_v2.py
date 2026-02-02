@@ -495,6 +495,13 @@ UNPROVEN_PITCHERS = {
     "Forrest Whitley",   # ~10 career IP, former top prospect
 }
 
+# Dynasty Pitcher Discount - Dynasty leagues heavily discount pitchers due to:
+# - Injury risk (TJ surgery, arm injuries)
+# - Volatility (performance fluctuations year-to-year)
+# - Shorter careers compared to hitters
+# This multiplier is applied to all pitcher values before other adjustments
+DYNASTY_PITCHER_DISCOUNT = 0.55
+
 # Elite young players who deserve ADDITIONAL boost beyond the automatic elite category boost
 # The automatic boost (in calculate_hitter_value) handles: HR≥35, SB≥35, AVG≥.300, RBI≥110
 # This manual list is for truly exceptional talents whose dynasty value exceeds even that
@@ -508,45 +515,30 @@ ELITE_YOUNG_PLAYERS = {
     "Corbin Carroll": 1.15,       # 25yo OF, elite speed/plate discipline
     "Jackson Chourio": 1.18,      # 22yo OF, 5-tool potential, youngest superstar
     "Jackson Holliday": 1.18,     # 22yo 2B, #1 prospect pedigree, elite bat
-    # Tier 2: Established young stars (15% boost)
-    "CJ Abrams": 1.15,            # 25yo SS, breakout speed/power
-    "Anthony Volpe": 1.12,        # 25yo SS, premium position, solid production
-    "Michael Harris II": 1.15,    # 25yo OF, elite defense + bat
-    "Riley Greene": 1.12,         # 25yo OF, consistent production, high floor
-    "Evan Carter": 1.12,          # 24yo OF, elite plate discipline
-    "Masyn Winn": 1.12,           # 24yo SS, speed/defense combo
-    "Colton Cowser": 1.10,        # 25yo OF, balanced offensive profile
-    # Tier 3: Rising young stars (10% boost)
-    "Jordan Lawlar": 1.10,        # 23yo SS, elite prospect pedigree
-    "Jackson Merrill": 1.12,      # 23yo OF, breakout 2024
-    "Wyatt Langford": 1.10,       # 25yo OF, power upside
-    "Pete Crow-Armstrong": 1.15,  # 24yo OF, proven 30/30 (31 HR, 35 SB in 2025), elite CF defense
+    # Elite young pitchers - dynasty premium for young aces with elite stuff
+    "Paul Skenes": 1.75,          # 23yo SP, elite stuff, #1 pick, potential best pitcher in baseball
+    "Garrett Crochet": 1.35,      # 26yo SP, elite strikeout ability, ace upside
+    "Tarik Skubal": 1.35,         # 28yo SP, Cy Young caliber, still in prime
+    # Tier 2: Established young stars (12-15% boost)
+    "CJ Abrams": 1.12,            # 25yo SS, speed/power (reduced - consensus lower)
+    "Anthony Volpe": 1.10,        # 25yo SS, premium position, solid production
+    "Evan Carter": 1.10,          # 24yo OF, elite plate discipline
+    "Masyn Winn": 1.10,           # 24yo SS, speed/defense combo
+    "Colton Cowser": 1.08,        # 25yo OF, balanced offensive profile
+    # Tier 3: Rising young stars (8-10% boost)
+    "Jordan Lawlar": 1.08,        # 23yo SS, elite prospect pedigree
+    "Jackson Merrill": 1.10,      # 23yo OF, breakout 2024
+    "Wyatt Langford": 1.08,       # 25yo OF, power upside
+    "Pete Crow-Armstrong": 1.10,  # 24yo OF, 30/30 potential (reduced from 1.15)
 }
 
-# Proven veteran stars (ages 26-32) who deserve a boost for their track record and reliability
-# These are established major leaguers with multiple seasons of elite production
-# Unlike young players with "upside", these guys have PROVEN they belong at the top
-# Format: "Player Name": bonus_multiplier (1.15 = +15% boost)
+# Proven veteran stars - REMOVED most entries after calibration analysis
+# Calibration showed these boosts were making overvaluation worse
+# Now only keeping very small boosts for the truly elite under-28 players
+# The age curve and base formula should handle veteran value appropriately
 PROVEN_VETERAN_STARS = {
-    # Tier 1: MVP-caliber veterans still in their prime (20% boost)
-    "Juan Soto": 1.20,            # 27yo OF, elite plate discipline, perennial MVP candidate
-    "Ronald Acuna Jr.": 1.20,     # 28yo OF, 40/70 potential when healthy, former MVP
-    "Corey Seager": 1.18,         # 32yo SS, elite bat, World Series MVP pedigree
-    "Mookie Betts": 1.15,         # 33yo OF/SS, all-around star, former MVP
-    # Tier 2: All-Star caliber veterans (15% boost)
-    "Kyle Tucker": 1.15,          # 29yo OF, consistent 30/20 player, All-Star
-    "Rafael Devers": 1.15,        # 29yo 3B, elite power, .280+ hitter
-    "Vladimir Guerrero Jr.": 1.15, # 27yo 1B, elite bat, MVP runner-up
-    "Yordan Alvarez": 1.15,       # 28yo DH, elite power, .280+ hitter
-    "Jose Ramirez": 1.12,         # 33yo 3B, 30/30 caliber, aging but still elite
-    "Bryce Harper": 1.12,         # 33yo 1B/OF, MVP ceiling, injury concerns
-    "Matt Olson": 1.12,           # 32yo 1B, elite power, 50 HR upside
-    # Tier 3: Established solid veterans (10% boost)
-    "Bo Bichette": 1.10,          # 28yo SS, solid all-around, durability concerns
-    "Ozzie Albies": 1.10,         # 29yo 2B, solid speed/power combo
-    "Bryan Reynolds": 1.10,       # 31yo OF, underrated, consistent producer
-    "Teoscar Hernandez": 1.08,    # 33yo OF, power bat, streaky
-    "Byron Buxton": 1.08,         # 32yo OF, elite tools, injury prone
+    # Only elite young veterans (under 28) get minimal boosts
+    "Vladimir Guerrero Jr.": 1.05, # 27yo 1B, elite bat
 }
 
 # Pitcher handedness (L = Left, R = Right)
@@ -1062,11 +1054,23 @@ class DynastyValueCalculator:
     def _apply_dynasty_adjustments(player: Player, base_value: float, is_hitter: bool) -> float:
         """Apply dynasty-specific adjustments (age, prospect status, position scarcity)."""
         value = base_value
+
+        # Apply pitcher dynasty discount - pitchers are heavily discounted in dynasty formats
+        # due to injury risk, volatility, and shorter careers
+        # Young pitchers (under 25) get a reduced discount since their youth provides career runway
+        if not is_hitter:
+            if player.age > 0 and player.age <= 24:
+                value *= 0.80  # Reduced discount for young elite pitchers (Skenes, etc.)
+            elif player.age > 0 and player.age <= 27:
+                value *= 0.65  # Moderate discount for young-prime pitchers
+            else:
+                value *= DYNASTY_PITCHER_DISCOUNT  # Full discount for 28+ pitchers
+
         bonus_multiplier = 1.0  # Track bonuses to cap stacking
 
         # Age adjustments - Dynasty leagues value youth heavily, older players decline steeply
-        # Young players have longest runway, older players are rental value only
-        # Prime years (25-29) hold full value, decline starts at 30+
+        # Calibration data shows we need MUCH steeper decline starting at 27+
+        # Young players have longest runway, older players lose value quickly
         if player.age > 0:
             # Same curve for hitters and pitchers in dynasty
             if player.age <= 19:
@@ -1075,18 +1079,20 @@ class DynastyValueCalculator:
                 bonus_multiplier += 0.15  # Youth premium
             elif player.age <= 24:
                 bonus_multiplier += 0.10  # Approaching prime
-            elif player.age <= 29:
+            elif player.age <= 26:
                 bonus_multiplier += 0.00  # Peak prime years (baseline)
-            elif player.age <= 31:
-                bonus_multiplier -= 0.10  # Late prime, still valuable
-            elif player.age <= 33:
-                bonus_multiplier -= 0.25  # Early 30s decline
-            elif player.age <= 35:
-                bonus_multiplier -= 0.45  # Mid 30s decline
-            elif player.age <= 37:
-                bonus_multiplier -= 0.65  # Late 30s steep decline
-            else:  # 38+
-                bonus_multiplier -= 0.80  # End of career
+            elif player.age <= 28:
+                bonus_multiplier -= 0.12  # Late prime starts declining
+            elif player.age <= 30:
+                bonus_multiplier -= 0.32  # Post-prime, significant decline
+            elif player.age <= 32:
+                bonus_multiplier -= 0.52  # Early 30s steep decline
+            elif player.age <= 34:
+                bonus_multiplier -= 0.68  # Mid 30s decline
+            elif player.age <= 36:
+                bonus_multiplier -= 0.78  # Late 30s steep decline
+            else:  # 37+
+                bonus_multiplier -= 0.85  # End of career
 
         # Position scarcity (for hitters) - small adjustments
         if is_hitter:
@@ -1101,8 +1107,8 @@ class DynastyValueCalculator:
                 pos_bonus = -0.02
             bonus_multiplier += pos_bonus
 
-        # Cap the total bonus/penalty - lowered floor to allow steep age decline
-        bonus_multiplier = max(0.20, min(bonus_multiplier, 1.25))
+        # Cap the total bonus/penalty - floor at 0.15 allows steep age decline for 35+ veterans
+        bonus_multiplier = max(0.15, min(bonus_multiplier, 1.25))
         value *= bonus_multiplier
 
         # Elite young player boost - proven MLB talents whose dynasty value exceeds projections
