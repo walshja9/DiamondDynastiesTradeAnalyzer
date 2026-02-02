@@ -474,6 +474,7 @@ HITTER_PROJECTIONS = {
     "Ezequiel Tovar": {"AB": 588, "R": 82, "HR": 23, "RBI": 78, "SB": 18, "AVG": .265, "OPS": .753, "SO": 152},
     "Marcelo Mayer": {"AB": 500, "R": 70, "HR": 18, "RBI": 68, "SB": 8, "AVG": .255, "OPS": .740, "SO": 105},  # Rookie SS, graduated prospect
     "James Wood": {"AB": 550, "R": 79, "HR": 21, "RBI": 72, "SB": 22, "AVG": .262, "OPS": .775, "SO": 165},
+    "Roman Anthony": {"AB": 517, "R": 84, "HR": 18, "RBI": 67, "SB": 9, "AVG": .267, "OPS": .803, "SO": 148},  # 22yo OF, graduated top prospect
     "Randy Arozarena": {"AB": 536, "R": 78, "HR": 22, "RBI": 74, "SB": 26, "AVG": .258, "OPS": .765, "SO": 145},
     "CJ Abrams": {"AB": 595, "R": 89, "HR": 16, "RBI": 68, "SB": 28, "AVG": .260, "OPS": .725, "SO": 148},
     "Luis Robert Jr.": {"AB": 490, "R": 72, "HR": 25, "RBI": 72, "SB": 18, "AVG": .253, "OPS": .775, "SO": 145},
