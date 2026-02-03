@@ -4138,10 +4138,20 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     overallRankHtml = '<div class="stat-box" style="border-color: ' + rankColor + '40;"><div class="label">Dynasty Rank</div><div class="value" style="color: ' + rankColor + ';">#' + data.overall_rank + '</div></div>';
                 }
 
-                // Build prospect rank box
+                // Build prospect rank box with level and ETA
                 let prospectRankHtml = '';
+                let prospectLevelHtml = '';
+                let prospectEtaHtml = '';
                 if (data.is_prospect) {
                     prospectRankHtml = '<div class="stat-box"><div class="label">Prospect Rank</div><div class="value ascending">#' + (data.prospect_rank || 'N/A') + '</div></div>';
+                    if (data.prospect_level) {
+                        const levelColor = data.prospect_level === 'MLB' ? '#4ade80' : data.prospect_level === 'AAA' ? '#22d3ee' : data.prospect_level === 'AA' ? '#60a5fa' : '#a855f7';
+                        prospectLevelHtml = '<div class="stat-box" style="border-color: ' + levelColor + '40;"><div class="label">Level</div><div class="value" style="color: ' + levelColor + ';">' + data.prospect_level + '</div></div>';
+                    }
+                    if (data.prospect_eta !== null && data.prospect_eta !== undefined) {
+                        const etaColor = data.prospect_eta <= 0.5 ? '#4ade80' : data.prospect_eta <= 1.5 ? '#ffd700' : '#f87171';
+                        prospectEtaHtml = '<div class="stat-box" style="border-color: ' + etaColor + '40;"><div class="label">ETA</div><div class="value" style="color: ' + etaColor + ';">' + data.prospect_eta.toFixed(1) + ' yr</div></div>';
+                    }
                 }
 
                 // Build prospect bonus box
@@ -4182,6 +4192,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             <div class="value ${trajectoryClass}">${data.trajectory}</div>
                         </div>
                         ${prospectRankHtml}
+                        ${prospectLevelHtml}
+                        ${prospectEtaHtml}
                         <div class="stat-box">
                             <div class="label">Age Adj</div>
                             <div class="value ${ageAdjClass}">${ageAdjPrefix}${data.age_adjustment}</div>
@@ -11038,6 +11050,11 @@ def get_player(player_name):
             overall_rank = i
             break
 
+    # Get prospect level and ETA
+    prospect_level = CFR_PROSPECT_LEVELS.get(player.name, '') if player.is_prospect else ''
+    eta_map = {'MLB': 0, 'AAA': 0.5, 'AA': 1.5, 'A+': 2.5, 'A': 3, 'CPX': 3.5, 'DSL': 4, 'INTL': 4}
+    prospect_eta = eta_map.get(prospect_level, 2.0) if player.is_prospect and prospect_level else None
+
     return jsonify({
         "name": player.name,
         "position": player.position,
@@ -11049,6 +11066,8 @@ def get_player(player_name):
         "overall_rank": overall_rank,
         "is_prospect": player.is_prospect,
         "prospect_rank": player.prospect_rank if player.is_prospect else None,
+        "prospect_level": prospect_level,
+        "prospect_eta": prospect_eta,
         "projections": projections,
         "projections_estimated": projections_estimated,
         "actual_stats": actual_stats,
