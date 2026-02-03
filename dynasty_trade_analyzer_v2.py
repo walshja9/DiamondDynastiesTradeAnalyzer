@@ -7188,9 +7188,8 @@ ELITE_YOUNG_PLAYERS = {
     # Elite young pitchers - dynasty premium for young aces with elite stuff
     "Paul Skenes": 1.20,          # 23yo SP, 2025 NL Cy Young winner, elite stuff but only 1.5yr track record
     "Garrett Crochet": 1.30,      # 26yo SP, elite strikeout ability, ace upside
-    "Tarik Skubal": 1.40,         # 29yo SP, 2025 AL Cy Young winner, consensus #11
+    # Tarik Skubal, Cristopher Sanchez moved to PROVEN_VETERAN_STARS (29yo)
     "Yoshinobu Yamamoto": 1.18,   # 27yo SP, 3rd in 2025 NL Cy Young, premium ace
-    "Cristopher Sanchez": 1.12,   # 29yo SP, 2nd in 2025 NL Cy Young, elite LHP
     "Hunter Brown": 1.15,         # 27yo SP, 3rd in 2025 AL Cy Young, emerging ace
     # 2025 Award Winners - ROY and MVP contenders
     # Cal Raleigh removed - already has 1.32x in PROVEN_VETERAN_STARS (catcher premium)
@@ -7222,6 +7221,8 @@ PROVEN_VETERAN_STARS = {
     "Fernando Tatis Jr.": 1.18,     # 27yo, proven star, 30+ HR power
     "Cal Raleigh": 1.32,            # 29yo, elite C, 39 HR - catcher premium
     "Kyle Tucker": 1.12,            # 29yo, proven elite OF, .861 OPS - prime years
+    "Tarik Skubal": 1.14,           # 29yo SP, 2025 AL Cy Young winner, consensus #11
+    "Cristopher Sanchez": 1.12,     # 29yo SP, 2nd in 2025 NL Cy Young, elite LHP
     # Shohei Ohtani - unique two-way player, consensus #1-2 dynasty asset
     "Shohei Ohtani": 1.27,  # 31yo but only true two-way player in baseball history
     # Proven veterans with elite track records - age curve is too harsh on these stars
