@@ -7649,17 +7649,16 @@ def find_trades_for_player():
                             })
 
             # PLAYER + PICK packages (1 player + draft pick for target)
-            # Get team's draft picks
-            team_picks = draft_order_config.get(my_team_name, {})
+            # Get team's draft pick position (same position in each round)
+            team_pick_position = draft_order_config.get(my_team_name)
             pick_options = []
-            for round_num in [1, 2, 3, 4]:
-                pick_num = team_picks.get(f'round_{round_num}')
-                if pick_num:
-                    pick_str = f"{round_num}.{pick_num:02d}"
+            if team_pick_position and isinstance(team_pick_position, int):
+                for round_num in [1, 2, 3, 4]:
+                    pick_str = f"{round_num}.{team_pick_position:02d}"
                     pick_value = DynastyValueCalculator.calculate_pick_value(pick_str)
                     pick_options.append({
                         'pick': pick_str,
-                        'display': f"2026 Rd {round_num} Pick {pick_num}",
+                        'display': f"2026 Rd {round_num} Pick {team_pick_position}",
                         'value': pick_value
                     })
 
