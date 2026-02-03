@@ -6349,19 +6349,20 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
         name = asset.get('name', '')
         cats = {
             # Hitter categories
-            'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'AVG': 0, 'OPS': 0,
+            'R': 0, 'HR': 0, 'RBI': 0, 'SO': 0, 'SB': 0, 'AVG': 0, 'OPS': 0,
             # Pitcher categories
-            'K': 0, 'SV+HLD': 0, 'K/BB': 0, 'L': 0, 'ERA': 0, 'WHIP': 0, 'QS': 0
+            'L': 0, 'QS': 0, 'K': 0, 'ERA': 0, 'WHIP': 0, 'K/BB': 0, 'SV+HLD': 0
         }
 
         if asset.get('type') == 'player':
             # Check hitter projections
             if name in HITTER_PROJECTIONS:
                 proj = HITTER_PROJECTIONS[name]
-                cats['HR'] = proj.get('HR', 0)
-                cats['SB'] = proj.get('SB', 0)
-                cats['RBI'] = proj.get('RBI', 0)
                 cats['R'] = proj.get('R', 0)
+                cats['HR'] = proj.get('HR', 0)
+                cats['RBI'] = proj.get('RBI', 0)
+                cats['SO'] = proj.get('SO', 0)
+                cats['SB'] = proj.get('SB', 0)
                 cats['AVG'] = proj.get('AVG', 0)
                 cats['OPS'] = proj.get('OPS', 0)
             # Check pitcher projections
@@ -6387,8 +6388,8 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
     def calc_team_impact(sends, receives):
         """Calculate net category change for a team."""
         impact = {
-            'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'AVG': 0, 'OPS': 0,
-            'K': 0, 'SV+HLD': 0, 'K/BB': 0, 'L': 0, 'ERA': 0, 'WHIP': 0, 'QS': 0
+            'R': 0, 'HR': 0, 'RBI': 0, 'SO': 0, 'SB': 0, 'AVG': 0, 'OPS': 0,
+            'L': 0, 'QS': 0, 'K': 0, 'ERA': 0, 'WHIP': 0, 'K/BB': 0, 'SV+HLD': 0
         }
         for asset in receives:
             cats = get_asset_categories(asset)
@@ -6415,8 +6416,8 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
 
         # Check category impact against needs
         cat_thresholds = {
-            'HR': 10, 'SB': 8, 'RBI': 25, 'R': 25, 'AVG': 0.02, 'OPS': 0.05,
-            'K': 50, 'SV+HLD': 5, 'K/BB': 0.1, 'L': 2, 'ERA': 0.5, 'WHIP': 0.2, 'QS': 3
+            'R': 25, 'HR': 10, 'RBI': 25, 'SO': 30, 'SB': 8, 'AVG': 0.02, 'OPS': 0.05,
+            'L': 2, 'QS': 3, 'K': 50, 'ERA': 0.5, 'WHIP': 0.2, 'K/BB': 0.1, 'SV+HLD': 5
         }
 
         for cat, change in impact.items():
