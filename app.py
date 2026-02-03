@@ -6483,7 +6483,13 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
                 proj = PITCHER_PROJECTIONS[name]
                 cats['K'] = proj.get('K', 0)
                 cats['SV+HLD'] = proj.get('SV', 0) + proj.get('HD', 0)
-                cats['K/BB'] = proj.get('K/BB', 0)
+                # Calculate K/BB from K and BB if not directly available
+                if 'K/BB' in proj:
+                    cats['K/BB'] = proj.get('K/BB', 0)
+                else:
+                    k = proj.get('K', 0)
+                    bb = proj.get('BB', 0)
+                    cats['K/BB'] = k / bb if bb > 0 else 0
                 cats['L'] = proj.get('L', 0)
                 cats['ERA'] = proj.get('ERA', 0)
                 cats['WHIP'] = proj.get('WHIP', 0)
@@ -6493,7 +6499,13 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
                 proj = RELIEVER_PROJECTIONS[name]
                 cats['K'] = proj.get('K', 0)
                 cats['SV+HLD'] = proj.get('SV', 0) + proj.get('HD', 0)
-                cats['K/BB'] = proj.get('K/BB', 0)
+                # Calculate K/BB from K and BB if not directly available
+                if 'K/BB' in proj:
+                    cats['K/BB'] = proj.get('K/BB', 0)
+                else:
+                    k = proj.get('K', 0)
+                    bb = proj.get('BB', 0)
+                    cats['K/BB'] = k / bb if bb > 0 else 0
                 cats['ERA'] = proj.get('ERA', 0)
                 cats['WHIP'] = proj.get('WHIP', 0)
         return cats
