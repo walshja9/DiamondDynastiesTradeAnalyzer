@@ -3319,6 +3319,7 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 'Slight Edge': '#ffd700',
                                 'Slightly Uneven': '#ffd700',
                                 'Strategic Overpay': '#60a5fa',
+                                'Overpaid for Prospect Return': '#60a5fa',
                                 'Questionable': '#ffa500',
                                 'Window Move': '#7c3aed',
                                 'Poor Value': '#fb7185',
@@ -3409,6 +3410,86 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 container.innerHTML = '<div style="color:#ff6b6b;text-align:center;padding:40px;">Failed to load trade history. Check console for details.</div>';
             }
         }
+
+        function createWindowScoreModal(){
+            if (document.getElementById('windowScoreModal')) return;
+            const modal = document.createElement('div');
+            modal.id = 'windowScoreModal';
+            modal.setAttribute('role','dialog');
+            modal.setAttribute('aria-modal','true');
+            modal.style.position = 'fixed';
+            modal.style.left = '0';
+            modal.style.top = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.background = 'rgba(0,0,0,0.6)';
+            modal.style.zIndex = '2000';
+            modal.innerHTML = `
+                <div id="windowScoreDialog" tabindex="-1" style="background:#0b0b10;color:#e6eef8;padding:20px;border-radius:10px;max-width:720px;outline:none;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <div style="font-weight:700;font-size:1.1rem;">What is the Window Score?</div>
+                        <button id="windowScoreClose" aria-label="Close window score" style="background:transparent;border:none;color:#9ca3af;font-size:1.2rem;cursor:pointer;">✕</button>
+                    </div>
+                    <div style="font-size:0.9rem;line-height:1.4;">
+                        <p>A blended score describing how well a team fits its competitive window (higher = better).</p>
+                        <p><strong>Components:</strong> 40% power rank, 25% core age, 20% peak timing, 15% prospect proximity.</p>
+                        <p><strong>Range:</strong> approx −1.3 → +1.4. <strong>Interpretation:</strong> >=1.0 = Dynasty / Win‑now; 0.5–1.0 = Rising / Contender; 0–0.5 = Competitive; −0.5–0 = Rebuilding / Retooling; &lt;−0.5 = Teardown.</p>
+                        <p><strong>Example:</strong> Score 0.88 → Rising / Contender (strong core age + near-term prospects).</p>
+                        <p style="opacity:0.9;font-size:0.85rem;">Tip: Use with roster context — a high score doesn't guarantee championships, it shows alignment.</p>
+                    </div>
+                </div>
+            `;
+
+            // Focus management
+            modal._previouslyFocused = document.activeElement;
+
+            // Close on backdrop click
+            modal.addEventListener('click', function(e){ if(e.target === modal) closeWindowScoreModal(); });
+
+            document.body.appendChild(modal);
+
+            // Wire up close button and keyboard handling
+            const dialog = document.getElementById('windowScoreDialog');
+            const closeBtn = document.getElementById('windowScoreClose');
+            function _onKey(e){
+                if(e.key === 'Escape'){
+                    closeWindowScoreModal();
+                } else if(e.key === 'Tab'){
+                    // simple focus trap within dialog
+                    const focusable = dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    if(focusable.length === 0) { e.preventDefault(); return; }
+                    const first = focusable[0];
+                    const last = focusable[focusable.length -1];
+                    if(e.shiftKey){ if(document.activeElement === first){ e.preventDefault(); last.focus(); } }
+                    else { if(document.activeElement === last){ e.preventDefault(); first.focus(); } }
+                }
+            }
+
+            closeBtn.addEventListener('click', closeWindowScoreModal);
+            document.addEventListener('keydown', _onKey);
+
+            // store handler so we can remove on close
+            modal._onKey = _onKey;
+
+            // set initial focus
+            setTimeout(()=>{
+                dialog.focus();
+                const focusable = dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                if(focusable && focusable.length) focusable[0].focus();
+            }, 10);
+        }
+
+        function showWindowScoreModal(){ createWindowScoreModal(); const m=document.getElementById('windowScoreModal'); if(m) m.style.display='flex'; }
+        function closeWindowScoreModal(){ const m=document.getElementById('windowScoreModal'); if(m){
+            // remove key handler
+            if(m._onKey) document.removeEventListener('keydown', m._onKey);
+            // restore focus
+            try{ if(m._previouslyFocused) m._previouslyFocused.focus(); }catch(e){}
+            m.remove();
+        } }
 
         async function searchPlayers(side) {
             const input = document.getElementById(`team${side}Search`);
@@ -3868,8 +3949,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                 <span style="color: #ffd700;">● ${data.window_analysis.peak_count} peak</span>
                                 <span style="color: #f87171;">▼ ${data.window_analysis.declining_count} declining</span>
                             </div>
-                            <div style="font-size: 0.7rem; color: #888; cursor: help;" title="Combined score: 40% power rank, 25% core age, 20% peak timing, 15% prospect proximity">
+                            <div style="font-size: 0.7rem; color: #888;">
                                 Score: <span style="color: ${data.window_analysis.window_score >= 0.5 ? '#4ade80' : data.window_analysis.window_score >= 0 ? '#ffd700' : '#f87171'}; font-weight: bold;">${data.window_analysis.window_score.toFixed(2)}</span>
+                                <span style="margin-left:8px; cursor:pointer; color:#60a5fa; font-weight:600;" onclick="showWindowScoreModal()" title="What is the Window Score?">ℹ️</span>
                             </div>
                         </div>
                     </div>
@@ -6461,6 +6543,34 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
     team_b_context['fit_reasons'] = b_fit_reasons
     team_b_context['strategic_value'] = team_b_context.get('strategic_value', 0) + max(0, (b_fit_score - 50) / 3)
 
+    # Detect draft picks in receives and treat them as prospect-pipeline fills
+    def _extract_picks(assets):
+        picks = []
+        for a in assets:
+            if a.get('type') == 'pick':
+                # try to parse round
+                name = a.get('name', '')
+                import re
+                m = re.search(r'Round\s*(\d+)', name, flags=re.IGNORECASE)
+                round_num = m.group(1) if m else None
+                picks.append({'name': name, 'round': round_num})
+        return picks
+
+    a_received_picks = _extract_picks(team_b_sends)
+    b_received_picks = _extract_picks(team_a_sends)
+
+    if a_received_picks:
+        team_a_context.setdefault('prospect_picks', []).extend(a_received_picks)
+        team_a_context.setdefault('needs_filled', []).append('+Prospect pipeline (' + ','.join([p['round'] or p['name'] for p in a_received_picks]) + ')')
+        team_a_context['strategic_value'] = team_a_context.get('strategic_value', 0) + 6 * len(a_received_picks)
+        team_a_context['reasoning'].append('Acquires draft picks')
+
+    if b_received_picks:
+        team_b_context.setdefault('prospect_picks', []).extend(b_received_picks)
+        team_b_context.setdefault('needs_filled', []).append('+Prospect pipeline (' + ','.join([p['round'] or p['name'] for p in b_received_picks]) + ')')
+        team_b_context['strategic_value'] = team_b_context.get('strategic_value', 0) + 6 * len(b_received_picks)
+        team_b_context['reasoning'].append('Acquires draft picks')
+
     return {
         'team_a': team_a_context,
         'team_b': team_b_context,
@@ -6502,7 +6612,12 @@ def get_context_aware_verdict(value_diff, winner, loser, winner_context, loser_c
         reasoning_parts.append(f"{winner} has minor advantage")
     elif value_diff < questionable:
         # Check if loser has strategic justification
-        if loser_strategic >= 10 or len(loser_needs_filled) >= 2:
+        # If the justification is primarily prospect picks, use a clearer label
+        if loser_context.get('prospect_picks') and not loser_needs_filled:
+            verdict = "Overpaid for Prospect Return"
+            verdict_class = "prospect"
+            reasoning_parts.append(f"{loser} overpaid for prospect return")
+        elif loser_strategic >= 10 or len(loser_needs_filled) >= 2:
             verdict = "Strategic Overpay"
             verdict_class = "strategic"
             reasoning_parts.append(f"{loser} overpaid but filled needs")
@@ -6515,7 +6630,11 @@ def get_context_aware_verdict(value_diff, winner, loser, winner_context, loser_c
             verdict_class = "questionable"
             reasoning_parts.append(f"{loser} gave up too much")
     elif value_diff < clear_winner:
-        if loser_strategic >= 15 or len(loser_needs_filled) >= 3:
+        if loser_context.get('prospect_picks') and not loser_needs_filled:
+            verdict = "Overpaid for Prospect Return"
+            verdict_class = "prospect"
+            reasoning_parts.append(f"{loser} overpaid for prospect return")
+        elif loser_strategic >= 15 or len(loser_needs_filled) >= 3:
             verdict = "Strategic Overpay"
             verdict_class = "strategic"
             reasoning_parts.append(f"{loser} significantly overpaid but addressed multiple needs")
