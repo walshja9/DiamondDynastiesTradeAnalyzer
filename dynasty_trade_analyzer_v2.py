@@ -664,7 +664,7 @@ PITCHER_PROJECTIONS = {
     "Michael King": {"IP": 168.5, "K": 172, "W": 11, "L": 9, "ERA": 3.82, "WHIP": 1.18, "QS": 16},
     "Grayson Rodriguez": {"IP": 158.5, "K": 165, "W": 10, "L": 9, "ERA": 3.95, "WHIP": 1.22, "QS": 15},
     "Corbin Burnes": {"IP": 182.5, "K": 185, "W": 12, "L": 9, "ERA": 3.65, "WHIP": 1.15, "QS": 18},
-    "Roki Sasaki": {"IP": 145.5, "K": 168, "W": 10, "L": 7, "ERA": 3.45, "WHIP": 1.08, "QS": 15},
+    "Roki Sasaki": {"IP": 95, "K": 105, "W": 6, "L": 5, "ERA": 3.85, "WHIP": 1.25, "QS": 8},  # Conservative - 36 IP in 2025, injury concerns
     "Bryce Miller": {"IP": 162.5, "K": 155, "W": 10, "L": 9, "ERA": 3.88, "WHIP": 1.15, "QS": 15},
     "Bailey Ober": {"IP": 158.5, "K": 152, "W": 10, "L": 9, "ERA": 3.95, "WHIP": 1.18, "QS": 15},
     "Brady Singer": {"IP": 165.5, "K": 158, "W": 10, "L": 9, "ERA": 3.92, "WHIP": 1.20, "QS": 15},
