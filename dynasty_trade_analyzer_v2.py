@@ -7865,32 +7865,32 @@ class DynastyValueCalculator:
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
 
-            # Tiered prospect valuation - calibrated below proven MLB players
+            # Tiered prospect valuation - calibrated for dynasty league value
             # Top prospects are valuable but unproven, so valued below established stars
-            # Proven elite production > unproven potential (P#1 should be ~#40-45 overall)
+            # Smoother curve ensures prospects 26-100 retain tradeable value
             if rank <= 0 or rank > 300:
                 prospect_value = 0.5
             elif rank <= 5:
                 # Top 5: 63 at rank 1, 55 at rank 5 (below proven stars)
                 prospect_value = 63 - (rank - 1) * 2.0
             elif rank <= 10:
-                # Top 10: 53 at rank 6, 47 at rank 10
-                prospect_value = 53 - (rank - 6) * 1.2
+                # Top 10: 53 at rank 6, 48 at rank 10
+                prospect_value = 53 - (rank - 6) * 1.25
             elif rank <= 25:
-                # 11-25: 45 at rank 11, 33 at rank 25
-                prospect_value = 45 - (rank - 11) * 0.857
+                # 11-25: 46 at rank 11, 36 at rank 25
+                prospect_value = 46 - (rank - 11) * 0.714
             elif rank <= 50:
-                # 26-50: 25 at rank 26, 13 at rank 50
-                prospect_value = 25 - (rank - 26) * 0.48
+                # 26-50: 35 at rank 26, 25 at rank 50 (smooth transition)
+                prospect_value = 35 - (rank - 26) * 0.417
             elif rank <= 100:
-                # 51-100: 12 at rank 51, 5 at rank 100
-                prospect_value = 12 - (rank - 51) * 0.143
+                # 51-100: 24 at rank 51, 15 at rank 100 (still rosterable)
+                prospect_value = 24 - (rank - 51) * 0.184
             elif rank <= 200:
-                # 101-200: 5 at rank 101, 2 at rank 200
-                prospect_value = 5 - (rank - 101) * 0.03
+                # 101-200: 14 at rank 101, 6 at rank 200 (deep stash value)
+                prospect_value = 14 - (rank - 101) * 0.081
             else:
-                # 201-300: 2 at rank 201, 1 at rank 300
-                prospect_value = 2 - (rank - 201) * 0.01
+                # 201-300: 5 at rank 201, 2 at rank 300
+                prospect_value = 5 - (rank - 201) * 0.030
 
             # Use prospect value directly - rank determines value for prospects
             value = prospect_value
