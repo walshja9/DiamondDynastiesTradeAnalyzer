@@ -141,6 +141,37 @@ AI_GM_CONFIG = {
     "age_window_weight": 1.5,              # Weight for age/window alignment
 }
 
+# ===== PROSPECT LEVEL DATA (from CFR) =====
+# Load prospect levels for ETA calculations
+import csv
+CFR_PROSPECT_LEVELS = {}
+script_dir = os.path.dirname(os.path.abspath(__file__))
+try:
+    # Load hitter levels
+    cfr_h_path = os.path.join(script_dir, "Consensus Formulated Ranks_Hitters_2026.csv")
+    with open(cfr_h_path, 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name = row.get('Name', '').strip()
+            level = row.get('Level', '').strip()
+            if name and level:
+                CFR_PROSPECT_LEVELS[name] = level
+except Exception:
+    pass
+
+try:
+    # Load pitcher levels
+    cfr_p_path = os.path.join(script_dir, "Consensus Formulated Ranks_Pitchers_2026.csv")
+    with open(cfr_p_path, 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name = row.get('Name', '').strip()
+            level = row.get('Level', '').strip()
+            if name and level and name not in CFR_PROSPECT_LEVELS:
+                CFR_PROSPECT_LEVELS[name] = level
+except Exception:
+    pass
+
 # Team rivalries - bidirectional matchups for enhanced analysis
 TEAM_RIVALRIES = {
     "Rocket City Trash Pandas": "Alaskan Bullworms",
@@ -3770,6 +3801,52 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         </div>
                     </div>
 
+                    <!-- Competitive Window Analysis -->
+                    ${data.window_analysis ? `
+                    <div style="background: linear-gradient(135deg, #0d1117, #161b22); padding: 18px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(136, 46, 224, 0.25);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                            <h4 style="color: #a855f7; margin: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">COMPETITIVE WINDOW</h4>
+                            <span style="background: ${data.window_analysis.window === 'dynasty' ? 'linear-gradient(135deg, #ffd700, #ff8c00)' :
+                                data.window_analysis.window === 'win-now' ? 'linear-gradient(135deg, #ef4444, #dc2626)' :
+                                data.window_analysis.window === 'contender' ? 'linear-gradient(135deg, #22c55e, #16a34a)' :
+                                data.window_analysis.window === 'rising' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' :
+                                data.window_analysis.window === 'rebuilding' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' :
+                                'linear-gradient(135deg, #6b7280, #4b5563)'};
+                                color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase;">${data.window_analysis.window}</span>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px;">
+                            <div style="text-align: center; padding: 10px 6px; background: rgba(168, 85, 247, 0.08); border-radius: 8px; cursor: help;" title="Value-weighted age of top 10 players (core matters more than depth)">
+                                <div style="color: #888; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Core Age</div>
+                                <div style="color: #e4e4e4; font-size: 1.1rem; font-weight: bold;">${data.window_analysis.core_age}</div>
+                            </div>
+                            <div style="text-align: center; padding: 10px 6px; background: rgba(168, 85, 247, 0.08); border-radius: 8px; cursor: help;" title="Average years until top 5 core players decline past peak">
+                                <div style="color: #888; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Years Left</div>
+                                <div style="color: ${data.window_analysis.years_in_window >= 5 ? '#4ade80' : data.window_analysis.years_in_window >= 3 ? '#ffd700' : '#f87171'}; font-size: 1.1rem; font-weight: bold;">${data.window_analysis.years_in_window}</div>
+                            </div>
+                            <div style="text-align: center; padding: 10px 6px; background: rgba(168, 85, 247, 0.08); border-radius: 8px; cursor: help;" title="Average years until prospects reach MLB (based on current level)">
+                                <div style="color: #888; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Prospect ETA</div>
+                                <div style="color: ${data.window_analysis.prospect_eta <= 1.5 ? '#4ade80' : data.window_analysis.prospect_eta <= 2.5 ? '#ffd700' : '#f87171'}; font-size: 1.1rem; font-weight: bold;">${data.window_analysis.prospect_eta}yr</div>
+                            </div>
+                            <div style="text-align: center; padding: 10px 6px; background: rgba(168, 85, 247, 0.08); border-radius: 8px; cursor: help;" title="Prospects at AAA or higher who could contribute this season">
+                                <div style="color: #888; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">MLB Ready</div>
+                                <div style="color: #4ade80; font-size: 1.1rem; font-weight: bold;">${data.window_analysis.mlb_ready_prospects}</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(136, 46, 224, 0.15);">
+                            <div style="display: flex; gap: 16px; font-size: 0.75rem;" title="Core player status: ascending (before peak), peak (prime years), declining (past peak)">
+                                <span style="color: #4ade80;">▲ ${data.window_analysis.ascending_count} ascending</span>
+                                <span style="color: #ffd700;">● ${data.window_analysis.peak_count} peak</span>
+                                <span style="color: #f87171;">▼ ${data.window_analysis.declining_count} declining</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #888; cursor: help;" title="Combined score: 40% power rank, 25% core age, 20% peak timing, 15% prospect proximity">
+                                Score: <span style="color: ${data.window_analysis.window_score >= 0.5 ? '#4ade80' : data.window_analysis.window_score >= 0 ? '#ffd700' : '#f87171'}; font-weight: bold;">${data.window_analysis.window_score.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+
                     <!-- Roster Composition -->
                     <div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(0, 212, 255, 0.1);">
                         <h4 style="color: #00d4ff; margin: 0 0 12px 0; font-size: 0.9rem;">ROSTER COMPOSITION</h4>
@@ -3904,7 +3981,9 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         const div = document.createElement('div');
                         div.className = 'player-card';
                         div.style.cursor = 'pointer';
-                        div.innerHTML = '<div><div class="name player-link">' + p.name + '</div><div style="color: #888; font-size: 0.8rem;">' + (p.position || '') + ' | Age ' + (p.age || '?') + '</div></div><div class="value" style="color: #4ade80;">#' + p.rank + '</div>';
+                        const levelBadge = p.level ? '<span style="background: rgba(74, 222, 128, 0.2); color: #4ade80; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 6px;">' + p.level + '</span>' : '';
+                        const etaText = p.eta !== undefined ? '<span style="color: #a855f7; font-size: 0.75rem;" title="Estimated years to MLB">ETA: ' + p.eta.toFixed(1) + 'yr</span>' : '';
+                        div.innerHTML = '<div style="flex: 1;"><div class="name player-link">' + p.name + levelBadge + '</div><div style="color: #888; font-size: 0.8rem; display: flex; gap: 8px; align-items: center;">' + (p.position || '') + ' | Age ' + (p.age || '?') + (etaText ? ' | ' + etaText : '') + '</div></div><div class="value" style="color: #4ade80;">#' + p.rank + '</div>';
                         div.addEventListener('click', () => showPlayerModal(p.name));
                         prospectsGrid.appendChild(div);
                     });
@@ -6463,6 +6542,40 @@ def simulate_trade_impact(team_a_name, team_b_name, players_a, players_b):
     }
 
 
+@app.route('/debug-prospects/<team_name>')
+def debug_prospects(team_name):
+    """Debug endpoint to verify prospect data is working."""
+    if team_name not in teams:
+        return jsonify({"error": "Team not found"}), 404
+    team = teams[team_name]
+
+    # Direct calculation
+    pp = calculate_prospect_proximity(team.players, CFR_PROSPECT_LEVELS)
+
+    # Get prospects with level/eta
+    prospects_data = []
+    for p in team.players:
+        if p.is_prospect and p.prospect_rank:
+            level = CFR_PROSPECT_LEVELS.get(p.name, 'UNKNOWN')
+            eta_map = {'MLB': 0, 'AAA': 0.5, 'AA': 1.5, 'A+': 2.5, 'A': 3, 'CPX': 3.5, 'DSL': 4, 'INTL': 4}
+            eta = eta_map.get(level, 2.0)
+            prospects_data.append({
+                'name': p.name,
+                'rank': p.prospect_rank,
+                'level': level,
+                'eta': eta
+            })
+    prospects_data.sort(key=lambda x: x['rank'])
+
+    return jsonify({
+        'team': team_name,
+        'cfr_levels_count': len(CFR_PROSPECT_LEVELS),
+        'mlb_ready_count': pp.get('mlb_ready_count', 0),
+        'avg_eta': pp.get('avg_eta', 0),
+        'prospects': prospects_data[:10]
+    })
+
+
 @app.route('/team/<team_name>')
 def get_team(team_name):
     try:
@@ -6504,8 +6617,29 @@ def get_team(team_name):
 
         # Get top players and prospects
         top_players = players[:20]
-        prospects = [{"name": p.name, "rank": p.prospect_rank, "age": p.age, "position": p.position}
-                     for p in team.players if p.is_prospect and p.prospect_rank]
+
+        # Build prospects list with level and ETA
+        def get_prospect_eta(name, rank):
+            """Calculate ETA in years based on level or rank."""
+            level = CFR_PROSPECT_LEVELS.get(name, '')
+            eta_map = {'MLB': 0, 'AAA': 0.5, 'AA': 1.5, 'A+': 2.5, 'A': 3, 'CPX': 3.5, 'DSL': 4, 'INTL': 4}
+            if level in eta_map:
+                return eta_map[level]
+            # Estimate from rank if no level
+            if rank <= 25:
+                return 1.0
+            elif rank <= 100:
+                return 2.0
+            return 3.0
+
+        prospects = [{
+            "name": p.name,
+            "rank": p.prospect_rank,
+            "age": p.age,
+            "position": p.position,
+            "level": CFR_PROSPECT_LEVELS.get(p.name, ''),
+            "eta": get_prospect_eta(p.name, p.prospect_rank)
+        } for p in team.players if p.is_prospect and p.prospect_rank]
         prospects.sort(key=lambda x: x['rank'])
 
         # Calculate league-wide category rankings
@@ -6615,6 +6749,38 @@ def get_team(team_name):
         # Generate analysis
         analysis = generate_team_analysis(team_name, team, players_with_value, power_rank, len(teams))
 
+        # Get enhanced window analysis (this populates _window_analysis_cache)
+        _, _, window = calculate_team_needs(team_name)
+        window_analysis = _window_analysis_cache.get(team_name, {})
+
+        # DIRECT CALCULATION - bypass cache issues
+        direct_pp = calculate_prospect_proximity(team.players, CFR_PROSPECT_LEVELS)
+
+        # Build window details for UI display
+        window_details = None
+        if window_analysis:
+            pt = window_analysis.get('peak_timing', {})
+            pp = window_analysis.get('prospect_proximity', {})
+            details = window_analysis.get('details', {})
+            window_details = {
+                'window': window,
+                'window_score': window_analysis.get('score', 0),
+                'core_age': window_analysis.get('core_age', avg_age),
+                'years_in_window': pt.get('years_in_window', 0),
+                'ascending_count': pt.get('ascending_count', 0),
+                'peak_count': pt.get('peak_count', 0),
+                'declining_count': pt.get('declining_count', 0),
+                'prospect_eta': direct_pp.get('avg_eta', 0),
+                'mlb_ready_prospects': direct_pp.get('mlb_ready_count', 0),
+                'prospect_value': direct_pp.get('prospect_value', 0),
+                'score_breakdown': {
+                    'rank': details.get('rank_score', 0),
+                    'age': details.get('age_score', 0),
+                    'peak': details.get('peak_score', 0),
+                    'prospects': details.get('prospect_score', 0)
+                }
+            }
+
         return jsonify({
             "name": team_name,
             "players": players,
@@ -6632,7 +6798,8 @@ def get_team(team_name):
             "positional_depth": pos_depth,
             "roster_composition": roster_composition,
             "num_teams": num_teams,
-            "analysis": analysis
+            "analysis": analysis,
+            "window_analysis": window_details
         })
     except Exception as e:
         import traceback
@@ -10586,6 +10753,7 @@ def generate_personalized_trade_advice(player, value, projections):
 
 @app.route('/player/<player_name>')
 def get_player(player_name):
+    print(f"=== GET PLAYER CALLED: {player_name} ===", flush=True)
     # Find player on a team roster first
     player = None
     fantasy_team = None
@@ -10696,6 +10864,32 @@ def get_player(player_name):
 
     value = calc_player_value(player)
 
+    # Manual overrides for players with name conflicts in source data
+    # These superstars have minor league pitchers with the same name causing data pollution
+    FORCE_HITTER_OVERRIDES = {
+        "Jose Ramirez": {
+            "force_hitter": True,
+            "override_projections": {
+                "PA": 650, "AB": 570, "H": 160, "HR": 32, "R": 100, "RBI": 105,
+                "SB": 15, "AVG": 0.281, "OBP": 0.355, "SLG": 0.520, "OPS": 0.875
+            }
+        },
+        "Julio Rodriguez": {
+            "force_hitter": True,
+            "override_projections": {
+                "PA": 620, "AB": 560, "H": 155, "HR": 28, "R": 95, "RBI": 85,
+                "SB": 25, "AVG": 0.277, "OBP": 0.335, "SLG": 0.480, "OPS": 0.815
+            }
+        }
+    }
+
+    player_override = FORCE_HITTER_OVERRIDES.get(player.name)
+
+    # DEBUG: Print to console to verify override is being checked
+    if player.name in ["Jose Ramirez", "Julio Rodriguez"]:
+        print(f"DEBUG: Checking override for {player.name}, override found: {player_override is not None}", flush=True)
+        print(f"DEBUG: in_pitcher={player.name in PITCHER_PROJECTIONS}, in_reliever={player.name in RELIEVER_PROJECTIONS}", flush=True)
+
     # Get projections
     projections = {}
     projections_estimated = False
@@ -10704,7 +10898,14 @@ def get_player(player_name):
     in_pitcher_proj = player.name in PITCHER_PROJECTIONS
     in_reliever_proj = player.name in RELIEVER_PROJECTIONS
 
-    if in_hitter_proj and in_pitcher_proj:
+    # Apply override - ALWAYS use override for these specific players (no conditions)
+    if player_override and player_override.get("force_hitter"):
+        in_pitcher_proj = False
+        in_reliever_proj = False
+        in_hitter_proj = True
+        # UNCONDITIONALLY use override projections for these players
+        projections = dict(player_override["override_projections"])
+    elif in_hitter_proj and in_pitcher_proj:
         # Two-way player like Ohtani - combine both projections
         projections = dict(HITTER_PROJECTIONS[player.name])
         pitcher_proj = PITCHER_PROJECTIONS[player.name]
@@ -11340,6 +11541,306 @@ def analyze_trade():
     })
 
 
+# ============================================================================
+# TEAM WINDOW AWARENESS - Enhanced competitive window analysis
+# ============================================================================
+
+# Prospect level to MLB proximity (years away estimate)
+LEVEL_TO_ETA = {
+    'MLB': 0,
+    'AAA': 0.5,
+    'AA': 1.5,
+    'A+': 2.5,
+    'A': 3,
+    'CPX': 3.5,  # Complex league
+    'DSL': 4,    # Dominican Summer League
+    'INTL': 4,   # International
+}
+
+# Peak age ranges by position type
+PEAK_AGES = {
+    'hitter': {'start': 26, 'end': 31},
+    'pitcher': {'start': 26, 'end': 30},
+}
+
+
+def calculate_core_weighted_age(players_with_value, top_n=10):
+    """Calculate age weighted by player value - core players matter more than depth.
+
+    Args:
+        players_with_value: List of (player, value) tuples
+        top_n: Number of top players to consider as "core"
+
+    Returns:
+        Tuple of (core_weighted_age, core_players_list)
+    """
+    if not players_with_value:
+        return 27.0, []
+
+    # Sort by value descending and take top N
+    sorted_players = sorted(players_with_value, key=lambda x: x[1], reverse=True)
+    core_players = [(p, v) for p, v in sorted_players[:top_n] if p.age > 0 and v > 0]
+
+    if not core_players:
+        return 27.0, []
+
+    # Weight age by value (higher value = more weight)
+    total_value = sum(v for _, v in core_players)
+    if total_value == 0:
+        return 27.0, []
+
+    weighted_age = sum(p.age * v for p, v in core_players) / total_value
+
+    return round(weighted_age, 1), core_players
+
+
+def calculate_peak_timing(core_players):
+    """Calculate how many years until the core starts declining.
+
+    Args:
+        core_players: List of (player, value) tuples for core players
+
+    Returns:
+        Dict with 'years_in_window', 'ascending_count', 'peak_count', 'declining_count'
+    """
+    if not core_players:
+        return {'years_in_window': 3, 'ascending_count': 0, 'peak_count': 0, 'declining_count': 0}
+
+    ascending = 0  # Before peak
+    at_peak = 0    # In peak years
+    declining = 0  # Past peak
+
+    years_until_decline = []
+
+    for player, value in core_players:
+        if player.age <= 0:
+            continue
+
+        # Determine if hitter or pitcher
+        pos = player.position.upper() if player.position else ''
+        is_pitcher = 'SP' in pos or 'RP' in pos or pos == 'P'
+        peak = PEAK_AGES['pitcher'] if is_pitcher else PEAK_AGES['hitter']
+
+        if player.age < peak['start']:
+            ascending += 1
+            years_until_decline.append(peak['end'] - player.age)
+        elif player.age <= peak['end']:
+            at_peak += 1
+            years_until_decline.append(peak['end'] - player.age)
+        else:
+            declining += 1
+            years_until_decline.append(0)  # Already declining
+
+    # Weight by value for years calculation
+    if years_until_decline:
+        # Use minimum of top 5 core players' decline years (when first stars fall off)
+        sorted_years = sorted(years_until_decline, reverse=True)[:5]
+        avg_years = sum(sorted_years) / len(sorted_years) if sorted_years else 3
+    else:
+        avg_years = 3
+
+    return {
+        'years_in_window': round(avg_years, 1),
+        'ascending_count': ascending,
+        'peak_count': at_peak,
+        'declining_count': declining
+    }
+
+
+def calculate_prospect_proximity(team_players, cfr_levels=None):
+    """Calculate how soon prospects will contribute to MLB roster.
+
+    Args:
+        team_players: List of Player objects
+        cfr_levels: Optional dict mapping player name to level string
+
+    Returns:
+        Dict with 'avg_eta', 'mlb_ready_count', 'close_count', 'far_count', 'prospect_value'
+    """
+    prospects = [p for p in team_players if p.is_prospect and p.prospect_rank and p.prospect_rank <= 300]
+
+    if not prospects:
+        return {
+            'avg_eta': 0,
+            'mlb_ready_count': 0,
+            'close_count': 0,
+            'far_count': 0,
+            'prospect_value': 0
+        }
+
+    mlb_ready = 0   # AAA or MLB level
+    close = 0       # AA level
+    far = 0         # A+ or below
+
+    etas = []
+    total_prospect_value = 0
+
+    for p in prospects:
+        # Get level from CFR if available, otherwise estimate from rank
+        level = None
+        if cfr_levels and p.name in cfr_levels:
+            level = cfr_levels[p.name]
+
+        # Estimate ETA
+        if level and level in LEVEL_TO_ETA:
+            eta = LEVEL_TO_ETA[level]
+        else:
+            # Estimate from prospect rank (top prospects usually closer)
+            if p.prospect_rank <= 25:
+                eta = 1.0  # Top prospects typically AA/AAA
+            elif p.prospect_rank <= 100:
+                eta = 2.0  # Mid-tier prospects
+            else:
+                eta = 3.0  # Lower-ranked prospects
+
+        etas.append(eta)
+
+        # Categorize
+        if eta <= 0.5:
+            mlb_ready += 1
+        elif eta <= 1.5:
+            close += 1
+        else:
+            far += 1
+
+        # Calculate prospect value contribution
+        total_prospect_value += calc_player_value(p)
+
+    avg_eta = sum(etas) / len(etas) if etas else 3.0
+
+    return {
+        'avg_eta': round(avg_eta, 1),
+        'mlb_ready_count': mlb_ready,
+        'close_count': close,
+        'far_count': far,
+        'prospect_value': round(total_prospect_value, 1)
+    }
+
+
+def determine_enhanced_window(power_rank, total_teams, core_age, peak_timing, prospect_proximity):
+    """Determine team's competitive window using enhanced metrics.
+
+    Uses a scoring system that considers:
+    - Power ranking (current strength)
+    - Core-weighted age (quality of aging)
+    - Peak timing (years in window)
+    - Prospect proximity (future help)
+
+    Returns:
+        Tuple of (window_label, window_score, window_details)
+    """
+    top_third = total_teams // 3
+    bottom_third = total_teams - top_third
+
+    # Base score from power ranking (-2 to +2)
+    if power_rank <= top_third:
+        rank_score = 2.0 - (power_rank - 1) * (2.0 / top_third)
+    elif power_rank >= bottom_third:
+        rank_score = -2.0 + (total_teams - power_rank) * (2.0 / top_third)
+    else:
+        # Middle third
+        mid_start = top_third + 1
+        mid_range = bottom_third - top_third - 1
+        mid_position = power_rank - mid_start
+        rank_score = 0.5 - (mid_position / mid_range) if mid_range > 0 else 0
+
+    # Age score: younger core = more future, older = win now (-1 to +1)
+    if core_age <= 25:
+        age_score = 1.0  # Very young core
+    elif core_age <= 27:
+        age_score = 0.5  # Young core
+    elif core_age <= 29:
+        age_score = 0.0  # Prime core
+    elif core_age <= 31:
+        age_score = -0.5  # Aging core
+    else:
+        age_score = -1.0  # Old core
+
+    # Peak timing score: more years = more flexibility
+    years = peak_timing['years_in_window']
+    if years >= 5:
+        peak_score = 1.0
+    elif years >= 3:
+        peak_score = 0.5
+    elif years >= 1:
+        peak_score = 0.0
+    else:
+        peak_score = -1.0
+
+    # Prospect proximity score: closer help = better for future
+    avg_eta = prospect_proximity['avg_eta']
+    mlb_ready = prospect_proximity['mlb_ready_count']
+    if mlb_ready >= 3:
+        prospect_score = 1.0  # Lots of MLB-ready talent
+    elif mlb_ready >= 1 or avg_eta <= 1.5:
+        prospect_score = 0.5  # Some close help
+    elif avg_eta <= 2.5:
+        prospect_score = 0.0  # Moderate help coming
+    else:
+        prospect_score = -0.5  # Help is far away
+
+    # Combine scores with weights
+    # Rank is most important (40%), then age (25%), peak (20%), prospects (15%)
+    combined_score = (
+        rank_score * 0.40 +
+        age_score * 0.25 +
+        peak_score * 0.20 +
+        prospect_score * 0.15
+    )
+
+    # Determine window label based on combined score and age
+    # Strong teams with young cores = dynasty
+    # Strong teams with old cores = win-now
+    # Weak teams with young cores = rebuilding
+    # Weak teams with old cores = teardown
+
+    if combined_score >= 1.0:
+        if core_age <= 27:
+            window = "dynasty"
+        else:
+            window = "win-now"
+    elif combined_score >= 0.5:
+        if core_age <= 27:
+            window = "rising"
+        elif core_age >= 30:
+            window = "win-now"
+        else:
+            window = "contender"
+    elif combined_score >= 0:
+        if peak_timing['ascending_count'] > peak_timing['declining_count']:
+            window = "rising"
+        elif peak_timing['declining_count'] > peak_timing['ascending_count']:
+            window = "declining"
+        else:
+            window = "competitive"
+    elif combined_score >= -0.5:
+        if core_age <= 27:
+            window = "rebuilding"
+        elif core_age >= 30:
+            window = "declining"
+        else:
+            window = "retooling"
+    else:
+        if core_age >= 29:
+            window = "teardown"
+        else:
+            window = "rebuilding"
+
+    window_details = {
+        'rank_score': round(rank_score, 2),
+        'age_score': round(age_score, 2),
+        'peak_score': round(peak_score, 2),
+        'prospect_score': round(prospect_score, 2),
+        'combined_score': round(combined_score, 2),
+        'core_age': core_age,
+        'years_in_window': peak_timing['years_in_window'],
+        'ascending_players': peak_timing['ascending_count'],
+        'declining_players': peak_timing['declining_count']
+    }
+
+    return window, combined_score, window_details
+
+
 def calculate_team_needs(team_name):
     """Calculate a team's category needs and positional depth."""
     team = teams.get(team_name)
@@ -11413,50 +11914,50 @@ def calculate_team_needs(team_name):
         if 'RP' in pos or 'CL' in pos:
             pos_depth['RP'] += 1
 
-    # Determine competitive window - USE SAME LOGIC AS TEAM ANALYSIS
-    # to ensure consistency across the app
-    ages = [p.age for p in team.players if p.age > 0]
-    avg_age = sum(ages) / len(ages) if ages else 27
-    prospects = len([p for p in team.players if p.is_prospect])
+    # =========================================================================
+    # ENHANCED WINDOW DETERMINATION - Uses core-weighted age, peak timing,
+    # and prospect proximity for smarter competitive window analysis
+    # =========================================================================
 
+    # Calculate player values for core analysis
     players_with_value = [(p, calc_player_value(p)) for p in team.players]
     total_value = sum(v for _, v in players_with_value)
 
-    # Get power ranking for consistent window determination
+    # Get power ranking
     _, power_rankings, _ = get_team_rankings()
     power_rank = power_rankings.get(team_name, 6)
     total_teams = len(teams)
-    top_third = total_teams // 3
-    bottom_third = total_teams - top_third
 
-    # Age profile flags (same as team analysis)
-    is_young_roster = avg_age <= 26.5
-    is_old_roster = avg_age >= 29.5
+    # 1. CORE-WEIGHTED AGE: Top players' ages matter more than depth
+    core_age, core_players = calculate_core_weighted_age(players_with_value, top_n=10)
 
-    # Window determination - MATCHES generate_team_analysis() logic
-    if power_rank <= top_third:  # Top third of league
-        if is_young_roster:
-            window = "dynasty"
-        elif is_old_roster:
-            window = "win-now"
-        else:
-            window = "contender"
-    elif power_rank >= bottom_third:  # Bottom third
-        if is_old_roster:
-            window = "teardown"
-        elif is_young_roster:
-            window = "rebuilding"
-        else:
-            window = "retooling"
-    else:  # Middle third
-        if is_young_roster:
-            window = "rising"
-        elif is_old_roster:
-            window = "declining"
-        else:
-            window = "competitive"
+    # 2. PEAK TIMING: How many years until core declines
+    peak_timing = calculate_peak_timing(core_players)
+
+    # 3. PROSPECT PROXIMITY: How soon will prospects contribute
+    prospect_proximity = calculate_prospect_proximity(team.players, CFR_PROSPECT_LEVELS)
+
+    # 4. DETERMINE WINDOW using enhanced scoring
+    window, window_score, window_details = determine_enhanced_window(
+        power_rank, total_teams, core_age, peak_timing, prospect_proximity
+    )
+
+    # Store window details for potential UI display (optional enhancement)
+    # This data can be used to show users WHY their team has a certain window
+    _window_analysis_cache[team_name] = {
+        'window': window,
+        'score': window_score,
+        'details': window_details,
+        'core_age': core_age,
+        'peak_timing': peak_timing,
+        'prospect_proximity': prospect_proximity
+    }
 
     return category_scores, pos_depth, window
+
+
+# Cache for window analysis details (can be exposed via API if needed)
+_window_analysis_cache = {}
 
 
 def get_player_categories(player):
