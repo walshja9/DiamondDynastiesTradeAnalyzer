@@ -6311,22 +6311,32 @@ def load_trade_history():
                 if val == 0:
                     return None
                 lab = label or cat
-                # Determine which team benefits
-                if better_when_lower:
-                    # lower value is better (SO, L, ERA, WHIP)
-                    benefits = team_name if val < 0 else ("Opponent" if team_name else "")
-                    verb = "reduces" if abs(val) != 0 else "change"
-                    if is_rate:
+                
+                if is_rate:
+                    # For rate stats, show sign and value
+                    if better_when_lower:
+                        # Negative is good (e.g., ERA -2.5 is good)
                         sign = "" if val < 0 else "+"
-                        return f"{team_name} {lab} impact: {sign}{val:.{precision}f}" if val < 0 else f"{team_name} {lab} impact: +{val:.{precision}f}"
                     else:
-                        return f"{team_name} {verb} {lab} by {abs(val)}"
-                else:
-                    if is_rate:
+                        # Positive is good (e.g., AVG +0.020 is good)
                         sign = "+" if val > 0 else ""
-                        return f"{team_name} {lab} impact: {sign}{val:.{precision}f}"
+                    return f"{team_name} {lab} impact: {sign}{val:.{precision}f}"
+                else:
+                    # For count stats, determine verb based on value sign
+                    if better_when_lower:
+                        # lower value is better (SO, L, etc.)
+                        if val < 0:
+                            verb = "reduces"
+                        else:
+                            verb = "gains"
+                        return f"{team_name} {verb} {lab} by {abs(val)}"
                     else:
-                        return f"{team_name} gains {abs(val)} {lab}"
+                        # higher value is better (R, HR, RBI, K, QS, etc.)
+                        if val > 0:
+                            verb = "gains"
+                        else:
+                            verb = "loses"
+                        return f"{team_name} {verb} {abs(val)} {lab}"
 
             # Build entries in the requested order (7 hitting then 7 pitching)
             # Add team_a impacts
