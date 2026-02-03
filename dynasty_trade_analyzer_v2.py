@@ -814,6 +814,8 @@ PLAYER_AGES = {
     "Lawrence Butler": 25, "Austin Wells": 25, "Logan O'Hoppe": 26, "Chandler Simpson": 25, "Victor Scott II": 25,
     "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29, "Ryan O'Hearn": 31,
     "Jose Caballero": 28, "Ryan Ward": 27,  # AAA player, born Feb 5, 1998
+    "Tyler Freeman": 26, "Addison Barger": 26,  # Freeman: May 21, 1999; Barger: March 15, 2000
+    "Nestor Cortes Jr.": 31, "Nestor Cortes": 31,  # Born Dec 10, 1994
     "Marcelo Mayer": 23,  # Born Dec 12, 2002, graduated prospect
     # 2025 Award Winners
     "Cal Raleigh": 29, "Nick Kurtz": 24, "Jacob Wilson": 24, "Drake Baldwin": 25, "Caleb Durbin": 25,
