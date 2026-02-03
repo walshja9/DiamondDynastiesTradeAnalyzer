@@ -3398,6 +3398,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                             `).join('')}
                                         </div>
                                     </div>
+                                    ${trade.category_impact && trade.category_impact.length > 0 ? `
+                                        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0, 212, 255, 0.1);">
+                                            ${trade.category_impact.map(c => `<span style="background: linear-gradient(135deg, #14141c, #1a1a24); padding: 6px 12px; border-radius: 16px; font-size: 0.8rem; border: 1px solid rgba(0, 212, 255, 0.2);">${c}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
                                 </div>
                             `;
                         }).join('')}
