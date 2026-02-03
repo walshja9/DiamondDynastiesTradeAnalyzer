@@ -7197,6 +7197,7 @@ ELITE_YOUNG_PLAYERS = {
     "Drake Baldwin": 1.22,        # 24yo C, 2025 NL ROY winner, catcher scarcity + youth
     "Jacob Wilson": 1.10,         # 24yo SS, 2nd in 2025 AL ROY, .311 AVG
     # Tier 2: Elite young stars with consensus backing (18-22% boost)
+    "Roman Anthony": 1.22,        # 21yo OF, former #21 prospect, elite pedigree, youngest OF with .800+ OPS
     "James Wood": 1.22,           # 23yo OF, elite prospect pedigree, consensus top 20
     "Wyatt Langford": 1.08,       # 25yo OF, power upside, consensus top 30 but .755 OPS projection
     # Tier 3: Established young stars (6-10% boost)
