@@ -3398,6 +3398,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                             `).join('')}
                                         </div>
                                     </div>
+                                    ${trade.category_impact && trade.category_impact.length > 0 ? `
+                                        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0, 212, 255, 0.1);">
+                                            ${trade.category_impact.map(c => `<span style="background: linear-gradient(135deg, #14141c, #1a1a24); padding: 6px 12px; border-radius: 16px; font-size: 0.8rem; border: 1px solid rgba(0, 212, 255, 0.2);">${c}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
                                 </div>
                             `;
                         }).join('')}
@@ -6295,6 +6300,103 @@ def load_trade_history():
             except:
                 trade_date = None
 
+            # Build a UI-friendly category impact array (strings) - only non-zero impacts
+            cat_impacts = []
+            stat_diffs_a = team_a_context.get('category_impact', {}) if isinstance(team_a_context, dict) else {}
+            stat_diffs_b = team_b_context.get('category_impact', {}) if isinstance(team_b_context, dict) else {}
+
+            # Helper to format numeric gain/loss categories (only if non-zero)
+            def fmt_gain(cat, stat_diffs, team_name, better_when_lower=False, is_rate=False, precision=None, label=None):
+                val = stat_diffs.get(cat, 0)
+                if val == 0:
+                    return None
+                lab = label or cat
+                # Determine which team benefits
+                if better_when_lower:
+                    # lower value is better (SO, L, ERA, WHIP)
+                    benefits = team_name if val < 0 else ("Opponent" if team_name else "")
+                    verb = "reduces" if abs(val) != 0 else "change"
+                    if is_rate:
+                        sign = "" if val < 0 else "+"
+                        return f"{team_name} {lab} impact: {sign}{val:.{precision}f}" if val < 0 else f"{team_name} {lab} impact: +{val:.{precision}f}"
+                    else:
+                        return f"{team_name} {verb} {lab} by {abs(val)}"
+                else:
+                    if is_rate:
+                        sign = "+" if val > 0 else ""
+                        return f"{team_name} {lab} impact: {sign}{val:.{precision}f}"
+                    else:
+                        return f"{team_name} gains {abs(val)} {lab}"
+
+            # Build entries in the requested order (7 hitting then 7 pitching)
+            # Add team_a impacts
+            impact = fmt_gain('R', stat_diffs_a, team_a)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('HR', stat_diffs_a, team_a)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('RBI', stat_diffs_a, team_a)
+            if impact: cat_impacts.append(impact)
+            # SO: lower is better (hitter SO)
+            impact = fmt_gain('SO', stat_diffs_a, team_a, better_when_lower=True)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('SB', stat_diffs_a, team_a)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('AVG', stat_diffs_a, team_a, is_rate=True, precision=3, label='AVG')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('OPS', stat_diffs_a, team_a, is_rate=True, precision=3, label='OPS')
+            if impact: cat_impacts.append(impact)
+
+            # Pitching from team_a perspective
+            # L: fewer losses is better
+            impact = fmt_gain('L', stat_diffs_a, team_a, better_when_lower=True)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('QS', stat_diffs_a, team_a)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('K', stat_diffs_a, team_a)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('ERA', stat_diffs_a, team_a, better_when_lower=True, is_rate=True, precision=2, label='ERA')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('WHIP', stat_diffs_a, team_a, better_when_lower=True, is_rate=True, precision=2, label='WHIP')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('K/BB', stat_diffs_a, team_a, is_rate=True, precision=2, label='K/BB')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('SV+HLD', stat_diffs_a, team_a)
+            if impact: cat_impacts.append(impact)
+
+            # Add team_b impacts (only if different from team_a - show their perspective)
+            impact = fmt_gain('R', stat_diffs_b, team_b)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('HR', stat_diffs_b, team_b)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('RBI', stat_diffs_b, team_b)
+            if impact: cat_impacts.append(impact)
+            # SO: lower is better (hitter SO)
+            impact = fmt_gain('SO', stat_diffs_b, team_b, better_when_lower=True)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('SB', stat_diffs_b, team_b)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('AVG', stat_diffs_b, team_b, is_rate=True, precision=3, label='AVG')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('OPS', stat_diffs_b, team_b, is_rate=True, precision=3, label='OPS')
+            if impact: cat_impacts.append(impact)
+
+            # Pitching from team_b perspective
+            # L: fewer losses is better
+            impact = fmt_gain('L', stat_diffs_b, team_b, better_when_lower=True)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('QS', stat_diffs_b, team_b)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('K', stat_diffs_b, team_b)
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('ERA', stat_diffs_b, team_b, better_when_lower=True, is_rate=True, precision=2, label='ERA')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('WHIP', stat_diffs_b, team_b, better_when_lower=True, is_rate=True, precision=2, label='WHIP')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('K/BB', stat_diffs_b, team_b, is_rate=True, precision=2, label='K/BB')
+            if impact: cat_impacts.append(impact)
+            impact = fmt_gain('SV+HLD', stat_diffs_b, team_b)
+            if impact: cat_impacts.append(impact)
+
             completed_trades.append({
                 'date': date_str,
                 'date_parsed': trade_date.strftime('%Y-%m-%d') if trade_date else date_str,
@@ -6315,6 +6417,7 @@ def load_trade_history():
                 'winner': winner,
                 'team_a_context': team_a_context,
                 'team_b_context': team_b_context,
+                'category_impact': cat_impacts,
             })
 
         # Sort by date (most recent first)
