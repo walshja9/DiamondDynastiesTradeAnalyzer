@@ -7858,42 +7858,8 @@ class DynastyValueCalculator:
         # NOTE: PROVEN_VETERAN_STARS boost is now applied in calculate_player_value AFTER
         # consensus adjustment, so it adds on top of consensus rather than being absorbed by it
 
-        # Prospect adjustments - CALIBRATED against 5-source consensus
-        # (MLB Pipeline, Prospects Live, CFR, harryknowsball)
-        # #1 prospect = 76 (near Elite tier, premium dynasty asset)
-        # Prospects are valuable but still unproven vs MLB-proven superstars
-        if player.name in PROSPECT_RANKINGS:
-            rank = PROSPECT_RANKINGS[player.name]
-
-            # Tiered prospect valuation - calibrated for dynasty league value
-            # Top prospects are valuable but unproven, so valued below established stars
-            # Smoother curve ensures prospects 26-100 retain tradeable value
-            if rank <= 0 or rank > 300:
-                prospect_value = 0.5
-            elif rank <= 5:
-                # Top 5: 63 at rank 1, 55 at rank 5 (below proven stars)
-                prospect_value = 63 - (rank - 1) * 2.0
-            elif rank <= 10:
-                # Top 10: 53 at rank 6, 48 at rank 10
-                prospect_value = 53 - (rank - 6) * 1.25
-            elif rank <= 25:
-                # 11-25: 46 at rank 11, 36 at rank 25
-                prospect_value = 46 - (rank - 11) * 0.714
-            elif rank <= 50:
-                # 26-50: 35 at rank 26, 25 at rank 50 (smooth transition)
-                prospect_value = 35 - (rank - 26) * 0.417
-            elif rank <= 100:
-                # 51-100: 24 at rank 51, 15 at rank 100 (still rosterable)
-                prospect_value = 24 - (rank - 51) * 0.184
-            elif rank <= 200:
-                # 101-200: 14 at rank 101, 6 at rank 200 (deep stash value)
-                prospect_value = 14 - (rank - 101) * 0.081
-            else:
-                # 201-300: 5 at rank 201, 2 at rank 300
-                prospect_value = 5 - (rank - 201) * 0.030
-
-            # Use prospect value directly - rank determines value for prospects
-            value = prospect_value
+        # Note: Prospect value override is now handled in calculate_player_value
+        # before this function is called, so ranked prospects won't reach here
 
         return value
 
@@ -7927,6 +7893,36 @@ class DynastyValueCalculator:
             player: Player object
             actual_stats: Optional dict of actual in-season stats for blending with projections
         """
+        # PROSPECT CHECK FIRST - ranked prospects use prospect value directly
+        # This applies to both hitters and pitchers
+        if player.name in PROSPECT_RANKINGS:
+            rank = PROSPECT_RANKINGS[player.name]
+
+            # Tiered prospect valuation - calibrated for dynasty league value
+            if rank <= 0 or rank > 300:
+                return 0.5
+            elif rank <= 5:
+                # Top 5: 63 at rank 1, 55 at rank 5
+                return 63 - (rank - 1) * 2.0
+            elif rank <= 10:
+                # Top 10: 53 at rank 6, 48 at rank 10
+                return 53 - (rank - 6) * 1.25
+            elif rank <= 25:
+                # 11-25: 46 at rank 11, 36 at rank 25
+                return 46 - (rank - 11) * 0.714
+            elif rank <= 50:
+                # 26-50: 35 at rank 26, 25 at rank 50
+                return 35 - (rank - 26) * 0.417
+            elif rank <= 100:
+                # 51-100: 24 at rank 51, 15 at rank 100
+                return 24 - (rank - 51) * 0.184
+            elif rank <= 200:
+                # 101-200: 14 at rank 101, 6 at rank 200
+                return 14 - (rank - 101) * 0.081
+            else:
+                # 201-300: 5 at rank 201, 2 at rank 300
+                return 5 - (rank - 201) * 0.030
+
         # Check projections first to handle two-way players (like Ohtani)
         in_hitter_proj = player.name in HITTER_PROJECTIONS
         in_pitcher_proj = player.name in PITCHER_PROJECTIONS or player.name in RELIEVER_PROJECTIONS
