@@ -7193,7 +7193,7 @@ ELITE_YOUNG_PLAYERS = {
     "Cristopher Sanchez": 1.12,   # 29yo SP, 2nd in 2025 NL Cy Young, elite LHP
     "Hunter Brown": 1.15,         # 27yo SP, 3rd in 2025 AL Cy Young, emerging ace
     # 2025 Award Winners - ROY and MVP contenders
-    "Cal Raleigh": 1.18,          # 28yo C, 2nd in 2025 AL MVP, 60 HR catcher (historic)
+    # Cal Raleigh removed - already has 1.32x in PROVEN_VETERAN_STARS (catcher premium)
     "Nick Kurtz": 1.18,           # 24yo 1B, 2025 AL ROY winner, 36 HR rookie season
     "Drake Baldwin": 1.22,        # 24yo C, 2025 NL ROY winner, catcher scarcity + youth
     "Jacob Wilson": 1.10,         # 24yo SS, 2nd in 2025 AL ROY, .311 AVG
