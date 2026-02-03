@@ -6347,7 +6347,12 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
     def get_asset_categories(asset):
         """Extract category contributions from an asset."""
         name = asset.get('name', '')
-        cats = {'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'K': 0, 'SV': 0}
+        cats = {
+            # Hitter categories
+            'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'AVG': 0, 'OPS': 0,
+            # Pitcher categories
+            'K': 0, 'SV+HLD': 0, 'K/BB': 0, 'L': 0, 'ERA': 0, 'WHIP': 0, 'QS': 0
+        }
 
         if asset.get('type') == 'player':
             # Check hitter projections
@@ -6357,19 +6362,34 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
                 cats['SB'] = proj.get('SB', 0)
                 cats['RBI'] = proj.get('RBI', 0)
                 cats['R'] = proj.get('R', 0)
+                cats['AVG'] = proj.get('AVG', 0)
+                cats['OPS'] = proj.get('OPS', 0)
             # Check pitcher projections
             elif name in PITCHER_PROJECTIONS:
-                cats['K'] = PITCHER_PROJECTIONS[name].get('K', 0)
+                proj = PITCHER_PROJECTIONS[name]
+                cats['K'] = proj.get('K', 0)
+                cats['SV+HLD'] = proj.get('SV', 0) + proj.get('HD', 0)
+                cats['K/BB'] = proj.get('K/BB', 0)
+                cats['L'] = proj.get('L', 0)
+                cats['ERA'] = proj.get('ERA', 0)
+                cats['WHIP'] = proj.get('WHIP', 0)
+                cats['QS'] = proj.get('QS', 0)
             # Check reliever projections
             elif name in RELIEVER_PROJECTIONS:
                 proj = RELIEVER_PROJECTIONS[name]
                 cats['K'] = proj.get('K', 0)
-                cats['SV'] = proj.get('SV', 0) + proj.get('HD', 0)
+                cats['SV+HLD'] = proj.get('SV', 0) + proj.get('HD', 0)
+                cats['K/BB'] = proj.get('K/BB', 0)
+                cats['ERA'] = proj.get('ERA', 0)
+                cats['WHIP'] = proj.get('WHIP', 0)
         return cats
 
     def calc_team_impact(sends, receives):
         """Calculate net category change for a team."""
-        impact = {'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'K': 0, 'SV': 0}
+        impact = {
+            'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'AVG': 0, 'OPS': 0,
+            'K': 0, 'SV+HLD': 0, 'K/BB': 0, 'L': 0, 'ERA': 0, 'WHIP': 0, 'QS': 0
+        }
         for asset in receives:
             cats = get_asset_categories(asset)
             for k, v in cats.items():
@@ -6389,17 +6409,21 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
         needs_filled = []
         needs_hurt = []
         strengths_traded = []
+        strengths_added = []
         reasoning_parts = []
         strategic_value = 0  # Points that justify overpaying
 
         # Check category impact against needs
-        cat_thresholds = {'HR': 10, 'SB': 8, 'RBI': 25, 'R': 25, 'K': 50, 'SV': 5}
+        cat_thresholds = {
+            'HR': 10, 'SB': 8, 'RBI': 25, 'R': 25, 'AVG': 0.02, 'OPS': 0.05,
+            'K': 50, 'SV+HLD': 5, 'K/BB': 0.1, 'L': 2, 'ERA': 0.5, 'WHIP': 0.2, 'QS': 3
+        }
 
         for cat, change in impact.items():
             if abs(change) < cat_thresholds.get(cat, 5):
                 continue  # Ignore small changes
 
-            need_score = cat_scores.get(cat, 0) if cat != 'SV' else cat_scores.get('SV+HLD', 0)
+            need_score = cat_scores.get(cat, 0) if cat != 'SV+HLD' else cat_scores.get('SV+HLD', 0)
 
             if change > 0 and need_score < -0.5:
                 # Gaining in area of need - strategic!
@@ -6415,6 +6439,12 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
                 # Trading from strength - acceptable
                 strengths_traded.append(f"{change:.0f} {cat}")
                 strategic_value += 3
+            elif change > 0 and need_score >= -0.5:
+                # Gaining in an area even if not a critical need - good depth/bonus
+                strengths_added.append(f"+{change:.0f} {cat}")
+                strategic_value += 5  # Small bonus for gaining in any category
+                if need_score >= 0.5:
+                    reasoning_parts.append(f"strengthens {cat}")
 
         # Check age/window alignment
         avg_age_send = 0
@@ -6469,6 +6499,7 @@ def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
             'needs_filled': needs_filled,
             'needs_hurt': needs_hurt,
             'strengths_traded': strengths_traded,
+            'strengths_added': strengths_added,
             'window': window,
             'window_aligned': window_aligned,
             'strategic_value': strategic_value,
