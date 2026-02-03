@@ -3314,10 +3314,35 @@ HTML_CONTENT = '''<!DOCTYPE html>
                             📊 Completed trades graded by current dynasty values
                         </div>
                         ${data.trades.map(trade => {
-                            const verdictColor = trade.verdict === 'Fair Trade' ? '#4ade80' :
-                                                 trade.verdict === 'Slightly Uneven' ? '#ffd700' :
-                                                 trade.verdict === 'Questionable' ? '#ffa500' : '#ff6b6b';
+                            const verdictColors = {
+                                'Fair Trade': '#4ade80',
+                                'Slight Edge': '#ffd700',
+                                'Slightly Uneven': '#ffd700',
+                                'Strategic Overpay': '#60a5fa',
+                                'Questionable': '#ffa500',
+                                'Window Move': '#7c3aed',
+                                'Poor Value': '#fb7185',
+                                'Fleece': '#ef4444',
+                                'Desperation Move': '#e11d48'
+                            };
+                            const verdictColor = verdictColors[trade.verdict] || '#9ca3af';
                             const winnerBadge = trade.winner ? `<span style="color:${verdictColor};font-weight:600;">${trade.winner} +${trade.value_diff}</span>` : '';
+                            const reasoningText = trade.reasoning ? `<div style="font-size:0.78rem;color:#bfc7d6;margin-top:6px;">${trade.reasoning}</div>` : '';
+
+                            const teamAContext = trade.team_a_context || {};
+                            const teamBContext = trade.team_b_context || {};
+
+                            const renderContextLine = (ctx) => {
+                                if (!ctx) return '';
+                                const windowLabel = ctx.window ? `${ctx.window}${ctx.window_aligned ? ' ✅' : ''}` : '—';
+                                const filled = ctx.needs_filled && ctx.needs_filled.length ? ctx.needs_filled.join(', ') : '';
+                                const hurt = ctx.needs_hurt && ctx.needs_hurt.length ? ctx.needs_hurt.join(', ') : '';
+                                let parts = [];
+                                parts.push(`<span style="color:#9ca3af;font-size:0.78rem;">Window: ${windowLabel}</span>`);
+                                if (filled) parts.push(`<span style="background:#062024;border-radius:8px;padding:4px 8px;margin-left:8px;color:#86efac;font-size:0.75rem;">+${filled}</span>`);
+                                if (hurt) parts.push(`<span style="background:#2a0b0b;border-radius:8px;padding:4px 8px;margin-left:8px;color:#ffb4b4;font-size:0.75rem;">-${hurt}</span>`);
+                                return parts.join('');
+                            };
 
                             return `
                                 <div style="background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 12px; padding: 20px; margin-bottom: 15px; border: 1px solid rgba(0, 212, 255, 0.1);">
@@ -3326,11 +3351,13 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                         <div style="display: flex; gap: 10px; align-items: center;">
                                             <span style="background: ${verdictColor}22; color: ${verdictColor}; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">${trade.verdict}</span>
                                             ${winnerBadge}
+                                            ${reasoningText}
                                         </div>
                                     </div>
                                     <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start;">
                                         <div>
-                                            <div style="color: #00d4ff; font-weight: 600; margin-bottom: 10px;">${trade.team_a}</div>
+                                            <div style="color: #00d4ff; font-weight: 600; margin-bottom: 6px;">${trade.team_a}</div>
+                                            <div style="margin-bottom:8px;">${renderContextLine(teamAContext)}</div>
                                             <div style="font-size: 0.85rem; color: #ff6b6b; margin-bottom: 5px;">Sends (${trade.team_a_sends_value} pts):</div>
                                             ${trade.team_a_sends.map(a => `
                                                 <div style="padding: 4px 0; font-size: 0.9rem;">
@@ -3350,7 +3377,8 @@ HTML_CONTENT = '''<!DOCTYPE html>
                                         </div>
                                         <div style="font-size: 2rem; color: #00d4ff; align-self: center;">⇄</div>
                                         <div>
-                                            <div style="color: #00d4ff; font-weight: 600; margin-bottom: 10px;">${trade.team_b}</div>
+                                            <div style="color: #00d4ff; font-weight: 600; margin-bottom: 6px;">${trade.team_b}</div>
+                                            <div style="margin-bottom:8px;">${renderContextLine(teamBContext)}</div>
                                             <div style="font-size: 0.85rem; color: #ff6b6b; margin-bottom: 5px;">Sends (${trade.team_b_sends_value} pts):</div>
                                             ${trade.team_b_sends.map(a => `
                                                 <div style="padding: 4px 0; font-size: 0.9rem;">
@@ -6119,21 +6147,64 @@ def load_trade_history():
             team_b_net = team_b_receives_value - team_b_sends_value
             value_diff = abs(team_a_net)
 
-            if value_diff < AI_GM_CONFIG["fair_trade_threshold"]:
-                verdict = "Fair Trade"
-                winner = None
-            elif value_diff < AI_GM_CONFIG["borderline_threshold"]:
-                verdict = "Slightly Uneven"
-                winner = team_a if team_a_net > 0 else team_b
-            elif value_diff < AI_GM_CONFIG["questionable_threshold"]:
-                verdict = "Questionable"
-                winner = team_a if team_a_net > 0 else team_b
-            elif value_diff < AI_GM_CONFIG["clear_winner_threshold"]:
-                verdict = "Clear Winner"
-                winner = team_a if team_a_net > 0 else team_b
+            # Determine basic winner/loser
+            if team_a_net > 0:
+                winner = team_a
+                loser = team_b
+            elif team_a_net < 0:
+                winner = team_b
+                loser = team_a
             else:
-                verdict = "Lopsided"
-                winner = team_a if team_a_net > 0 else team_b
+                winner = None
+                loser = None
+
+            # Get context-aware verdict
+            try:
+                trade_context = analyze_trade_context(
+                    team_a, team_b,
+                    team_sends.get(team_a, []),
+                    team_sends.get(team_b, [])
+                )
+
+                if winner and loser:
+                    winner_ctx = trade_context['team_a'] if winner == team_a else trade_context['team_b']
+                    loser_ctx = trade_context['team_b'] if winner == team_a else trade_context['team_a']
+
+                    verdict_result = get_context_aware_verdict(
+                        value_diff, winner, loser, winner_ctx, loser_ctx
+                    )
+                    verdict = verdict_result['verdict']
+                    verdict_class = verdict_result['verdict_class']
+                    reasoning = verdict_result['reasoning']
+                    team_a_context = trade_context['team_a']
+                    team_b_context = trade_context['team_b']
+                else:
+                    verdict = "Fair Trade"
+                    verdict_class = "fair"
+                    reasoning = "Values are balanced"
+                    team_a_context = trade_context['team_a']
+                    team_b_context = trade_context['team_b']
+            except Exception as ctx_err:
+                # Fallback to simple verdict if context analysis fails
+                print(f"Context analysis failed: {ctx_err}")
+                if value_diff < AI_GM_CONFIG["fair_trade_threshold"]:
+                    verdict = "Fair Trade"
+                    verdict_class = "fair"
+                elif value_diff < AI_GM_CONFIG["borderline_threshold"]:
+                    verdict = "Slight Edge"
+                    verdict_class = "slight"
+                elif value_diff < AI_GM_CONFIG["questionable_threshold"]:
+                    verdict = "Questionable"
+                    verdict_class = "questionable"
+                elif value_diff < AI_GM_CONFIG["clear_winner_threshold"]:
+                    verdict = "Poor Value"
+                    verdict_class = "poor"
+                else:
+                    verdict = "Fleece"
+                    verdict_class = "fleece"
+                reasoning = f"Value difference: {value_diff:.1f} points"
+                team_a_context = {}
+                team_b_context = {}
 
             # Parse date
             try:
@@ -6157,7 +6228,11 @@ def load_trade_history():
                 'team_b_receives_value': round(team_b_receives_value, 1),
                 'value_diff': round(value_diff, 1),
                 'verdict': verdict,
+                'verdict_class': verdict_class,
+                'reasoning': reasoning,
                 'winner': winner,
+                'team_a_context': team_a_context,
+                'team_b_context': team_b_context,
             })
 
         # Sort by date (most recent first)
@@ -6170,6 +6245,310 @@ def load_trade_history():
         import traceback
         traceback.print_exc()
         return False
+
+
+def analyze_trade_context(team_a, team_b, team_a_sends, team_b_sends):
+    """Analyze trade context to provide nuanced verdicts beyond pure value math.
+
+    Returns context for both teams including:
+    - Category impact (what each team gains/loses)
+    - Needs filled (weaknesses addressed)
+    - Window alignment (does trade fit team strategy)
+    - Reasoning text explaining the trade logic
+    """
+    from dynasty_trade_analyzer_v2 import HITTER_PROJECTIONS, PITCHER_PROJECTIONS, RELIEVER_PROJECTIONS
+
+    # Get team needs (category scores and window)
+    team_a_cats, team_a_pos, team_a_window = calculate_team_needs(team_a)
+    team_b_cats, team_b_pos, team_b_window = calculate_team_needs(team_b)
+
+    def get_asset_categories(asset):
+        """Extract category contributions from an asset."""
+        name = asset.get('name', '')
+        cats = {'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'K': 0, 'SV': 0}
+
+        if asset.get('type') == 'player':
+            # Check hitter projections
+            if name in HITTER_PROJECTIONS:
+                proj = HITTER_PROJECTIONS[name]
+                cats['HR'] = proj.get('HR', 0)
+                cats['SB'] = proj.get('SB', 0)
+                cats['RBI'] = proj.get('RBI', 0)
+                cats['R'] = proj.get('R', 0)
+            # Check pitcher projections
+            elif name in PITCHER_PROJECTIONS:
+                cats['K'] = PITCHER_PROJECTIONS[name].get('K', 0)
+            # Check reliever projections
+            elif name in RELIEVER_PROJECTIONS:
+                proj = RELIEVER_PROJECTIONS[name]
+                cats['K'] = proj.get('K', 0)
+                cats['SV'] = proj.get('SV', 0) + proj.get('HD', 0)
+        return cats
+
+    def calc_team_impact(sends, receives):
+        """Calculate net category change for a team."""
+        impact = {'HR': 0, 'SB': 0, 'RBI': 0, 'R': 0, 'K': 0, 'SV': 0}
+        for asset in receives:
+            cats = get_asset_categories(asset)
+            for k, v in cats.items():
+                impact[k] += v
+        for asset in sends:
+            cats = get_asset_categories(asset)
+            for k, v in cats.items():
+                impact[k] -= v
+        return impact
+
+    # Calculate category impact for both teams
+    team_a_impact = calc_team_impact(team_a_sends, team_b_sends)  # A sends, receives what B sends
+    team_b_impact = calc_team_impact(team_b_sends, team_a_sends)  # B sends, receives what A sends
+
+    def analyze_team_context(team_name, impact, cat_scores, window, sends, receives):
+        """Analyze trade context for one team."""
+        needs_filled = []
+        needs_hurt = []
+        strengths_traded = []
+        reasoning_parts = []
+        strategic_value = 0  # Points that justify overpaying
+
+        # Check category impact against needs
+        cat_thresholds = {'HR': 10, 'SB': 8, 'RBI': 25, 'R': 25, 'K': 50, 'SV': 5}
+
+        for cat, change in impact.items():
+            if abs(change) < cat_thresholds.get(cat, 5):
+                continue  # Ignore small changes
+
+            need_score = cat_scores.get(cat, 0) if cat != 'SV' else cat_scores.get('SV+HLD', 0)
+
+            if change > 0 and need_score < -0.5:
+                # Gaining in area of need - strategic!
+                needs_filled.append(f"+{change:.0f} {cat}")
+                strategic_value += min(15, abs(need_score) * 5)
+                reasoning_parts.append(f"fills {cat} weakness")
+            elif change < 0 and need_score < -0.5:
+                # Losing in area of need - bad
+                needs_hurt.append(f"{change:.0f} {cat}")
+                strategic_value -= 10
+                reasoning_parts.append(f"hurts {cat} (already weak)")
+            elif change < 0 and need_score > 0.5:
+                # Trading from strength - acceptable
+                strengths_traded.append(f"{change:.0f} {cat}")
+                strategic_value += 3
+
+        # Check age/window alignment
+        avg_age_send = 0
+        avg_age_receive = 0
+        send_count = 0
+        receive_count = 0
+
+        for asset in sends:
+            if asset.get('type') == 'player':
+                # Try to get age from player data
+                for team in teams.values():
+                    for p in team.players:
+                        if p.name.lower() == asset.get('name', '').lower() and p.age > 0:
+                            avg_age_send += p.age
+                            send_count += 1
+                            break
+
+        for asset in receives:
+            if asset.get('type') == 'player':
+                for team in teams.values():
+                    for p in team.players:
+                        if p.name.lower() == asset.get('name', '').lower() and p.age > 0:
+                            avg_age_receive += p.age
+                            receive_count += 1
+                            break
+
+        avg_age_send = avg_age_send / send_count if send_count > 0 else 27
+        avg_age_receive = avg_age_receive / receive_count if receive_count > 0 else 27
+        age_diff = avg_age_send - avg_age_receive  # Positive = getting younger
+
+        window_aligned = False
+        window_note = ""
+
+        if window in ['rebuilding', 'rising']:
+            if age_diff > 2:
+                window_aligned = True
+                window_note = "gets younger assets"
+                strategic_value += 8
+            elif age_diff < -2:
+                window_note = "getting older (misaligned with rebuild)"
+                strategic_value -= 8
+        elif window in ['win-now', 'contender']:
+            if avg_age_receive <= 31 and avg_age_receive >= 26:
+                window_aligned = True
+                window_note = "acquires prime-age talent"
+                strategic_value += 5
+
+        if window_note:
+            reasoning_parts.append(window_note)
+
+        return {
+            'needs_filled': needs_filled,
+            'needs_hurt': needs_hurt,
+            'strengths_traded': strengths_traded,
+            'window': window,
+            'window_aligned': window_aligned,
+            'strategic_value': strategic_value,
+            'reasoning': reasoning_parts,
+            'category_impact': impact,
+        }
+
+    team_a_context = analyze_team_context(team_a, team_a_impact, team_a_cats, team_a_window, team_a_sends, team_b_sends)
+    team_b_context = analyze_team_context(team_b, team_b_impact, team_b_cats, team_b_window, team_b_sends, team_a_sends)
+
+    # Helper: resolve asset dicts to lightweight player-like objects expected by score_trade_fit
+    class _PseudoPlayer:
+        def __init__(self, name):
+            self.name = name
+            self.age = 0
+            self.position = ''
+            self.is_prospect = False
+            self.prospect_rank = None
+
+    def resolve_assets_to_players(assets):
+        players = []
+        for a in assets:
+            if a.get('type') != 'player':
+                continue
+            name = a.get('name', '')
+            found = None
+            for t in teams.values():
+                for p in t.players:
+                    if p.name.lower() == name.lower():
+                        found = p
+                        break
+                if found:
+                    break
+            if found:
+                players.append(found)
+            else:
+                # Fallback pseudo-player with minimal attributes
+                pp = _PseudoPlayer(name)
+                # try to parse age from asset if present
+                if isinstance(a.get('age'), (int, float)):
+                    pp.age = int(a.get('age'))
+                players.append(pp)
+        return players
+
+    # Compute value diff for use in score_trade_fit
+    team_a_sends_value = sum(a.get('value', 0) for a in team_a_sends)
+    team_a_receives_value = sum(a.get('value', 0) for a in team_b_sends)
+    team_a_net = team_a_receives_value - team_a_sends_value
+    value_diff = abs(team_a_net)
+
+    # Resolve players
+    a_sends_players = resolve_assets_to_players(team_a_sends)
+    a_receives_players = resolve_assets_to_players(team_b_sends)
+    b_sends_players = resolve_assets_to_players(team_b_sends)
+    b_receives_players = resolve_assets_to_players(team_a_sends)
+
+    try:
+        a_fit_score, a_fit_reasons = score_trade_fit(team_a, team_b, a_sends_players, a_receives_players, value_diff)
+    except Exception:
+        a_fit_score, a_fit_reasons = (50, [])
+    try:
+        b_fit_score, b_fit_reasons = score_trade_fit(team_b, team_a, b_sends_players, b_receives_players, value_diff)
+    except Exception:
+        b_fit_score, b_fit_reasons = (50, [])
+
+    # Attach fit results to contexts and modestly shift strategic_value
+    team_a_context['fit_score'] = round(a_fit_score, 1)
+    team_a_context['fit_reasons'] = a_fit_reasons
+    team_a_context['strategic_value'] = team_a_context.get('strategic_value', 0) + max(0, (a_fit_score - 50) / 3)
+
+    team_b_context['fit_score'] = round(b_fit_score, 1)
+    team_b_context['fit_reasons'] = b_fit_reasons
+    team_b_context['strategic_value'] = team_b_context.get('strategic_value', 0) + max(0, (b_fit_score - 50) / 3)
+
+    return {
+        'team_a': team_a_context,
+        'team_b': team_b_context,
+    }
+
+
+def get_context_aware_verdict(value_diff, winner, loser, winner_context, loser_context):
+    """Determine verdict using both value math and strategic context.
+
+    New verdict categories:
+    - Fair Trade: < 5 point diff
+    - Slight Edge: 5-10 point diff
+    - Strategic Overpay: 10-25 point diff BUT fills major needs
+    - Questionable: 10-20 point diff with no strategic justification
+    - Window Move: Aligned with team strategy despite value loss
+    - Poor Value: 20-30 point diff, no justification
+    - Fleece: 30+ point diff
+    """
+    fair = AI_GM_CONFIG["fair_trade_threshold"]  # 5
+    borderline = AI_GM_CONFIG["borderline_threshold"]  # 10
+    questionable = AI_GM_CONFIG["questionable_threshold"]  # 20
+    clear_winner = AI_GM_CONFIG["clear_winner_threshold"]  # 30
+
+    # Get strategic value for the "losing" team
+    loser_strategic = loser_context.get('strategic_value', 0)
+    loser_needs_filled = loser_context.get('needs_filled', [])
+    loser_window_aligned = loser_context.get('window_aligned', False)
+
+    # Build reasoning
+    reasoning_parts = []
+
+    if value_diff < fair:
+        verdict = "Fair Trade"
+        verdict_class = "fair"
+        reasoning_parts.append("Values are balanced")
+    elif value_diff < borderline:
+        verdict = "Slight Edge"
+        verdict_class = "slight"
+        reasoning_parts.append(f"{winner} has minor advantage")
+    elif value_diff < questionable:
+        # Check if loser has strategic justification
+        if loser_strategic >= 10 or len(loser_needs_filled) >= 2:
+            verdict = "Strategic Overpay"
+            verdict_class = "strategic"
+            reasoning_parts.append(f"{loser} overpaid but filled needs")
+        elif loser_window_aligned:
+            verdict = "Window Move"
+            verdict_class = "window"
+            reasoning_parts.append(f"{loser} aligned trade with team window")
+        else:
+            verdict = "Questionable"
+            verdict_class = "questionable"
+            reasoning_parts.append(f"{loser} gave up too much")
+    elif value_diff < clear_winner:
+        if loser_strategic >= 15 or len(loser_needs_filled) >= 3:
+            verdict = "Strategic Overpay"
+            verdict_class = "strategic"
+            reasoning_parts.append(f"{loser} significantly overpaid but addressed multiple needs")
+        elif loser_window_aligned and loser_strategic >= 5:
+            verdict = "Window Move"
+            verdict_class = "window"
+            reasoning_parts.append(f"{loser} sacrificed value for window alignment")
+        else:
+            verdict = "Poor Value"
+            verdict_class = "poor"
+            reasoning_parts.append(f"{loser} got poor return")
+    else:
+        if loser_strategic >= 20:
+            verdict = "Desperation Move"
+            verdict_class = "desperation"
+            reasoning_parts.append(f"{loser} massively overpaid to fill critical needs")
+        else:
+            verdict = "Fleece"
+            verdict_class = "fleece"
+            reasoning_parts.append(f"{winner} dominated this trade")
+
+    # Add context details to reasoning
+    if loser_needs_filled:
+        reasoning_parts.append(f"{loser}: {', '.join(loser_needs_filled)}")
+    if loser_context.get('needs_hurt'):
+        reasoning_parts.append(f"⚠️ {loser} hurt: {', '.join(loser_context['needs_hurt'])}")
+
+    return {
+        'verdict': verdict,
+        'verdict_class': verdict_class,
+        'reasoning': ' | '.join(reasoning_parts),
+        'loser_strategic_value': loser_strategic,
+    }
 
 
 def _calculate_pick_value_from_string(pick_string):
