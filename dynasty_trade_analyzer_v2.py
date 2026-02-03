@@ -7230,6 +7230,7 @@ PROVEN_VETERAN_STARS = {
     "Jose Ramirez": 1.15,       # 33yo, 5.8 WAR, 30 HR/44 SB elite power-speed
     "Corey Seager": 1.16,       # 32yo, elite SS, World Series MVP
     "Bryce Harper": 1.18,       # 33yo, former MVP, still elite production
+    "Mookie Betts": 1.18,       # 33yo, former MVP, .822 OPS projection, SS eligibility
     "Trea Turner": 1.30,        # 33yo, elite SS, 2025 NL batting title (.304)
     "Freddie Freeman": 1.58,    # 36yo, still elite .869 OPS in 2025
 }
