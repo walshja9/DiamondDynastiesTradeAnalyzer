@@ -7490,10 +7490,10 @@ def find_trades_for_player():
             other_players = [(p, calc_player_value(p)) for p in other_team.players]
             other_players.sort(key=lambda x: x[1], reverse=True)
 
-            # 1-for-1 trades
+            # 1-for-1 trades (tighter tolerance: don't lose more than 10 pts)
             for op, ov in other_players[:20]:
                 value_diff = ov - player_value
-                if -25 <= value_diff <= 25:
+                if -10 <= value_diff <= 15:
                     send_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
                     receive_list = [{'name': op.name, 'position': op.position, 'value': round(ov, 1)}]
                     fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, other_team_name, their_window)
@@ -7568,7 +7568,7 @@ def find_trades_for_player():
             if is_elite_target and mv < AI_GM_CONFIG["elite_superstar_threshold"]:
                 continue  # Skip 1-for-1 for elite targets unless sending elite back
 
-            if -25 <= value_diff <= 25:
+            if -10 <= value_diff <= 15:  # Tighter tolerance: don't overpay by more than 10
                 send_list = [{'name': mp.name, 'position': mp.position, 'value': round(mv, 1)}]
                 receive_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
                 fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, target_team_name, their_window)
@@ -7753,8 +7753,25 @@ def find_trades_for_player():
             pkg['likelihood'] = 50
             pkg['likelihood_label'] = 'Medium'
 
-    # Re-sort by likelihood, then fit score
-    unique_packages.sort(key=lambda x: (x.get('likelihood', 50), x['fit_score']), reverse=True)
+    # Re-sort by composite score: balance value, likelihood, and fit
+    # Penalize trades that are too one-sided (either direction)
+    def trade_score(pkg):
+        vd = pkg['value_diff']
+        likelihood = pkg.get('likelihood', 50)
+        fit = pkg['fit_score']
+
+        # Value score: best around 0 to +5, penalize extremes
+        if -5 <= vd <= 10:
+            value_score = 100  # Sweet spot - fair or slightly favorable
+        elif vd > 10:
+            value_score = 80 - (vd - 10) * 2  # Getting too much, unlikely to accept
+        else:
+            value_score = 80 + vd * 3  # Losing value, penalize more
+
+        # Combine: 40% value, 35% likelihood, 25% fit
+        return value_score * 0.40 + likelihood * 0.35 + fit * 0.25
+
+    unique_packages.sort(key=trade_score, reverse=True)
 
     # Determine if target is elite (for UI display)
     target_is_elite = player_value >= AI_GM_CONFIG["elite_superstar_threshold"] if direction == 'receive' else False
