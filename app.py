@@ -8,6 +8,15 @@ import json
 from flask import Flask, request, jsonify, Response
 from itertools import combinations
 from dotenv import load_dotenv
+import unicodedata
+
+
+def strip_accents(name):
+    """Remove accents from player name while preserving case."""
+    normalized = unicodedata.normalize('NFD', name)
+    ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    return ascii_name.strip()
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -100,6 +109,37 @@ def calculate_prospect_value(rank):
 # ============================================================================
 
 FANTRAX_LEAGUE_ID = os.environ.get("FANTRAX_LEAGUE_ID", "3iibc548mhhszwor")
+
+# ===== AI GM CONFIGURATION =====
+# Centralized configuration for AI GM trade analysis and decision-making
+AI_GM_CONFIG = {
+    # Trade fairness thresholds (tightened from original 15/25)
+    "fair_trade_threshold": 5,         # Points: trades within this are "Fair Trade"
+    "borderline_threshold": 10,        # Points: trades within this are "Slightly Uneven"
+    "questionable_threshold": 20,      # Points: trades within this are "Questionable"
+    "clear_winner_threshold": 30,      # Points: trades within this are "Clear Winner"
+
+    # Value tier thresholds for elite player handling
+    "elite_superstar_threshold": 110,  # 110+ = Elite Superstar (Witt Jr., Ohtani)
+    "superstar_threshold": 85,         # 85-109 = Superstar (Soto, Skenes)
+    "star_threshold": 63,              # 63-84 = Star (premium trade pieces)
+    "solid_threshold": 45,             # 45-62 = Solid starter
+    "role_player_threshold": 30,       # 30-44 = Role player/Upside
+
+    # Philosophy-based adjustments
+    "prospect_premium_rebuilding": 1.12,   # Rebuilding teams value prospects 12% more
+    "veteran_premium_contending": 1.15,    # Contending teams value proven vets 15% more
+    "philosophy_weight": 0.15,             # How much philosophy affects decisions
+
+    # Package deal requirements
+    "min_package_value_ratio": 0.90,       # Package must reach 90% of target value
+    "elite_package_min_pieces": 2,         # Elite players require minimum 2-piece packages
+
+    # Fit scoring weights
+    "category_need_weight": 2.0,           # Weight for filling category needs
+    "positional_depth_weight": 1.0,        # Weight for positional balance
+    "age_window_weight": 1.5,              # Weight for age/window alignment
+}
 
 # Team rivalries - bidirectional matchups for enhanced analysis
 TEAM_RIVALRIES = {
@@ -856,6 +896,9 @@ NAME_ALIASES = {
     "Yordan Alvarez": "Yordan Alvarez",
     "Luis Robert Jr.": "Luis Robert Jr.",
     "Julio Rodriguez": "Julio Rodríguez",
+    # Pitcher name variants
+    "J.P. Sears": "JP Sears",
+    "Nestor Cortes Jr.": "Nestor Cortes",
 }
 
 # Prospect name aliases: Fantrax name -> Prospect ranking name
@@ -1006,6 +1049,7 @@ calculator = DynastyValueCalculator()
 league_standings = []
 league_matchups = []
 league_transactions = []
+completed_trades = []  # Parsed and graded trade history from CSV
 
 # Player stats (actual in-season stats)
 player_actual_stats = {}  # player_name -> {stats dict}
@@ -1219,6 +1263,50 @@ HTML_CONTENT = '''<!DOCTYPE html>
         .badge-success { background: rgba(74, 222, 128, 0.15); color: var(--color-success); }
         .badge-danger { background: rgba(248, 113, 113, 0.15); color: var(--color-danger); }
         .badge-warning { background: rgba(251, 191, 36, 0.15); color: var(--color-warning); }
+
+        /* ===== ACCESSIBILITY IMPROVEMENTS ===== */
+        /* Focus indicators for keyboard navigation */
+        :focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+        button:focus-visible, .tab:focus-visible, .player-card:focus-visible,
+        .suggestion-card:focus-visible, .team-card:focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+            box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), 0.25);
+        }
+        input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 0;
+            border-color: var(--color-primary);
+        }
+        /* Skip to main content link (hidden until focused) */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--color-primary);
+            color: #000;
+            padding: 8px 16px;
+            z-index: 100;
+            transition: top 0.3s;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+        /* Ensure sufficient color contrast */
+        .text-high-contrast { color: #fff; }
+        .text-medium-contrast { color: #ccc; }
+        /* Reduce motion for users who prefer it */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
@@ -1416,9 +1504,44 @@ HTML_CONTENT = '''<!DOCTYPE html>
             /* Search results */
             .search-results { max-height: 250px; }
 
-            /* Tables */
+            /* Tables - horizontal scroll with smooth touch scrolling */
             table { font-size: 0.85rem; }
             th, td { padding: 8px 10px; }
+
+            /* Scrollable table wrapper for mobile */
+            .table-scroll-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -10px;
+                padding: 0 10px;
+            }
+            .table-scroll-wrapper table {
+                min-width: 600px;
+            }
+            /* Pin first column (player name) on scroll */
+            .table-scroll-wrapper th:first-child,
+            .table-scroll-wrapper td:first-child {
+                position: sticky;
+                left: 0;
+                background: var(--bg-card);
+                z-index: 1;
+            }
+            /* Scroll indicator shadow */
+            .table-scroll-wrapper::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                width: 20px;
+                background: linear-gradient(to left, rgba(0,0,0,0.3), transparent);
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+            .table-scroll-wrapper.has-scroll::after {
+                opacity: 1;
+            }
 
             /* Dynasty value display */
             .dynasty-value { font-size: 2.5rem; }
@@ -1502,36 +1625,57 @@ HTML_CONTENT = '''<!DOCTYPE html>
             }
         }
 
-        /* Touch-friendly buttons */
+        /* Touch-friendly enhancements */
         @media (hover: none) and (pointer: coarse) {
-            .tab, button, .player-card, .suggestion-card {
+            .tab, button, .player-card, .suggestion-card, .team-card, .search-result-item {
                 min-height: 44px;
+                -webkit-tap-highlight-color: rgba(0, 212, 255, 0.2);
             }
             input, select {
                 min-height: 44px;
                 font-size: 16px; /* Prevents iOS zoom on focus */
             }
+            /* Active state feedback for touch - instant visual response */
+            .tab:active, button:active, .player-card:active, .suggestion-card:active,
+            .team-card:active, .search-result-item:active {
+                transform: scale(0.97);
+                opacity: 0.85;
+                transition: transform 0.1s ease, opacity 0.1s ease;
+            }
+            /* Ensure clickable items have pointer cursor */
+            [onclick], .player-link, .modal-close, .remove {
+                cursor: pointer;
+                -webkit-tap-highlight-color: rgba(0, 212, 255, 0.2);
+            }
+        }
+
+        /* Universal touch/click feedback for all interactive elements */
+        .tab:active, button:active {
+            transform: scale(0.98);
         }
     </style>
 </head>
 <body>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     <div class="container">
-        <header>
+        <header role="banner">
             <h1>Diamond Dynasties Trade Analyzer</h1>
             <p>Dynasty Fantasy Baseball Trade Analysis Tool</p>
         </header>
 
-        <div class="tabs">
-            <button class="tab active" onclick="showPanel('analyze')">Analyze Trade</button>
-            <button class="tab" onclick="showPanel('teams')">Teams</button>
-            <button class="tab" onclick="showPanel('topplayers')">Top 50</button>
-            <button class="tab" onclick="showPanel('toppitchers')">Top Pitchers</button>
-            <button class="tab" onclick="showPanel('tophitters')">Top Hitters</button>
-            <button class="tab" onclick="showPanel('prospects')">Top Prospects</button>
-            <button class="tab" onclick="showPanel('suggest')">Trade Suggestions</button>
-            <button class="tab" onclick="showPanel('freeagents')">Free Agents</button>
-            <button class="tab" onclick="showPanel('search')">Player Search</button>
-            <button class="tab" onclick="showPanel('league')">League</button>
+        <nav class="tabs" role="tablist" aria-label="Main navigation">
+            <button class="tab active" role="tab" aria-selected="true" aria-controls="analyze-panel" onclick="showPanel('analyze')">Analyze Trade</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="teams-panel" onclick="showPanel('teams')">Teams</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="topplayers-panel" onclick="showPanel('topplayers')">Top 50</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="toppitchers-panel" onclick="showPanel('toppitchers')">Top Pitchers</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="tophitters-panel" onclick="showPanel('tophitters')">Top Hitters</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="prospects-panel" onclick="showPanel('prospects')">Top Prospects</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="suggest-panel" onclick="showPanel('suggest')">Trade Suggestions</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="freeagents-panel" onclick="showPanel('freeagents')">Free Agents</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="search-panel" onclick="showPanel('search')">Player Search</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="league-panel" onclick="showPanel('league')">League</button>
             <button class="tab" onclick="showPanel('gmchat')" id="gmchat-tab" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">GM Chat</button>
         </div>
 
@@ -1789,10 +1933,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 <button class="tab active" onclick="showLeagueTab('standings')">Standings</button>
                 <button class="tab" onclick="showLeagueTab('matchups')">Matchups</button>
                 <button class="tab" onclick="showLeagueTab('transactions')">Transactions</button>
+                <button class="tab" onclick="showLeagueTab('tradehistory')" style="background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: white;">Trade History</button>
             </div>
             <div id="league-standings" class="league-tab active"></div>
             <div id="league-matchups" class="league-tab" style="display:none;"></div>
             <div id="league-transactions" class="league-tab" style="display:none;"></div>
+            <div id="league-tradehistory" class="league-tab" style="display:none;"></div>
         </div>
 
         <div id="gmchat-panel" class="panel">
@@ -2307,9 +2453,15 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
         function showPanel(panel) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tabs .tab').forEach(t => {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
+            });
             document.getElementById(`${panel}-panel`).classList.add('active');
-            if (event && event.target) event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+                event.target.setAttribute('aria-selected', 'true');
+            }
 
             if (panel === 'league') loadLeagueData();
             if (panel === 'freeagents') loadFASuggestions();
@@ -3052,6 +3204,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
             document.querySelectorAll('#league-panel .tabs .tab').forEach(t => t.classList.remove('active'));
             document.getElementById(`league-${tab}`).style.display = 'block';
             event.target.classList.add('active');
+
+            // Load trade history on first view
+            if (tab === 'tradehistory') {
+                loadTradeHistory();
+            }
         }
 
         async function loadStandings() {
@@ -3109,6 +3266,88 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 }
             } catch (e) {
                 container.innerHTML = '<div style="color:#888;text-align:center;">Failed to load transactions.</div>';
+            }
+        }
+
+        async function loadTradeHistory() {
+            const container = document.getElementById('league-tradehistory');
+            container.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">Loading trade history...</div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/trade-history`);
+                const data = await res.json();
+
+                if (data.trades && data.trades.length > 0) {
+                    container.innerHTML = `
+                        <div style="margin-bottom: 20px; color: #888; font-size: 0.9rem;">
+                            📊 Completed trades graded by current dynasty values
+                        </div>
+                        ${data.trades.map(trade => {
+                            const verdictColor = trade.verdict === 'Fair Trade' ? '#4ade80' :
+                                                 trade.verdict === 'Slightly Uneven' ? '#ffd700' :
+                                                 trade.verdict === 'Questionable' ? '#ffa500' : '#ff6b6b';
+                            const winnerBadge = trade.winner ? `<span style="color:${verdictColor};font-weight:600;">${trade.winner} +${trade.value_diff}</span>` : '';
+
+                            return `
+                                <div style="background: linear-gradient(145deg, #0a0a10, #0e0e16); border-radius: 12px; padding: 20px; margin-bottom: 15px; border: 1px solid rgba(0, 212, 255, 0.1);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                        <div style="color: #888; font-size: 0.85rem;">${trade.date_parsed}</div>
+                                        <div style="display: flex; gap: 10px; align-items: center;">
+                                            <span style="background: ${verdictColor}22; color: ${verdictColor}; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">${trade.verdict}</span>
+                                            ${winnerBadge}
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start;">
+                                        <div>
+                                            <div style="color: #00d4ff; font-weight: 600; margin-bottom: 10px;">${trade.team_a}</div>
+                                            <div style="font-size: 0.85rem; color: #ff6b6b; margin-bottom: 5px;">Sends (${trade.team_a_sends_value} pts):</div>
+                                            ${trade.team_a_sends.map(a => `
+                                                <div style="padding: 4px 0; font-size: 0.9rem;">
+                                                    ${a.type === 'pick' ? '🎯' : a.type === 'budget' ? '💰' : '👤'}
+                                                    ${a.name}
+                                                    <span style="color: #888; font-size: 0.8rem;">(${a.value.toFixed(1)})</span>
+                                                </div>
+                                            `).join('')}
+                                            <div style="font-size: 0.85rem; color: #4ade80; margin-top: 10px; margin-bottom: 5px;">Receives (${trade.team_a_receives_value} pts):</div>
+                                            ${trade.team_a_receives.map(a => `
+                                                <div style="padding: 4px 0; font-size: 0.9rem;">
+                                                    ${a.type === 'pick' ? '🎯' : a.type === 'budget' ? '💰' : '👤'}
+                                                    ${a.name}
+                                                    <span style="color: #888; font-size: 0.8rem;">(${a.value.toFixed(1)})</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                        <div style="font-size: 2rem; color: #00d4ff; align-self: center;">⇄</div>
+                                        <div>
+                                            <div style="color: #00d4ff; font-weight: 600; margin-bottom: 10px;">${trade.team_b}</div>
+                                            <div style="font-size: 0.85rem; color: #ff6b6b; margin-bottom: 5px;">Sends (${trade.team_b_sends_value} pts):</div>
+                                            ${trade.team_b_sends.map(a => `
+                                                <div style="padding: 4px 0; font-size: 0.9rem;">
+                                                    ${a.type === 'pick' ? '🎯' : a.type === 'budget' ? '💰' : '👤'}
+                                                    ${a.name}
+                                                    <span style="color: #888; font-size: 0.8rem;">(${a.value.toFixed(1)})</span>
+                                                </div>
+                                            `).join('')}
+                                            <div style="font-size: 0.85rem; color: #4ade80; margin-top: 10px; margin-bottom: 5px;">Receives (${trade.team_b_receives_value} pts):</div>
+                                            ${trade.team_b_receives.map(a => `
+                                                <div style="padding: 4px 0; font-size: 0.9rem;">
+                                                    ${a.type === 'pick' ? '🎯' : a.type === 'budget' ? '💰' : '👤'}
+                                                    ${a.name}
+                                                    <span style="color: #888; font-size: 0.8rem;">(${a.value.toFixed(1)})</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    `;
+                } else {
+                    container.innerHTML = '<div style="color:#888;text-align:center;padding:40px;">No completed trades found. Make sure the trade history CSV is in the app folder.</div>';
+                }
+            } catch (e) {
+                console.error('Failed to load trade history:', e);
+                container.innerHTML = '<div style="color:#ff6b6b;text-align:center;padding:40px;">Failed to load trade history. Check console for details.</div>';
             }
         }
 
@@ -3329,6 +3568,12 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 results.innerHTML = `
                     <div class="result-card">
                         <div class="verdict ${verdictClass}">${data.verdict}</div>
+                        ${data.elite_warning ? `
+                            <div style="background: linear-gradient(135deg, #3d1a1a, #4d2020); border: 1px solid #ff6b6b; border-radius: 10px; padding: 14px 18px; margin: 15px 0; display: flex; align-items: center; gap: 12px;">
+                                <span style="font-size: 1.5rem;">⚠️</span>
+                                <div style="color: #ffaaaa; font-size: 0.9rem; line-height: 1.5;">${data.elite_warning.replace('⚠️ ', '')}</div>
+                            </div>
+                        ` : ''}
                         <div class="value-comparison">
                             <div class="value-box">
                                 <h4>${teamA}</h4>
@@ -3686,10 +3931,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         ${players.map((p, i) => {
                             const val = parseFloat(p.value);
                             let tierClass = 'tier-depth'; let tierLabel = 'D';
-                            if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
-                            else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'E'; }
-                            else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'S'; }
-                            else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'B'; }
+                            if (val >= 110) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
+                            else if (val >= 85) { tierClass = 'tier-elite'; tierLabel = 'E'; }
+                            else if (val >= 63) { tierClass = 'tier-star'; tierLabel = 'S'; }
+                            else if (val >= 45) { tierClass = 'tier-solid'; tierLabel = 'B'; }
                             return `
                             <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}'); event.stopPropagation();" style="cursor: pointer;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -3834,10 +4079,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                 let tierClass = 'tier-depth';
                 let tierLabel = 'Depth';
                 const val = parseFloat(data.dynasty_value);
-                if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
-                else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
-                else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'Star'; }
-                else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
+                if (val >= 110) { tierClass = 'tier-superstar'; tierLabel = 'Elite Superstar'; }
+                else if (val >= 85) { tierClass = 'tier-elite'; tierLabel = 'Superstar'; }
+                else if (val >= 63) { tierClass = 'tier-star'; tierLabel = 'Star'; }
+                else if (val >= 45) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
 
                 content.innerHTML = `
                     <div class="player-header">
@@ -4011,10 +4256,11 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
             // Helper to get tier info
             function getTier(val) {
-                if (val >= 100) return { class: 'tier-superstar', label: 'Superstar' };
-                if (val >= 80) return { class: 'tier-elite', label: 'Elite' };
-                if (val >= 60) return { class: 'tier-star', label: 'Star' };
-                if (val >= 40) return { class: 'tier-solid', label: 'Solid' };
+                if (val >= 110) return { class: 'tier-superstar', label: 'Elite Superstar' };
+                if (val >= 85) return { class: 'tier-elite', label: 'Superstar' };
+                if (val >= 63) return { class: 'tier-star', label: 'Star' };
+                if (val >= 45) return { class: 'tier-solid', label: 'Solid' };
+                if (val >= 30) return { class: 'tier-role', label: 'Role Player' };
                 return { class: 'tier-depth', label: 'Depth' };
             }
 
@@ -4166,10 +4412,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                         const val = p.value;
                         let tierClass = 'tier-depth';
                         let tierLabel = 'Depth';
-                        if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'Superstar'; }
-                        else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'Elite'; }
-                        else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'Star'; }
-                        else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
+                        if (val >= 110) { tierClass = 'tier-superstar'; tierLabel = 'Elite Superstar'; }
+                        else if (val >= 85) { tierClass = 'tier-elite'; tierLabel = 'Superstar'; }
+                        else if (val >= 63) { tierClass = 'tier-star'; tierLabel = 'Star'; }
+                        else if (val >= 45) { tierClass = 'tier-solid'; tierLabel = 'Solid'; }
                         return `
                         <div class="player-card" onclick="showPlayerModal('${p.name.replace(/'/g, "\\'")}')">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -4484,10 +4730,10 @@ HTML_CONTENT = '''<!DOCTYPE html>
                     const fitColor = fa.fit_score >= 90 ? '#4ade80' : (fa.fit_score >= 75 ? '#ffd700' : (fa.fit_score >= 60 ? '#60a5fa' : '#888'));
                     const val = parseFloat(fa.dynasty_value);
                     let tierClass = 'tier-depth'; let tierLabel = 'D';
-                    if (val >= 100) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
-                    else if (val >= 80) { tierClass = 'tier-elite'; tierLabel = 'E'; }
-                    else if (val >= 60) { tierClass = 'tier-star'; tierLabel = 'S'; }
-                    else if (val >= 40) { tierClass = 'tier-solid'; tierLabel = 'B'; }
+                    if (val >= 110) { tierClass = 'tier-superstar'; tierLabel = 'S+'; }
+                    else if (val >= 85) { tierClass = 'tier-elite'; tierLabel = 'E'; }
+                    else if (val >= 63) { tierClass = 'tier-star'; tierLabel = 'S'; }
+                    else if (val >= 45) { tierClass = 'tier-solid'; tierLabel = 'B'; }
                     const reasonsHtml = fa.reasons && fa.reasons.length > 0
                         ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
                             ${fa.reasons.map(r => `<span style="background: rgba(74, 222, 128, 0.15); color: #4ade80; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem;">${r}</span>`).join('')}
@@ -4777,17 +5023,32 @@ HTML_CONTENT = '''<!DOCTYPE html>
 
                 let html = '<div style="margin-bottom: 15px; color: #ffd700;">';
                 html += data.packages.length + ' packages found for ' + playerName + ' (' + data.player_value + ' pts)</div>';
+
+                // Show elite player warning if applicable
+                if (data.elite_message) {
+                    html += '<div style="background: linear-gradient(135deg, #3d1a1a, #4d2020); border: 1px solid #ff6b6b; border-radius: 10px; padding: 14px 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 12px;">';
+                    html += '<span style="font-size: 1.5rem;">⚠️</span>';
+                    html += '<div style="color: #ffaaaa; font-size: 0.85rem; line-height: 1.5;">' + data.elite_message.replace('⚠️ ', '') + '</div>';
+                    html += '</div>';
+                }
+
                 html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
 
                 data.packages.forEach((pkg, idx) => {
-                    const diffColor = Math.abs(pkg.value_diff) <= 5 ? '#4ade80' : (Math.abs(pkg.value_diff) <= 15 ? '#ffd700' : '#f87171');
+                    const diffColor = Math.abs(pkg.value_diff) <= 5 ? '#4ade80' : (Math.abs(pkg.value_diff) <= 10 ? '#ffd700' : '#f87171');
                     const diffText = pkg.value_diff >= 0 ? '+' + pkg.value_diff.toFixed(1) : pkg.value_diff.toFixed(1);
                     const fitColor = pkg.fit_score >= 75 ? '#4ade80' : (pkg.fit_score >= 50 ? '#ffd700' : '#f87171');
+                    const likelihoodColor = pkg.likelihood >= 65 ? '#4ade80' : (pkg.likelihood >= 45 ? '#ffd700' : '#f87171');
+                    const likelihoodBg = pkg.likelihood >= 65 ? 'rgba(74,222,128,0.15)' : (pkg.likelihood >= 45 ? 'rgba(255,215,0,0.15)' : 'rgba(248,113,113,0.15)');
 
                     html += '<div style="background: linear-gradient(135deg, #0a0a10, #0e0e16); border-radius: 10px; padding: 15px; border: 1px solid rgba(0, 212, 255, 0.1);">';
                     html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">';
+                    html += '<div style="display: flex; align-items: center; gap: 10px;">';
                     html += '<span style="color: #00d4ff; font-weight: 600;">' + pkg.other_team + '</span>';
+                    html += '<span style="background: ' + likelihoodBg + '; color: ' + likelihoodColor + '; padding: 3px 10px; border-radius: 10px; font-size: 0.7rem; font-weight: 600;">' + (pkg.likelihood || 50) + '% likely</span>';
+                    html += '</div>';
                     html += '<div style="display: flex; gap: 8px; align-items: center;">';
+                    if (pkg.trade_type) html += '<span style="background: rgba(102,126,234,0.15); color: #667eea; padding: 3px 8px; border-radius: 10px; font-size: 0.7rem;">' + pkg.trade_type + '</span>';
                     html += '<span style="background: rgba(255,215,0,0.15); color: ' + fitColor + '; padding: 3px 8px; border-radius: 10px; font-size: 0.75rem;">' + Math.round(pkg.fit_score) + ' fit</span>';
                     html += '<span style="color: ' + diffColor + '; font-weight: 600;">' + diffText + ' pts</span>';
                     html += '</div></div>';
@@ -5097,7 +5358,7 @@ def load_ages_from_fantrax_csv():
                 with open(csv_file, 'r', encoding='utf-8-sig') as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        name = row.get('Name', '').strip()
+                        name = strip_accents(row.get('Name', '').strip())
                         age_str = row.get('Age', '')
                         # Add if missing OR if existing age is 0
                         if name and age_str and age_str.isdigit():
@@ -5121,11 +5382,12 @@ def load_projection_csvs():
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    def avg_val(v1, v2):
-        """Average two values, handling None/0 cases."""
-        if v1 and v2:
-            return (v1 + v2) / 2
-        return v1 or v2 or 0
+    def avg_val(v1, v2, v3=None):
+        """Average two or three values, handling None/0 cases."""
+        values = [v for v in [v1, v2, v3] if v is not None and v != 0]
+        if values:
+            return sum(values) / len(values)
+        return 0
 
     def load_fangraphs_hitters(csv_file):
         """Load hitter projections from a FanGraphs CSV."""
@@ -5135,6 +5397,7 @@ def load_projection_csvs():
                 reader = csv.DictReader(f)
                 for row in reader:
                     name = row.get('Name', '').strip().strip('"')
+                    name = strip_accents(name)  # Remove accents
                     if not name:
                         continue
                     try:
@@ -5168,6 +5431,7 @@ def load_projection_csvs():
                 reader = csv.DictReader(f)
                 for row in reader:
                     name = row.get('Name', '').strip().strip('"')
+                    name = strip_accents(name)  # Remove accents
                     if not name:
                         continue
                     try:
@@ -5205,39 +5469,45 @@ def load_projection_csvs():
     hitter_count = 0
     pitcher_count = 0
 
-    # Load and average hitter projections
+    # Load and average hitter projections (3-way blend: hardcoded + ZiPS + Steamer)
     if os.path.exists(zips_hitters) or os.path.exists(steamer_hitters):
+        # Save original hardcoded projections before blending
+        hardcoded_hitters = dict(HITTER_PROJECTIONS)
+
         zips_h = load_fangraphs_hitters(zips_hitters) if os.path.exists(zips_hitters) else {}
         steamer_h = load_fangraphs_hitters(steamer_hitters) if os.path.exists(steamer_hitters) else {}
 
-        all_hitters = set(zips_h.keys()) | set(steamer_h.keys())
+        # Include all players from all three sources
+        all_hitters = set(zips_h.keys()) | set(steamer_h.keys()) | set(hardcoded_hitters.keys())
         for name in all_hitters:
             z = zips_h.get(name, {})
             s = steamer_h.get(name, {})
-            if z or s:
-                ab = int(avg_val(z.get('AB'), s.get('AB')))
-                # Skip invalid projections (no AB) - keep hardcoded values if they exist
+            h = hardcoded_hitters.get(name, {})
+
+            if z or s or h:
+                ab = int(avg_val(z.get('AB'), s.get('AB'), h.get('AB')))
+                # Skip invalid projections (no AB)
                 if ab < 50:
                     continue
                 HITTER_PROJECTIONS[name] = {
                     "AB": ab,
-                    "R": int(avg_val(z.get('R'), s.get('R'))),
-                    "HR": int(avg_val(z.get('HR'), s.get('HR'))),
-                    "RBI": int(avg_val(z.get('RBI'), s.get('RBI'))),
-                    "SB": int(avg_val(z.get('SB'), s.get('SB'))),
-                    "AVG": round(avg_val(z.get('AVG'), s.get('AVG')), 3),
-                    "OBP": round(avg_val(z.get('OBP'), s.get('OBP')), 3),
-                    "OPS": round(avg_val(z.get('OPS'), s.get('OPS')), 3),
-                    "H": int(avg_val(z.get('H'), s.get('H'))),
-                    "2B": int(avg_val(z.get('2B'), s.get('2B'))),
-                    "3B": int(avg_val(z.get('3B'), s.get('3B'))),
-                    "BB": int(avg_val(z.get('BB'), s.get('BB'))),
-                    "SO": int(avg_val(z.get('SO'), s.get('SO'))),
-                    "SLG": round(avg_val(z.get('SLG'), s.get('SLG')), 3),
+                    "R": int(avg_val(z.get('R'), s.get('R'), h.get('R'))),
+                    "HR": int(avg_val(z.get('HR'), s.get('HR'), h.get('HR'))),
+                    "RBI": int(avg_val(z.get('RBI'), s.get('RBI'), h.get('RBI'))),
+                    "SB": int(avg_val(z.get('SB'), s.get('SB'), h.get('SB'))),
+                    "AVG": round(avg_val(z.get('AVG'), s.get('AVG'), h.get('AVG')), 3),
+                    "OBP": round(avg_val(z.get('OBP'), s.get('OBP'), h.get('OBP')), 3),
+                    "OPS": round(avg_val(z.get('OPS'), s.get('OPS'), h.get('OPS')), 3),
+                    "H": int(avg_val(z.get('H'), s.get('H'), h.get('H'))),
+                    "2B": int(avg_val(z.get('2B'), s.get('2B'), h.get('2B'))),
+                    "3B": int(avg_val(z.get('3B'), s.get('3B'), h.get('3B'))),
+                    "BB": int(avg_val(z.get('BB'), s.get('BB'), h.get('BB'))),
+                    "SO": int(avg_val(z.get('SO'), s.get('SO'), h.get('SO'))),
+                    "SLG": round(avg_val(z.get('SLG'), s.get('SLG'), h.get('SLG')), 3),
                 }
                 hitter_count += 1
 
-        print(f"Loaded {hitter_count} hitter projections (ZiPS + Steamer averaged)")
+        print(f"Loaded {hitter_count} hitter projections (3-way blend: hardcoded + ZiPS + Steamer)")
     else:
         # Fallback to old projection files
         hitter_files = glob.glob(os.path.join(script_dir, '*hitter*projection*.csv'))
@@ -5275,45 +5545,62 @@ def load_projection_csvs():
             except Exception as e:
                 print(f"Warning: Failed to load hitter projections: {e}")
 
-    # Load and average pitcher projections (ZiPS + Steamer)
+    # Load and average pitcher projections (3-way blend: hardcoded + ZiPS + Steamer)
     if os.path.exists(zips_pitchers) or os.path.exists(steamer_pitchers):
+        # Save original hardcoded projections before blending
+        hardcoded_pitchers = dict(PITCHER_PROJECTIONS)
+        hardcoded_relievers = dict(RELIEVER_PROJECTIONS)
+
         zips_p = load_fangraphs_pitchers(zips_pitchers) if os.path.exists(zips_pitchers) else {}
         steamer_p = load_fangraphs_pitchers(steamer_pitchers) if os.path.exists(steamer_pitchers) else {}
 
-        all_pitchers = set(zips_p.keys()) | set(steamer_p.keys())
+        # Include all players from all sources
+        all_pitchers = set(zips_p.keys()) | set(steamer_p.keys()) | set(hardcoded_pitchers.keys()) | set(hardcoded_relievers.keys())
         for name in all_pitchers:
             z = zips_p.get(name, {})
             s = steamer_p.get(name, {})
-            if z or s:
-                gs = int(avg_val(z.get('GS'), s.get('GS')))
-                sv = int(avg_val(z.get('SV'), s.get('SV')))
-                hld = int(avg_val(z.get('HD'), s.get('HD')))
+            # Check both hardcoded dicts for this player
+            h = hardcoded_relievers.get(name) or hardcoded_pitchers.get(name) or {}
+
+            if z or s or h:
+                gs = int(avg_val(z.get('GS'), s.get('GS'), h.get('GS')))
+                sv = int(avg_val(z.get('SV'), s.get('SV'), h.get('SV')))
+                hld = int(avg_val(z.get('HD'), s.get('HD'), h.get('HD')))
 
                 proj = {
-                    "IP": round(avg_val(z.get('IP'), s.get('IP')), 1),
-                    "K": int(avg_val(z.get('K'), s.get('K'))),
-                    "W": int(avg_val(z.get('W'), s.get('W'))),
-                    "L": int(avg_val(z.get('L'), s.get('L'))),
+                    "IP": round(avg_val(z.get('IP'), s.get('IP'), h.get('IP')), 1),
+                    "K": int(avg_val(z.get('K'), s.get('K'), h.get('K'))),
+                    "W": int(avg_val(z.get('W'), s.get('W'), h.get('W'))),
+                    "L": int(avg_val(z.get('L'), s.get('L'), h.get('L'))),
                     "SV": sv,
                     "HD": hld,
-                    "ERA": round(avg_val(z.get('ERA'), s.get('ERA')), 2),
-                    "WHIP": round(avg_val(z.get('WHIP'), s.get('WHIP')), 3),
-                    "H": int(avg_val(z.get('H'), s.get('H'))),
-                    "BB": int(avg_val(z.get('BB'), s.get('BB'))),
-                    "HR": int(avg_val(z.get('HR'), s.get('HR'))),
-                    "G": int(avg_val(z.get('G'), s.get('G'))),
+                    "ERA": round(avg_val(z.get('ERA'), s.get('ERA'), h.get('ERA')), 2),
+                    "WHIP": round(avg_val(z.get('WHIP'), s.get('WHIP'), h.get('WHIP')), 3),
+                    "H": int(avg_val(z.get('H'), s.get('H'), h.get('H'))),
+                    "BB": int(avg_val(z.get('BB'), s.get('BB'), h.get('BB'))),
+                    "HR": int(avg_val(z.get('HR'), s.get('HR'), h.get('HR'))),
+                    "G": int(avg_val(z.get('G'), s.get('G'), h.get('G'))),
                     "GS": gs,
-                    "QS": int(avg_val(z.get('QS'), s.get('QS')) or gs * 0.55),
+                    "QS": int(avg_val(z.get('QS'), s.get('QS'), h.get('QS')) or gs * 0.55),
                 }
 
-                # Separate into SP and RP based on saves/holds
-                if sv > 0 or hld > 0 or gs == 0:
+                # Determine SP vs RP - preserve original category for hardcoded players
+                # (hardcoded pitchers don't have GS field, so we trust the original dict)
+                if name in hardcoded_pitchers:
+                    PITCHER_PROJECTIONS[name] = proj
+                    pitcher_count += 1
+                elif name in hardcoded_relievers:
                     RELIEVER_PROJECTIONS[name] = proj
+                    pitcher_count += 1
+                elif sv > 0 or hld > 0 or gs == 0:
+                    # New player from FanGraphs - use stats to determine
+                    RELIEVER_PROJECTIONS[name] = proj
+                    pitcher_count += 1
                 else:
                     PITCHER_PROJECTIONS[name] = proj
-                pitcher_count += 1
+                    pitcher_count += 1
 
-        print(f"Loaded {pitcher_count} pitcher projections (ZiPS + Steamer averaged)")
+        print(f"Loaded {pitcher_count} pitcher projections (3-way blend: hardcoded + ZiPS + Steamer)")
     else:
         # Fallback to old projection files
         pitcher_files = [f for f in glob.glob(os.path.join(script_dir, '*pitcher*projection*.csv')) if 'relief' not in f.lower()]
@@ -5343,12 +5630,12 @@ def load_projection_csvs():
                                 "GS": gs,
                                 "QS": int(gs * 0.55),
                             }
-                            if proj["IP"] > 0:
+                            if proj["IP"] > 0 and player_name not in PITCHER_PROJECTIONS:
                                 PITCHER_PROJECTIONS[player_name] = proj
                                 pitcher_count += 1
                         except (ValueError, TypeError):
                             continue
-                print(f"Loaded {pitcher_count} pitcher projections from CSV")
+                print(f"Loaded {pitcher_count} pitcher projections from CSV (preserved hardcoded)")
             except Exception as e:
                 print(f"Warning: Failed to load pitcher projections: {e}")
 
@@ -5381,12 +5668,12 @@ def load_projection_csvs():
                                 "HR": int(float(row.get('HR', 0) or 0)),
                                 "G": int(float(row.get('G', 0) or 0)),
                             }
-                            if proj["IP"] > 0:
+                            if proj["IP"] > 0 and player_name not in RELIEVER_PROJECTIONS:
                                 RELIEVER_PROJECTIONS[player_name] = proj
                                 count += 1
                         except (ValueError, TypeError):
                             continue
-                print(f"Loaded {count} reliever projections from CSV")
+                print(f"Loaded {count} reliever projections from CSV (preserved hardcoded)")
             except Exception as e:
                 print(f"Warning: Failed to load reliever projections: {e}")
 
@@ -5531,20 +5818,35 @@ def load_data_from_json():
                 if is_prospect and prospect_rank and prospect_rank <= 15:
                     print(f"Top prospect loaded: {player_name} (rank {prospect_rank}) - team: {team_name}")
 
-                # Load projections if available
+                # Load projections if available (only if not already in hardcoded projections)
                 proj = p.get('projections')
                 if proj:
                     player_name = p['name']
+                    # DEBUG: Check Mason Miller
+                    if player_name == 'Mason Miller':
+                        print(f"DEBUG JSON LOAD: Found Mason Miller with proj: {proj}")
+                        print(f"DEBUG JSON LOAD: Already in RELIEVER_PROJECTIONS? {player_name in RELIEVER_PROJECTIONS}")
+                        if player_name in RELIEVER_PROJECTIONS:
+                            print(f"DEBUG JSON LOAD: Existing data: {RELIEVER_PROJECTIONS[player_name]}")
                     # Determine if hitter or pitcher based on projection keys
                     if 'AB' in proj or 'HR' in proj or 'RBI' in proj:
-                        HITTER_PROJECTIONS[player_name] = proj
-                        projections_loaded += 1
+                        if player_name not in HITTER_PROJECTIONS:
+                            HITTER_PROJECTIONS[player_name] = proj
+                            projections_loaded += 1
                     elif 'IP' in proj or 'ERA' in proj or 'WHIP' in proj:
                         if proj.get('SV', 0) > 0 or proj.get('HD', 0) > 0:
-                            RELIEVER_PROJECTIONS[player_name] = proj
+                            if player_name not in RELIEVER_PROJECTIONS:
+                                RELIEVER_PROJECTIONS[player_name] = proj
+                                projections_loaded += 1
+                                if player_name == 'Mason Miller':
+                                    print(f"DEBUG JSON LOAD: ADDED Mason Miller to RELIEVER_PROJECTIONS")
+                            else:
+                                if player_name == 'Mason Miller':
+                                    print(f"DEBUG JSON LOAD: SKIPPED Mason Miller (already exists)")
                         else:
-                            PITCHER_PROJECTIONS[player_name] = proj
-                        projections_loaded += 1
+                            if player_name not in PITCHER_PROJECTIONS:
+                                PITCHER_PROJECTIONS[player_name] = proj
+                                projections_loaded += 1
 
                 # Load actual stats if available
                 actual = p.get('actual_stats')
@@ -5630,6 +5932,195 @@ def load_data_from_csv():
     except Exception as e:
         print(f"Failed to load from CSV: {e}")
         return False
+
+
+def load_trade_history():
+    """Load and grade completed trades from Fantrax trade history CSV."""
+    global completed_trades
+    import csv
+    from collections import defaultdict
+    from datetime import datetime
+
+    # Look for trade history CSV
+    search_paths = [
+        os.path.dirname(os.path.abspath(__file__)),
+        os.getcwd(),
+        os.path.join(os.path.expanduser('~'), 'Downloads'),
+    ]
+
+    csv_path = None
+    for path in search_paths:
+        potential = os.path.join(path, 'Fantrax-Transaction-History-Trades-Diamond Dynasties.csv')
+        if os.path.exists(potential):
+            csv_path = potential
+            break
+
+    if not csv_path:
+        print("Trade history CSV not found")
+        return False
+
+    try:
+        # Parse CSV and group by trade (same date/time)
+        trades_by_datetime = defaultdict(list)
+
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                date_str = row.get('Date (EST)', '')
+                if date_str:
+                    trades_by_datetime[date_str].append(row)
+
+        # Process each trade
+        completed_trades.clear()
+
+        for date_str, rows in trades_by_datetime.items():
+            # Group assets by team (From -> To)
+            team_sends = defaultdict(list)  # team_name -> list of assets they sent
+            team_receives = defaultdict(list)  # team_name -> list of assets they received
+
+            for row in rows:
+                player = row.get('Player', '')
+                from_team = row.get('From', '')
+                to_team = row.get('To', '')
+                position = row.get('Position', '')
+
+                if from_team and to_team and player:
+                    # Determine asset type
+                    asset = {
+                        'name': player,
+                        'position': position,
+                        'value': 0,
+                        'type': 'player'
+                    }
+
+                    # Check if it's a draft pick
+                    if 'Draft Pick' in player:
+                        asset['type'] = 'pick'
+                        # Parse pick details (e.g., "2026 Draft Pick, Round 3 Pick 6")
+                        asset['value'] = _calculate_pick_value_from_string(player)
+                    # Check if it's budget
+                    elif 'Budget Amount' in player:
+                        asset['type'] = 'budget'
+                        asset['value'] = 0  # Budget doesn't count in value
+                    else:
+                        # It's a player - calculate value
+                        asset['value'] = _get_player_value_by_name(player)
+
+                    team_sends[from_team].append(asset)
+                    team_receives[to_team].append(asset)
+
+            # Identify the two teams involved
+            all_teams = set(team_sends.keys()) | set(team_receives.keys())
+            if len(all_teams) != 2:
+                continue  # Skip if not a 2-team trade
+
+            team_list = list(all_teams)
+            team_a, team_b = team_list[0], team_list[1]
+
+            # Calculate values
+            team_a_sends_value = sum(a['value'] for a in team_sends.get(team_a, []))
+            team_a_receives_value = sum(a['value'] for a in team_receives.get(team_a, []))
+            team_b_sends_value = sum(a['value'] for a in team_sends.get(team_b, []))
+            team_b_receives_value = sum(a['value'] for a in team_receives.get(team_b, []))
+
+            # Determine winner
+            team_a_net = team_a_receives_value - team_a_sends_value
+            team_b_net = team_b_receives_value - team_b_sends_value
+            value_diff = abs(team_a_net)
+
+            if value_diff < AI_GM_CONFIG["fair_trade_threshold"]:
+                verdict = "Fair Trade"
+                winner = None
+            elif value_diff < AI_GM_CONFIG["borderline_threshold"]:
+                verdict = "Slightly Uneven"
+                winner = team_a if team_a_net > 0 else team_b
+            elif value_diff < AI_GM_CONFIG["questionable_threshold"]:
+                verdict = "Questionable"
+                winner = team_a if team_a_net > 0 else team_b
+            elif value_diff < AI_GM_CONFIG["clear_winner_threshold"]:
+                verdict = "Clear Winner"
+                winner = team_a if team_a_net > 0 else team_b
+            else:
+                verdict = "Lopsided"
+                winner = team_a if team_a_net > 0 else team_b
+
+            # Parse date
+            try:
+                # Format: "Mon Jan 19, 2026, 3:00AM"
+                trade_date = datetime.strptime(date_str.split(',')[0] + ',' + date_str.split(',')[1], '%a %b %d, %Y')
+            except:
+                trade_date = None
+
+            completed_trades.append({
+                'date': date_str,
+                'date_parsed': trade_date.strftime('%Y-%m-%d') if trade_date else date_str,
+                'team_a': team_a,
+                'team_b': team_b,
+                'team_a_sends': team_sends.get(team_a, []),
+                'team_a_receives': team_receives.get(team_a, []),
+                'team_b_sends': team_sends.get(team_b, []),
+                'team_b_receives': team_receives.get(team_b, []),
+                'team_a_sends_value': round(team_a_sends_value, 1),
+                'team_a_receives_value': round(team_a_receives_value, 1),
+                'team_b_sends_value': round(team_b_sends_value, 1),
+                'team_b_receives_value': round(team_b_receives_value, 1),
+                'value_diff': round(value_diff, 1),
+                'verdict': verdict,
+                'winner': winner,
+            })
+
+        # Sort by date (most recent first)
+        completed_trades.sort(key=lambda x: x['date'], reverse=True)
+        print(f"Loaded and graded {len(completed_trades)} completed trades")
+        return True
+
+    except Exception as e:
+        print(f"Failed to load trade history: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def _calculate_pick_value_from_string(pick_string):
+    """Calculate pick value from a string like '2026 Draft Pick, Round 3 Pick 6'."""
+    try:
+        # Extract round and pick number
+        import re
+        round_match = re.search(r'Round (\d+)', pick_string)
+        pick_match = re.search(r'Pick (\d+)', pick_string.split('Round')[1] if 'Round' in pick_string else pick_string)
+
+        if round_match and pick_match:
+            round_num = int(round_match.group(1))
+            pick_num = int(pick_match.group(1))
+            # Use DynastyValueCalculator pick value logic
+            return DynastyValueCalculator.calculate_pick_value(f"{round_num}.{pick_num:02d}")
+        return 5  # Default low value for unparseable picks
+    except:
+        return 5
+
+
+def _get_player_value_by_name(player_name):
+    """Get a player's dynasty value by name, searching across all teams."""
+    # First check if player is on any team
+    for team in teams.values():
+        for player in team.players:
+            if player.name.lower() == player_name.lower():
+                return calc_player_value(player)
+
+    # If not found on teams, try to calculate from projections
+    # Create a temporary player object
+    from dynasty_trade_analyzer_v2 import Player
+    temp_player = Player(
+        name=player_name,
+        position="",
+        team="",
+        age=PLAYER_AGES.get(player_name, 27),
+        is_prospect=player_name in PROSPECT_RANKINGS
+    )
+    if temp_player.is_prospect:
+        temp_player.prospect_rank = PROSPECT_RANKINGS.get(player_name, 200)
+
+    return calc_player_value(temp_player)
 
 
 def load_data_from_api():
@@ -6398,7 +6889,7 @@ def build_gm_chat_context(team_name, client_prefs=None):
     draft_pick = draft_order_config.get(team_name, 0)
 
     # Build list of notable players from OTHER teams for trade reference
-    # Split into realistic targets (40-80) and superstars (80+)
+    # Split into realistic targets (40-84) and superstars (85+)
     realistic_targets = []
     superstar_players = []
     for other_team_name, other_team in teams.items():
@@ -6408,7 +6899,7 @@ def build_gm_chat_context(team_name, client_prefs=None):
                 if val >= 40:
                     mlb_abbrev = p.mlb_team[:3].upper() if p.mlb_team else p.team[:3].upper() if p.team else "???"
                     player_tuple = (p.name, round(val, 1), p.age, p.position, other_team_name, mlb_abbrev)
-                    if val >= 80:
+                    if val >= 85:
                         superstar_players.append(player_tuple)
                     else:
                         realistic_targets.append(player_tuple)
@@ -6505,10 +6996,10 @@ LEAGUE CONTEXT:
 - H2H categories format
 - All {len(teams)} teams competing
 
-REALISTIC TRADE TARGETS (Value 40-80, actually acquirable):
+REALISTIC TRADE TARGETS (Value 40-84, actually acquirable):
 {chr(10).join([f"  {name}, {pos} - {fantasy_tm} ({mlb}) - Value: {val}, Age: {age}" for name, val, age, pos, fantasy_tm, mlb in realistic_targets[:25]])}
 
-SUPERSTARS (Value 80+, virtually UNTOUCHABLE - do NOT suggest as "realistic" targets):
+SUPERSTARS (Value 85+, very difficult to acquire - require significant packages):
 {chr(10).join([f"  {name}, {pos} - {fantasy_tm} ({mlb}) - Value: {val}" for name, val, age, pos, fantasy_tm, mlb in superstar_players[:10]])}
 (These players would cost your ENTIRE core - only mention if user specifically asks about them)
 
@@ -6571,21 +7062,23 @@ FOR A ~80 VALUE TARGET, FAIR OFFERS ARE:
 
 CRITICAL RULES:
 - Value tiers (CALIBRATED to industry consensus - FHQ, HKB, Steamer, ZiPS, etc.):
-  * 100+ = Superstar (top 5 overall dynasty assets)
-  * 80-99 = Elite (consensus top 6-15)
-  * 60-79 = Star (consensus top 16-35)
-  * 40-59 = Solid (consensus top 36-75)
-  * <40 = Depth/Role player
-- PROSPECT VALUES are discounted for bust risk: #1 prospect ≈ 72, #10 prospect ≈ 56, #25 prospect ≈ 42
-- 3-for-1 trades are ONLY valid when acquiring a 120+ superstar (Skenes, De La Cruz tier)
-- For players valued 75-100, suggest 1-for-1 or 2-for-1 trades with SIMILAR total value
+  * 110+ = Elite Superstar (Witt Jr., Ohtani - virtually untradeable)
+  * 85-109 = Superstar (Soto, Skenes, J-Rod, Henderson - cost your entire core)
+  * 63-84 = Star (top 16-50 dynasty assets - premium trade pieces)
+  * 45-62 = Solid starter (top 51-100 - good trade chips)
+  * 30-44 = Role player/Upside (depth with potential)
+  * <30 = Fringe/Replacement level
+- PROSPECT VALUES are discounted for bust risk: #1 prospect ≈ 63, #5 prospect ≈ 55, #10 prospect ≈ 47, #25 prospect ≈ 33
+- 3-for-1 trades are ONLY valid when acquiring a 115+ elite superstar (Witt Jr., Ohtani tier)
+- For players valued 65-85 (Stars), suggest 1-for-1 or 2-for-1 trades with SIMILAR total value
+- For players valued 85-109 (Superstars), these require significant packages - be realistic about cost
 - If you cannot construct a fair offer, SAY SO: "We'd need to overpay significantly to get this player"
 - ALWAYS show your math: "Player A (45) + Player B (40) = 85 total for Player C (80) = ratio 1.06 = fair"
 
 NEVER TRADE DOWN IN VALUE:
 - DO NOT suggest trading a higher-value player for a lower-value player in a 1-for-1
-- WRONG: Trading Sanchez (92) for Crow-Armstrong (80) = We LOSE 12 points of value!
-- If the target is worth 80, offer a player worth 75-85, NOT a player worth 92+
+- WRONG: Trading Tucker (82) for Langford (74) = We LOSE 8 points of value!
+- If the target is worth 75, offer a player worth 65-85, NOT a player worth 90+
 - The goal is to ACQUIRE value or trade laterally, NOT to give away value
 - Only overpay slightly (up to 1.15x) if there's a compelling strategic reason (age, position need)
 
@@ -6593,13 +7086,13 @@ USE TRADEABLE ASSETS, NOT CORE PLAYERS:
 - Your CORE = Top 4 players by value - do NOT suggest trading these unless user specifically asks
 - Your TRADEABLE ASSETS = Players ranked 5-15 by value - USE THESE to construct offers
 - Look at the "TRADEABLE ASSETS" section of your roster data for pieces to offer
-- Example: If target is worth 75, look for tradeable assets worth 65-85 to offer
-- You can combine 2 tradeable assets (like 45+35=80) to match an 80-value target
+- Example: If target is worth 70, look for tradeable assets worth 60-80 to offer
+- You can combine 2 tradeable assets (like 40+35=75) to match a 70-value target
 
 REALISTIC TRADE TARGET GUIDELINES (CRITICAL):
 - "Realistic targets" = players you can acquire using your TRADEABLE ASSETS (not core)
 - If your best tradeable asset is worth 60, your realistic targets are players worth 50-70
-- Players valued 90+ are virtually UNTOUCHABLE - don't suggest them as realistic targets
+- Players valued 85+ are Superstars - acquiring them requires multiple quality pieces or core players
 - Focus on players whose value MATCHES your available tradeable pieces
 - If asked for trade targets, suggest players that fill team NEEDS and match tradeable asset values
 - NEVER suggest trading your core (top 4) unless specifically asked
@@ -6874,6 +7367,66 @@ def find_trades_for_player():
         ('retooling', 'contender'): 8, ('contender', 'retooling'): 8,
     }
 
+    def calculate_likelihood_to_accept(value_diff, their_window, my_window, trade_type, their_cats, my_send):
+        """Calculate likelihood the other team accepts this trade (0-100%)."""
+        likelihood = 50  # Start at neutral
+
+        # 1. Value fairness (most important factor)
+        # Positive value_diff means they're getting more value
+        if value_diff >= 10:
+            likelihood += 25  # They're getting a great deal
+        elif value_diff >= 5:
+            likelihood += 15
+        elif value_diff >= 0:
+            likelihood += 8   # Slightly in their favor
+        elif value_diff >= -5:
+            likelihood += 0   # Fair
+        elif value_diff >= -10:
+            likelihood -= 10  # Slightly against them
+        else:
+            likelihood -= 25  # Bad deal for them
+
+        # 2. Window compatibility
+        window_key = (their_window, my_window)
+        if window_key in [('rebuilding', 'win-now'), ('rebuilding', 'contender'),
+                          ('teardown', 'win-now'), ('teardown', 'contender')]:
+            likelihood += 10  # They want to sell, you want to buy
+        elif window_key in [('win-now', 'rebuilding'), ('contender', 'rebuilding'),
+                            ('win-now', 'teardown'), ('contender', 'teardown')]:
+            likelihood += 10  # They want to buy, you want to sell
+
+        # 3. Check if we're sending players that fill their needs
+        for player in my_send:
+            if player.get('is_pick'):
+                # Picks are always valuable to rebuilders
+                if their_window in ['rebuilding', 'teardown', 'rising']:
+                    likelihood += 8
+                continue
+
+            proj = HITTER_PROJECTIONS.get(player['name'], {})
+            if proj:
+                if their_cats.get('HR', 0) < -0.5 and proj.get('HR', 0) >= 25:
+                    likelihood += 8
+                if their_cats.get('SB', 0) < -0.5 and proj.get('SB', 0) >= 20:
+                    likelihood += 8
+            proj = PITCHER_PROJECTIONS.get(player['name'], {}) or RELIEVER_PROJECTIONS.get(player['name'], {})
+            if proj:
+                if their_cats.get('K', 0) < -0.5 and proj.get('K', 0) >= 150:
+                    likelihood += 8
+
+        # 4. Trade complexity penalty (simpler = more likely)
+        if trade_type == '1-for-1':
+            likelihood += 5
+        elif trade_type == '2-for-1':
+            likelihood -= 3
+        elif trade_type == '3-for-1':
+            likelihood -= 8
+        elif trade_type == 'Player+Pick':
+            likelihood += 3  # Picks are liquid, easy to value
+
+        # Clamp to 0-100
+        return max(5, min(95, likelihood))
+
     def score_package(my_send, their_receive, other_team_name, their_window):
         """Score a trade package considering value, categories, and windows."""
         send_total = sum(s['value'] for s in my_send)
@@ -7004,9 +7557,17 @@ def find_trades_for_player():
         my_players = [(p, calc_player_value(p)) for p in my_team.players if calc_player_value(p) >= 10]
         my_players.sort(key=lambda x: x[1], reverse=True)
 
-        # 1-for-1 trades
+        # ELITE ACQUISITION LOGIC: Players 110+ require package deals
+        is_elite_target = player_value >= AI_GM_CONFIG["elite_superstar_threshold"]
+
+        # 1-for-1 trades (skip for elite unless trading another elite)
         for mp, mv in my_players[:20]:
             value_diff = player_value - mv
+
+            # Elite players require elite-for-elite or package deals
+            if is_elite_target and mv < AI_GM_CONFIG["elite_superstar_threshold"]:
+                continue  # Skip 1-for-1 for elite targets unless sending elite back
+
             if -25 <= value_diff <= 25:
                 send_list = [{'name': mp.name, 'position': mp.position, 'value': round(mv, 1)}]
                 receive_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
@@ -7031,8 +7592,8 @@ def find_trades_for_player():
                 for mp2, mv2 in my_players[i+1:18]:
                     combined_send = mv1 + mv2
                     value_diff = player_value - combined_send
-                    # Fair if combined value is within 20% of target
-                    if -15 <= value_diff <= 20 and mv1 <= player_value * 0.85:
+                    # Fair if combined value is within reasonable range (tightened thresholds)
+                    if -10 <= value_diff <= 15 and mv1 <= player_value * 0.85:
                         send_list = [
                             {'name': mp1.name, 'position': mp1.position, 'value': round(mv1, 1)},
                             {'name': mp2.name, 'position': mp2.position, 'value': round(mv2, 1)}
@@ -7087,6 +7648,79 @@ def find_trades_for_player():
                                 'category_fit': cat_reasons
                             })
 
+            # PLAYER + PICK packages (1 player + draft pick for target)
+            # Get team's draft picks
+            team_picks = draft_order_config.get(my_team_name, {})
+            pick_options = []
+            for round_num in [1, 2, 3, 4]:
+                pick_num = team_picks.get(f'round_{round_num}')
+                if pick_num:
+                    pick_str = f"{round_num}.{pick_num:02d}"
+                    pick_value = DynastyValueCalculator.calculate_pick_value(pick_str)
+                    pick_options.append({
+                        'pick': pick_str,
+                        'display': f"2026 Rd {round_num} Pick {pick_num}",
+                        'value': pick_value
+                    })
+
+            # Player + Pick combos
+            for mp, mv in my_players[:12]:
+                for pick in pick_options:
+                    combined_send = mv + pick['value']
+                    value_diff = player_value - combined_send
+                    if -10 <= value_diff <= 15:
+                        send_list = [
+                            {'name': mp.name, 'position': mp.position, 'value': round(mv, 1)},
+                            {'name': pick['display'], 'position': 'PICK', 'value': round(pick['value'], 1), 'is_pick': True}
+                        ]
+                        receive_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
+                        fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, target_team_name, their_window)
+                        packages.append({
+                            'other_team': target_team_name,
+                            'trade_type': 'Player+Pick',
+                            'send': send_list,
+                            'receive': receive_list,
+                            'send_total': round(combined_send, 1),
+                            'receive_total': round(player_value, 1),
+                            'value_diff': round(value_diff, 1),
+                            'fit_score': round(fit_score, 1),  # No penalty - picks are liquid value
+                            'window_match': their_window,
+                            'window_bonus': window_bonus,
+                            'category_fit': cat_reasons,
+                            'includes_pick': True
+                        })
+
+            # 3-FOR-1 PACKAGES (for elite players - 110+ value)
+            if is_elite_target:
+                for i, (mp1, mv1) in enumerate(my_players[:10]):
+                    for j, (mp2, mv2) in enumerate(my_players[i+1:12]):
+                        for mp3, mv3 in my_players[j+i+2:15]:
+                            combined_send = mv1 + mv2 + mv3
+                            value_diff = player_value - combined_send
+                            # Elite targets need close-to-fair or overpay packages
+                            if -5 <= value_diff <= 20 and mv1 <= player_value * 0.7:
+                                send_list = [
+                                    {'name': mp1.name, 'position': mp1.position, 'value': round(mv1, 1)},
+                                    {'name': mp2.name, 'position': mp2.position, 'value': round(mv2, 1)},
+                                    {'name': mp3.name, 'position': mp3.position, 'value': round(mv3, 1)}
+                                ]
+                                receive_list = [{'name': player.name, 'position': player.position, 'value': round(player_value, 1)}]
+                                fit_score, cat_reasons, window_bonus = score_package(send_list, receive_list, target_team_name, their_window)
+                                packages.append({
+                                    'other_team': target_team_name,
+                                    'trade_type': '3-for-1',
+                                    'send': send_list,
+                                    'receive': receive_list,
+                                    'send_total': round(combined_send, 1),
+                                    'receive_total': round(player_value, 1),
+                                    'value_diff': round(value_diff, 1),
+                                    'fit_score': round(fit_score - 8, 1),  # Larger penalty for complexity
+                                    'window_match': their_window,
+                                    'window_bonus': window_bonus,
+                                    'category_fit': cat_reasons,
+                                    'elite_package': True
+                                })
+
     # Sort by fit score, then by value diff
     packages.sort(key=lambda x: (x['fit_score'], -abs(x['value_diff'])), reverse=True)
 
@@ -7099,10 +7733,40 @@ def find_trades_for_player():
             seen.add(key)
             unique_packages.append(pkg)
 
+    # Calculate likelihood to accept for each package
+    for pkg in unique_packages:
+        other_team_name = pkg.get('other_team', target_team_name if direction == 'receive' else '')
+        if other_team_name and other_team_name in teams:
+            their_cats, _, their_window = calculate_team_needs(other_team_name)
+            # value_diff from their perspective: positive = good for them
+            their_value_diff = pkg['send_total'] - pkg['receive_total']
+            likelihood = calculate_likelihood_to_accept(
+                their_value_diff,
+                their_window,
+                my_window,
+                pkg.get('trade_type', '1-for-1'),
+                their_cats,
+                pkg['send']
+            )
+            pkg['likelihood'] = likelihood
+            pkg['likelihood_label'] = 'High' if likelihood >= 65 else 'Medium' if likelihood >= 45 else 'Low'
+        else:
+            pkg['likelihood'] = 50
+            pkg['likelihood_label'] = 'Medium'
+
+    # Re-sort by likelihood, then fit score
+    unique_packages.sort(key=lambda x: (x.get('likelihood', 50), x['fit_score']), reverse=True)
+
+    # Determine if target is elite (for UI display)
+    target_is_elite = player_value >= AI_GM_CONFIG["elite_superstar_threshold"] if direction == 'receive' else False
+
     return jsonify({
         'player_name': player_name,
         'player_value': round(player_value, 1),
         'my_window': my_window,
+        'is_elite': target_is_elite,
+        'package_required': target_is_elite,
+        'elite_message': f"⚠️ {player_name} is an Elite Superstar ({player_value:.0f} pts). Package deals required - no 1-for-1 trades unless trading another elite." if target_is_elite else None,
         'packages': unique_packages[:limit]
     })
 
@@ -7447,10 +8111,10 @@ def get_buy_low_sell_high_alerts(team_name, team):
         # Players contributing to categories you're STRONG in (surplus)
         # BUT: Never suggest selling elite cornerstones just for category surplus
         elif strong_cats and v >= 35:
-            # Skip elite players (80+ value) - untouchable cornerstones
+            # Skip elite players (85+ value) - untouchable cornerstones
             # Also skip young high-value players (70+ value, age 28 or younger)
             # You don't trade Skubal, Henderson, or Riley Greene just for category surplus
-            if v >= 80 or (v >= 70 and p.age <= 28):
+            if v >= 85 or (v >= 70 and p.age <= 28):
                 continue  # Never sell a cornerstone just for category surplus
 
             surplus_cat = None
@@ -7932,18 +8596,18 @@ def generate_gm_trade_scenarios(team_name, team):
     # Helper function to build multi-player package
     def build_trade_package(target_value, prefer_prospects=False, max_players=3):
         """Build a package of players to match target value.
-        Now with tighter value matching for elite targets (80+ value)."""
+        Now with tighter value matching for elite targets (85+ value)."""
         package = []
         remaining = target_value
 
-        # TRUE SUPERSTARS (98+) - Cannot be acquired in package deals at all
-        # Players like Ohtani, Acuna at peak are only traded 1-for-1 with other superstars
-        if target_value >= 98:
-            return []  # No package deal for true superstars
+        # ELITE SUPERSTARS (110+) - Cannot be acquired in package deals at all
+        # Players like Witt Jr., Ohtani are only traded 1-for-1 with other elite superstars
+        if target_value >= 110:
+            return []  # No package deal for elite superstars
 
-        # Elite players (80+ value) require stricter value matching
+        # Superstar players (85+ value) require stricter value matching
         # Cannot realistically be acquired with 2-3 mid-tier players
-        is_elite_target = target_value >= 80
+        is_elite_target = target_value >= 85
         if is_elite_target:
             # For elite targets, need at least one player worth 65% of target value
             # Can't just cobble together multiple mid-tier players
@@ -8654,7 +9318,7 @@ def generate_gm_trade_scenarios(team_name, team):
                     # Find their player who helps us
                     their_players = [(p, calc_player_value(p)) for p in other_team.players]
                     for tp, tv in their_players:
-                        if abs(tv - pval) <= 15:  # Similar value
+                        if abs(tv - pval) <= 10:  # Similar value (tightened threshold)
                             tp_proj = HITTER_PROJECTIONS.get(tp.name, {}) or PITCHER_PROJECTIONS.get(tp.name, {})
                             helps_us = False
                             for our_weak in weak_cats:
@@ -8708,11 +9372,11 @@ def generate_gm_trade_scenarios(team_name, team):
                                 if pos_counts.get(vet_pos, 0) >= 4:
                                     continue
 
-                                # Tighter value matching: within 10% for high-value, 15 pts for lower value
+                                # Tighter value matching: within 12% for high-value, 10 pts for lower value
                                 if vet_v >= 70:
                                     value_diff_ok = abs(vet_v - young_v) <= vet_v * 0.12
                                 else:
-                                    value_diff_ok = abs(vet_v - young_v) <= 15
+                                    value_diff_ok = abs(vet_v - young_v) <= 10
 
                                 if value_diff_ok:
                                     scenarios.append({
@@ -8755,9 +9419,9 @@ def generate_gm_trade_scenarios(team_name, team):
 
                     # Tighter value matching for high-value players
                     if thv >= 70:
-                        value_ok = abs(thv - best_arm[1]) <= thv * 0.15
+                        value_ok = abs(thv - best_arm[1]) <= thv * 0.12
                     else:
-                        value_ok = abs(thv - best_arm[1]) <= 15
+                        value_ok = abs(thv - best_arm[1]) <= 10
 
                     if value_ok:
                         scenarios.append({
@@ -8792,9 +9456,9 @@ def generate_gm_trade_scenarios(team_name, team):
 
                     # Tighter value matching for high-value players
                     if tpv >= 70:
-                        value_ok = abs(tpv - best_bat[1]) <= tpv * 0.15
+                        value_ok = abs(tpv - best_bat[1]) <= tpv * 0.12
                     else:
-                        value_ok = abs(tpv - best_bat[1]) <= 15
+                        value_ok = abs(tpv - best_bat[1]) <= 10
 
                     if value_ok:
                         scenarios.append({
@@ -10045,33 +10709,67 @@ def get_player(player_name):
         # Estimate projections for prospects without data
         projections_estimated = True
 
-    # Determine trajectory
-    if player.age <= 25:
-        trajectory = "Ascending"
-        trajectory_desc = f"At {player.age}, this player is still developing and their value should increase."
-    elif player.age <= 28:
-        trajectory = "Prime"
-        trajectory_desc = f"At {player.age}, this player is entering or in their prime years."
-    elif player.age <= 31:
-        trajectory = "Peak"
-        trajectory_desc = f"At {player.age}, this player is at peak value but decline will start soon."
+    # Determine trajectory - pitchers peak later than hitters
+    is_pitcher_for_trajectory = in_pitcher_proj or in_reliever_proj
+    if is_pitcher_for_trajectory:
+        # Pitcher trajectory - prime 27-31
+        if player.age <= 26:
+            trajectory = "Ascending"
+            trajectory_desc = f"At {player.age}, this pitcher is still developing and their value should increase."
+        elif player.age <= 31:
+            trajectory = "Prime"
+            trajectory_desc = f"At {player.age}, this pitcher is in their prime years."
+        elif player.age <= 34:
+            trajectory = "Peak"
+            trajectory_desc = f"At {player.age}, this pitcher is at peak value but decline will start soon."
+        else:
+            trajectory = "Declining"
+            trajectory_desc = f"At {player.age}, expect gradual decline in performance and value."
     else:
-        trajectory = "Declining"
-        trajectory_desc = f"At {player.age}, expect gradual decline in performance and value."
+        # Hitter trajectory
+        if player.age <= 25:
+            trajectory = "Ascending"
+            trajectory_desc = f"At {player.age}, this player is still developing and their value should increase."
+        elif player.age <= 28:
+            trajectory = "Prime"
+            trajectory_desc = f"At {player.age}, this player is entering or in their prime years."
+        elif player.age <= 31:
+            trajectory = "Peak"
+            trajectory_desc = f"At {player.age}, this player is at peak value but decline will start soon."
+        else:
+            trajectory = "Declining"
+            trajectory_desc = f"At {player.age}, expect gradual decline in performance and value."
 
-    # Age adjustment calculation (simplified)
-    if player.age <= 24:
-        age_adjustment = 10
-    elif player.age <= 26:
-        age_adjustment = 5
-    elif player.age <= 28:
-        age_adjustment = 0
-    elif player.age <= 30:
-        age_adjustment = -5
-    elif player.age <= 32:
-        age_adjustment = -10
+    # Age adjustment calculation - pitchers peak later (27-31) than hitters (25-28)
+    is_pitcher = in_pitcher_proj or in_reliever_proj
+    if is_pitcher:
+        # Pitcher age curve - prime extends to 31
+        if player.age <= 24:
+            age_adjustment = 10
+        elif player.age <= 27:
+            age_adjustment = 5
+        elif player.age <= 31:
+            age_adjustment = 0  # Prime years for pitchers
+        elif player.age <= 33:
+            age_adjustment = -5
+        elif player.age <= 35:
+            age_adjustment = -10
+        else:
+            age_adjustment = -15
     else:
-        age_adjustment = -15
+        # Hitter age curve
+        if player.age <= 24:
+            age_adjustment = 10
+        elif player.age <= 26:
+            age_adjustment = 5
+        elif player.age <= 28:
+            age_adjustment = 0
+        elif player.age <= 30:
+            age_adjustment = -5
+        elif player.age <= 32:
+            age_adjustment = -10
+        else:
+            age_adjustment = -15
 
     # Prospect bonus
     prospect_bonus = 0
@@ -10193,13 +10891,36 @@ def analyze_trade():
 
     value_diff = abs(value_a_sends - value_b_sends)
 
-    # Determine verdict
-    if value_diff < 5:
+    # ELITE PLAYER DETECTION
+    elite_threshold = AI_GM_CONFIG["elite_superstar_threshold"]
+    elite_players_a = [p for p in found_players_a if calc_player_value(p) >= elite_threshold]
+    elite_players_b = [p for p in found_players_b if calc_player_value(p) >= elite_threshold]
+
+    elite_warning = None
+    if elite_players_a or elite_players_b:
+        elite_names = [p.name for p in elite_players_a + elite_players_b]
+        # Check if it's a 1-for-1 with an elite player
+        is_1_for_1 = len(found_players_a) == 1 and len(found_players_b) == 1 and not picks_a and not picks_b
+
+        if is_1_for_1 and (elite_players_a or elite_players_b):
+            # Check if both sides have elite players (elite-for-elite is OK)
+            if not (elite_players_a and elite_players_b):
+                elite_warning = f"⚠️ ELITE PLAYER ALERT: {', '.join(elite_names)} is an Elite Superstar (110+ value). 1-for-1 trades for elite players are rarely fair unless trading another elite. Consider a package deal."
+
+    # Determine verdict using AI_GM_CONFIG thresholds
+    fair = AI_GM_CONFIG["fair_trade_threshold"]
+    borderline = AI_GM_CONFIG["borderline_threshold"]
+    questionable = AI_GM_CONFIG["questionable_threshold"]
+    clear_winner = AI_GM_CONFIG["clear_winner_threshold"]
+
+    if value_diff < fair:
         verdict = "Fair Trade"
-    elif value_diff < 15:
+    elif value_diff < borderline:
         verdict = "Slightly Uneven"
-    elif value_diff < 25:
+    elif value_diff < questionable:
         verdict = "Questionable"
+    elif value_diff < clear_winner:
+        verdict = "Clear Winner"
     else:
         verdict = "Unfair Trade"
 
@@ -10211,13 +10932,17 @@ def analyze_trade():
         winner = team_a
         loser = team_b
 
-    # Basic reasoning
-    if value_diff < 5:
+    # Basic reasoning using AI_GM_CONFIG thresholds
+    if value_diff < fair:
         reasoning = "This trade is well-balanced. Both sides receive comparable value."
-    elif value_diff < 15:
+    elif value_diff < borderline:
         reasoning = f"Slight edge to {winner}, but within acceptable range for a fair trade."
+    elif value_diff < questionable:
+        reasoning = f"{winner} has an advantage ({value_diff:.1f} points). {loser} may want to ask for a sweetener."
+    elif value_diff < clear_winner:
+        reasoning = f"{winner} clearly wins this trade ({value_diff:.1f} points). {loser} should reconsider or negotiate hard."
     else:
-        reasoning = f"{winner} wins this trade by a significant margin ({value_diff:.1f} points). {loser} should reconsider."
+        reasoning = f"{winner} wins this trade by a significant margin ({value_diff:.1f} points). This trade is heavily lopsided."
 
     # Age analysis
     avg_age_a_sends = sum(p.age for p in found_players_a) / len(found_players_a) if found_players_a else 0
@@ -10329,6 +11054,16 @@ def analyze_trade():
         winner = team_a if stat_diffs['SO'] < 0 else team_b  # Lower SO is better
         cat_impacts.append(f"{winner} reduces SO by {abs(stat_diffs['SO'])}")
 
+    # RATE STATS IMPACT - AVG and OPS (weighted by AB in trade)
+    if abs(stat_diffs['AVG']) >= 0.003:  # Meaningful AVG impact (3+ points)
+        direction = "+" if stat_diffs['AVG'] > 0 else ""
+        winner = team_a if stat_diffs['AVG'] > 0 else team_b
+        cat_impacts.append(f"{winner} AVG impact: {direction}{stat_diffs['AVG']:.3f}")
+    if abs(stat_diffs['OPS']) >= 0.010:  # Meaningful OPS impact (10+ points)
+        direction = "+" if stat_diffs['OPS'] > 0 else ""
+        winner = team_a if stat_diffs['OPS'] > 0 else team_b
+        cat_impacts.append(f"{winner} OPS impact: {direction}{stat_diffs['OPS']:.3f}")
+
     # Pitching categories
     if abs(stat_diffs['K']) >= 30:
         winner = team_a if stat_diffs['K'] > 0 else team_b
@@ -10343,6 +11078,15 @@ def analyze_trade():
     if abs(stat_diffs['L']) >= 3:
         winner = team_a if stat_diffs['L'] < 0 else team_b  # Fewer losses is better
         cat_impacts.append(f"{winner} reduces L by {abs(stat_diffs['L'])}")
+    # RATE STATS - ERA and WHIP (lower is better, so negative diff is good for team_a)
+    if abs(stat_diffs['ERA']) >= 0.10:  # Meaningful ERA impact
+        direction = "" if stat_diffs['ERA'] < 0 else "+"  # Negative is good
+        winner = team_a if stat_diffs['ERA'] < 0 else team_b
+        cat_impacts.append(f"{winner} ERA impact: {direction}{stat_diffs['ERA']:.2f}")
+    if abs(stat_diffs['WHIP']) >= 0.03:  # Meaningful WHIP impact
+        direction = "" if stat_diffs['WHIP'] < 0 else "+"  # Negative is good
+        winner = team_a if stat_diffs['WHIP'] < 0 else team_b
+        cat_impacts.append(f"{winner} WHIP impact: {direction}{stat_diffs['WHIP']:.2f}")
     # K/BB - higher is better
     if abs(stat_diffs['K/BB']) >= 0.5:
         winner = team_a if stat_diffs['K/BB'] > 0 else team_b
@@ -10381,13 +11125,13 @@ def analyze_trade():
     if window_analysis:
         detailed_analysis += "\n\n" + window_analysis
 
-    # Trade recommendation
+    # Trade recommendation using AI_GM_CONFIG thresholds
     recommendation = ""
-    if value_diff < 5:
+    if value_diff < fair:
         recommendation = "Recommended for both teams"
-    elif value_diff < 10:
+    elif value_diff < borderline:
         recommendation = f"Acceptable for {winner}, decent for {loser}"
-    elif value_diff < 20:
+    elif value_diff < questionable:
         recommendation = f"Good for {winner}, {loser} should seek more"
     else:
         recommendation = f"{loser} should decline unless addressing urgent need"
@@ -10395,7 +11139,7 @@ def analyze_trade():
     # Generate counter-offer suggestions
     counter_offer_suggestions = []
 
-    if value_diff >= 5:
+    if value_diff >= fair:
         # Calculate what would make the trade fair
         gap = value_diff
 
@@ -10556,6 +11300,8 @@ def analyze_trade():
         "value_diff": round(value_diff, 1),
         "reasoning": reasoning,
         "detailed_analysis": detailed_analysis,
+        "elite_warning": elite_warning,
+        "has_elite_players": bool(elite_players_a or elite_players_b),
         "age_analysis": {
             "team_a_sends_avg_age": round(avg_age_a_sends, 1) if avg_age_a_sends else None,
             "team_b_sends_avg_age": round(avg_age_b_sends, 1) if avg_age_b_sends else None,
@@ -10599,17 +11345,36 @@ def calculate_team_needs(team_name):
     avg_era = total_era_weighted / total_ip if total_ip > 0 else 4.50
     avg_whip = total_whip_weighted / total_ip if total_ip > 0 else 1.30
 
-    # Define thresholds for needs (lower = more need, higher = strength)
-    # Scores from -2 (desperate need) to +2 (major strength)
-    category_scores = {}
-    category_scores['HR'] = 2 if total_hr >= 250 else (1 if total_hr >= 200 else (0 if total_hr >= 170 else (-1 if total_hr >= 140 else -2)))
-    category_scores['SB'] = 2 if total_sb >= 130 else (1 if total_sb >= 100 else (0 if total_sb >= 75 else (-1 if total_sb >= 50 else -2)))
-    category_scores['RBI'] = 2 if total_rbi >= 700 else (1 if total_rbi >= 600 else (0 if total_rbi >= 500 else (-1 if total_rbi >= 400 else -2)))
-    category_scores['R'] = 2 if total_runs >= 700 else (1 if total_runs >= 600 else (0 if total_runs >= 500 else (-1 if total_runs >= 400 else -2)))
-    category_scores['K'] = 2 if total_k >= 1400 else (1 if total_k >= 1200 else (0 if total_k >= 1000 else (-1 if total_k >= 800 else -2)))
-    category_scores['SV+HLD'] = 2 if total_sv_hld >= 80 else (1 if total_sv_hld >= 60 else (0 if total_sv_hld >= 40 else (-1 if total_sv_hld >= 25 else -2)))
-    category_scores['ERA'] = 2 if avg_era <= 3.50 else (1 if avg_era <= 3.80 else (0 if avg_era <= 4.10 else (-1 if avg_era <= 4.40 else -2)))
-    category_scores['WHIP'] = 2 if avg_whip <= 1.15 else (1 if avg_whip <= 1.22 else (0 if avg_whip <= 1.30 else (-1 if avg_whip <= 1.38 else -2)))
+    # GRADIENT FIT SCORING: Calculate continuous need scores instead of discrete buckets
+    # Scores from -2 (desperate need) to +2 (major strength) with fine-grained precision
+    # Formula: ((actual - optimal) / optimal) * scale, clamped to [-2, 2]
+
+    # Define optimal thresholds (competitive level)
+    OPTIMAL = {
+        'HR': 190, 'SB': 90, 'RBI': 550, 'R': 550,
+        'K': 1100, 'SV+HLD': 50, 'ERA': 3.90, 'WHIP': 1.25
+    }
+
+    def gradient_score(actual, optimal, inverted=False):
+        """Calculate gradient score: positive = strength, negative = need"""
+        if inverted:  # For ERA/WHIP where lower is better
+            diff = optimal - actual
+        else:
+            diff = actual - optimal
+        # Scale to -2 to +2 range with sensitivity factor
+        score = (diff / optimal) * 4
+        return max(-2, min(2, score))  # Clamp to [-2, 2]
+
+    category_scores = {
+        'HR': gradient_score(total_hr, OPTIMAL['HR']),
+        'SB': gradient_score(total_sb, OPTIMAL['SB']),
+        'RBI': gradient_score(total_rbi, OPTIMAL['RBI']),
+        'R': gradient_score(total_runs, OPTIMAL['R']),
+        'K': gradient_score(total_k, OPTIMAL['K']),
+        'SV+HLD': gradient_score(total_sv_hld, OPTIMAL['SV+HLD']),
+        'ERA': gradient_score(avg_era, OPTIMAL['ERA'], inverted=True),
+        'WHIP': gradient_score(avg_whip, OPTIMAL['WHIP'], inverted=True),
+    }
 
     # Positional depth (count rostered players by position group)
     pos_depth = {'C': 0, '1B': 0, '2B': 0, 'SS': 0, '3B': 0, 'OF': 0, 'SP': 0, 'RP': 0}
@@ -10719,8 +11484,8 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
     score = 100  # Start with base score
     reasons = []
 
-    # Penalize for value difference (0-15 range typical)
-    fairness_penalty = value_diff * 2
+    # Penalize for value difference (0-10 range typical for fair trades)
+    fairness_penalty = value_diff * 2.5  # Slightly higher penalty with tighter thresholds
     score -= fairness_penalty
 
     # Calculate category changes for my team
@@ -10770,31 +11535,58 @@ def score_trade_fit(my_team_name, their_team_name, you_send, you_receive, value_
             penalty = min(15, abs(net_change) * abs(need_score))
             score -= penalty
 
-    # Age-based adjustments based on window
+    # Age-based adjustments based on window (enhanced with AI_GM_CONFIG)
     avg_age_receive = sum(p.age for p in you_receive if p.age > 0) / len(you_receive) if you_receive else 27
     avg_age_send = sum(p.age for p in you_send if p.age > 0) / len(you_send) if you_send else 27
     age_diff = avg_age_send - avg_age_receive  # Positive = getting younger
 
+    # Philosophy enforcement weights from config
+    philosophy_weight = AI_GM_CONFIG.get("philosophy_weight", 0.15)
+    prospect_premium = AI_GM_CONFIG.get("prospect_premium_rebuilding", 1.12)
+    vet_premium = AI_GM_CONFIG.get("veteran_premium_contending", 1.15)
+
     if my_window in ['rebuilding', 'rising', 'dynasty']:
         if age_diff > 2:
-            score += 10
+            age_bonus = int(10 * (1 + philosophy_weight))
+            score += age_bonus
             reasons.append("Gets younger")
         elif age_diff < -3:
-            score -= 10
+            score -= 15  # Stronger penalty for rebuilders getting older
+            reasons.append("⚠️ Getting older assets")
     elif my_window in ['win-now', 'contender']:
         if age_diff < -1 and avg_age_receive <= 32:
-            score += 5  # Getting proven vets is fine for contenders
+            vet_bonus = int(8 * (vet_premium - 1) * 10)  # Scale premium to bonus
+            score += 5 + vet_bonus
+            reasons.append("Proven veteran")
 
-    # Prospect acquisition bonus for rebuilding teams
+    # Prospect acquisition with philosophy enforcement
     prospects_gained = len([p for p in you_receive if p.is_prospect])
     prospects_lost = len([p for p in you_send if p.is_prospect])
+
+    # Calculate veteran trading (non-prospects over 28)
+    vets_trading = len([p for p in you_send if not p.is_prospect and p.age >= 28])
+    vets_receiving = len([p for p in you_receive if not p.is_prospect and p.age >= 28])
+
     if my_window in ['rebuilding', 'rising']:
         if prospects_gained > prospects_lost:
-            score += 8 * (prospects_gained - prospects_lost)
+            prospect_bonus = int(10 * (prospects_gained - prospects_lost) * (prospect_premium - 1 + 1))
+            score += prospect_bonus
             reasons.append(f"+{prospects_gained - prospects_lost} prospects")
+        elif prospects_lost > 0 and prospects_gained == 0:
+            score -= 12  # Penalty for rebuilders trading away prospects without return
+            reasons.append("⚠️ Trading prospect without prospect return")
+        # Rebuilders should get prospect return for veterans
+        if vets_trading > 0 and prospects_gained == 0:
+            score -= 8
+            reasons.append("⚠️ No prospect return for veteran")
     elif my_window in ['win-now', 'contender']:
         if prospects_lost > prospects_gained:
-            score += 5  # Trading prospects for talent is fine for contenders
+            score += 8  # Contenders can trade prospects for talent
+            reasons.append("Trading prospects for production")
+        # Contenders value proven production over prospects
+        if vets_receiving > 0 and avg_age_receive <= 31:
+            score += 5
+            reasons.append("Proven production")
 
     # Check if trade makes sense for the other team too (more likely to be accepted)
     their_benefits = []
@@ -11767,6 +12559,15 @@ def get_matchups():
 @app.route('/transactions')
 def get_transactions():
     return jsonify({"transactions": league_transactions})
+
+
+@app.route('/trade-history')
+def get_trade_history():
+    """Get graded completed trades from Fantrax history."""
+    # Load trade history if not already loaded
+    if not completed_trades:
+        load_trade_history()
+    return jsonify({"trades": completed_trades})
 
 
 @app.route('/draft-order', methods=['GET', 'POST'])

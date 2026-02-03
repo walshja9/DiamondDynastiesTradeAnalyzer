@@ -43,10 +43,18 @@ Games Played    Projection Weight    Actual Pace Weight
 import csv
 import json
 import os
+import unicodedata
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
 import math
+
+
+def normalize_name(name: str) -> str:
+    """Normalize player name by removing accents and standardizing characters."""
+    normalized = unicodedata.normalize('NFD', name)
+    ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+    return ascii_name.strip()
 
 
 def load_prospect_rankings() -> Dict[str, int]:
@@ -93,17 +101,19 @@ def load_consensus_rankings() -> Dict[str, float]:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Source weights (must sum to 1.0 when all sources present)
+    # Optimized weights - removed STS/PL standalone since they're already in CFR
     SOURCE_WEIGHTS = {
-        'FHQ': 0.25,      # Dynasty rankings
-        'HKB': 0.25,      # Dynasty rankings
-        'Steamer': 0.15,  # Production projections
-        'ZiPS': 0.15,     # Production projections
-        'STS': 0.10,      # Scout the Statline
-        'CFR': 0.05,      # Consensus Formulated Ranks
-        'PL': 0.05,       # Prospects Live
+        'FHQ': 0.30,      # Dynasty rankings (FantraxHQ Top 500)
+        'HKB': 0.30,      # Dynasty rankings (harryknowsball values)
+        'Steamer': 0.10,  # Production projections
+        'ZiPS': 0.10,     # Production projections
+        'CFR': 0.20,      # Consensus Formulated Ranks (includes PL, STS, DIGS, FScore, PG+)
+        # STS and PL removed - already included in CFR to avoid double-counting
     }
 
     all_sources = {}
+    cfr_player_info = {}  # Track {name: {'level': ..., 'age': ...}} from CFR for filtering
+    player_ages_from_sources = {}  # Load ages from HKB/FHQ to filter CFR properly
 
     # Load FantraxHQ rankings
     fhq_path = os.path.join(script_dir, "Top-500 Fantasy Baseball Dynasty Rankings - FantraxHQ.csv")
@@ -114,9 +124,12 @@ def load_consensus_rankings() -> Dict[str, float]:
             for row in reader:
                 name = row.get('Player', '').strip()
                 roto_rank = row.get('Roto', '')
+                age_str = row.get('Age', '')
                 if name and roto_rank:
                     try:
                         fhq_ranks[name] = int(roto_rank)
+                        if age_str:
+                            player_ages_from_sources[name] = float(age_str)
                     except ValueError:
                         pass
         all_sources['FHQ'] = fhq_ranks
@@ -132,9 +145,12 @@ def load_consensus_rankings() -> Dict[str, float]:
             for row in reader:
                 name = row.get('Name', '').strip()
                 rank = row.get('Rank', '')
+                age_str = row.get('Age', '')
                 if name and rank:
                     try:
                         hkb_ranks[name] = int(rank)
+                        if age_str and name not in player_ages_from_sources:
+                            player_ages_from_sources[name] = float(age_str)
                     except ValueError:
                         pass
         all_sources['HKB'] = hkb_ranks
@@ -159,45 +175,87 @@ def load_consensus_rankings() -> Dict[str, float]:
     except Exception:
         pass
 
-    # Load Steamer hitter projections (rank by WAR)
+    # Load Steamer projections (hitters + pitchers combined, rank by WAR)
+    steamer_players = []
+    # Hitters
     steamer_h_path = os.path.join(script_dir, "fangraphs-leaderboard-projections-steamer.csv")
     try:
-        players = []
         with open(steamer_h_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                name = row.get('Name', '').strip().strip('"')
+                name = normalize_name(row.get('Name', '').strip().strip('"'))
                 war = row.get('WAR', '')
                 if name and war:
                     try:
-                        players.append((name, float(war)))
+                        steamer_players.append((name, float(war)))
                     except ValueError:
                         pass
-        players.sort(key=lambda x: -x[1])
-        steamer_ranks = {name: i for i, (name, _) in enumerate(players, 1)}
-        all_sources['Steamer'] = steamer_ranks
     except Exception:
         pass
+    # Pitchers
+    steamer_p_path = os.path.join(script_dir, "fangraphs-leaderboard-projections-pitcher-steamer.csv")
+    try:
+        with open(steamer_p_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = normalize_name(row.get('Name', '').strip().strip('"'))
+                war = row.get('WAR', '')
+                if name and war:
+                    try:
+                        steamer_players.append((name, float(war)))
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+    if steamer_players:
+        steamer_players.sort(key=lambda x: -x[1])
+        # Keep best (lowest) rank for duplicates like Ohtani who appear in both hitter/pitcher files
+        steamer_ranks = {}
+        for i, (name, _) in enumerate(steamer_players, 1):
+            if name not in steamer_ranks:
+                steamer_ranks[name] = i
+        all_sources['Steamer'] = steamer_ranks
 
-    # Load ZiPS hitter projections (rank by WAR)
+    # Load ZiPS projections (hitters + pitchers combined, rank by WAR)
+    zips_players = []
+    # Hitters
     zips_h_path = os.path.join(script_dir, "fangraphs-leaderboard-projections-zips.csv")
     try:
-        players = []
         with open(zips_h_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                name = row.get('Name', '').strip().strip('"')
+                name = normalize_name(row.get('Name', '').strip().strip('"'))
                 war = row.get('WAR', '')
                 if name and war:
                     try:
-                        players.append((name, float(war)))
+                        zips_players.append((name, float(war)))
                     except ValueError:
                         pass
-        players.sort(key=lambda x: -x[1])
-        zips_ranks = {name: i for i, (name, _) in enumerate(players, 1)}
-        all_sources['ZiPS'] = zips_ranks
     except Exception:
         pass
+    # Pitchers
+    zips_p_path = os.path.join(script_dir, "fangraphs-leaderboard-projections-pitcher-zips.csv")
+    try:
+        with open(zips_p_path, 'r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                name = normalize_name(row.get('Name', '').strip().strip('"'))
+                war = row.get('WAR', '')
+                if name and war:
+                    try:
+                        zips_players.append((name, float(war)))
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+    if zips_players:
+        zips_players.sort(key=lambda x: -x[1])
+        # Keep best (lowest) rank for duplicates like Ohtani who appear in both hitter/pitcher files
+        zips_ranks = {}
+        for i, (name, _) in enumerate(zips_players, 1):
+            if name not in zips_ranks:
+                zips_ranks[name] = i
+        all_sources['ZiPS'] = zips_ranks
 
     # Load Consensus Formulated Ranks (hitters)
     cfr_h_path = os.path.join(script_dir, "Consensus Formulated Ranks_Hitters_2026.csv")
@@ -205,10 +263,18 @@ def load_consensus_rankings() -> Dict[str, float]:
     try:
         with open(cfr_h_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
-            for i, row in enumerate(reader, 1):
-                name = row.get('Name', '').strip()
-                if name:
-                    cfr_ranks[name] = i
+            for row in reader:
+                name = normalize_name(row.get('Name', '').strip())
+                avg_rank = row.get('Avg Rank', '')
+                level = row.get('Level', '').strip()
+                age_str = row.get('Age', '')
+                if name and avg_rank:
+                    try:
+                        age = float(age_str) if age_str else None
+                        cfr_ranks[name] = int(float(avg_rank))
+                        cfr_player_info[name] = {'level': level, 'age': age}
+                    except ValueError:
+                        pass
     except Exception:
         pass
 
@@ -217,10 +283,18 @@ def load_consensus_rankings() -> Dict[str, float]:
     try:
         with open(cfr_p_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
-            for i, row in enumerate(reader, 1):
-                name = row.get('Name', '').strip()
-                if name and name not in cfr_ranks:
-                    cfr_ranks[name] = i
+            for row in reader:
+                name = normalize_name(row.get('Name', '').strip())
+                avg_rank = row.get('Avg Rank', '')
+                level = row.get('Level', '').strip()
+                age_str = row.get('Age', '')
+                if name and avg_rank and name not in cfr_ranks:
+                    try:
+                        age = float(age_str) if age_str else None
+                        cfr_ranks[name] = int(float(avg_rank))
+                        cfr_player_info[name] = {'level': level, 'age': age}
+                    except ValueError:
+                        pass
     except Exception:
         pass
     if cfr_ranks:
@@ -233,7 +307,7 @@ def load_consensus_rankings() -> Dict[str, float]:
         with open(pl_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                name = row.get('Name_FG', '').strip().strip('"')
+                name = normalize_name(row.get('Name_FG', '').strip().strip('"'))
                 rank = row.get('Rank', '')
                 if name and rank:
                     try:
@@ -256,6 +330,17 @@ def load_consensus_rankings() -> Dict[str, float]:
 
         for source_name, source_data in all_sources.items():
             if name in source_data:
+                # FIX: Exclude CFR for MLB players and mature players (it's prospect-focused)
+                # Only include CFR for young MiLB/prospect players (<25 years old)
+                if source_name == 'CFR':
+                    info = cfr_player_info.get(name, {})
+                    player_level = info.get('level', 'UNKNOWN')
+                    # Use age from HKB/FHQ if available, otherwise use CFR age
+                    player_age = player_ages_from_sources.get(name, info.get('age'))
+                    # Exclude CFR if: 1) MLB level, OR 2) Age 25+ (mature/established)
+                    if player_level == 'MLB' or (player_age and player_age >= 25):
+                        continue  # Skip CFR for MLB or mature players
+
                 rank = source_data[name]
                 # Filter out extreme ranks (>500) to avoid noise
                 if rank <= 500:
@@ -444,6 +529,7 @@ HITTER_PROJECTIONS = {
     "Caleb Durbin": {"AB": 445, "R": 60, "HR": 11, "RBI": 53, "SB": 18, "AVG": .256, "OPS": .721, "SO": 105},
     "Ketel Marte": {"AB": 547, "R": 89, "HR": 28, "RBI": 88, "SB": 5, "AVG": .275, "OPS": .846, "SO": 104},
     "Zach Neto": {"AB": 578, "R": 86, "HR": 27, "RBI": 79, "SB": 28, "AVG": .252, "OPS": .757, "SO": 157},
+    "Geraldo Perdomo": {"AB": 506, "R": 84, "HR": 13, "RBI": 72, "SB": 18, "AVG": .277, "OPS": .793, "SO": 87},
     "Trea Turner": {"AB": 579, "R": 86, "HR": 18, "RBI": 71, "SB": 27, "AVG": .280, "OPS": .766, "SO": 115},
     "Cal Raleigh": {"AB": 543, "R": 86, "HR": 39, "RBI": 99, "SB": 8, "AVG": .232, "OPS": .820, "SO": 169},
     "Pete Crow-Armstrong": {"AB": 562, "R": 83, "HR": 24, "RBI": 76, "SB": 34, "AVG": .250, "OPS": .737, "SO": 148},
@@ -457,7 +543,7 @@ HITTER_PROJECTIONS = {
     "Byron Buxton": {"AB": 488, "R": 79, "HR": 29, "RBI": 76, "SB": 16, "AVG": .251, "OPS": .804, "SO": 148},
     "Seiya Suzuki": {"AB": 544, "R": 82, "HR": 26, "RBI": 84, "SB": 9, "AVG": .254, "OPS": .792, "SO": 156},
     "Riley Greene": {"AB": 564, "R": 83, "HR": 28, "RBI": 87, "SB": 4, "AVG": .259, "OPS": .796, "SO": 174},
-    "Mookie Betts": {"AB": 557, "R": 88, "HR": 22, "RBI": 79, "SB": 9, "AVG": .268, "OPS": .797, "SO": 76},
+    "Mookie Betts": {"AB": 509, "R": 86, "HR": 22, "RBI": 78, "SB": 11, "AVG": .273, "OPS": .814, "SO": 78},
     "Brandon Lowe": {"AB": 507, "R": 70, "HR": 25, "RBI": 75, "SB": 5, "AVG": .243, "OPS": .749, "SO": 144},
     "Brice Turang": {"AB": 576, "R": 80, "HR": 14, "RBI": 64, "SB": 30, "AVG": .257, "OPS": .711, "SO": 134},
     "Matt Chapman": {"AB": 566, "R": 83, "HR": 26, "RBI": 81, "SB": 10, "AVG": .237, "OPS": .757, "SO": 162},
@@ -673,6 +759,8 @@ RELIEVER_PROJECTIONS = {
     "Brusdar Graterol": {"IP": 50.6, "K": 42, "SV": 0, "HD": 9, "ERA": 3.42, "WHIP": 1.20, "L": 2},
     "Taylor Rogers": {"IP": 59.7, "K": 62, "SV": 11, "HD": 7, "ERA": 4.13, "WHIP": 1.34, "L": 3},
     "Kevin Ginkel": {"IP": 62.5, "K": 64, "SV": 5, "HD": 13, "ERA": 3.90, "WHIP": 1.30, "L": 3},
+    # Added - high upside but shoulder injury concern
+    "Ben Joyce": {"IP": 35.9, "K": 41, "SV": 4, "HD": 5, "ERA": 3.68, "WHIP": 1.27, "L": 2},
 }
 
 # Player ages (2026 season) - used when API doesn't provide ages
@@ -713,7 +801,7 @@ PLAYER_AGES = {
     "Riley Greene": 25, "Bo Bichette": 28, "Triston Casas": 26, "Christian Walker": 34,
     "Matt Olson": 32, "Michael Harris II": 25, "Marcell Ozuna": 35, "Marcus Semien": 35,
     "Francisco Lindor": 32, "Jake Burger": 28, "Anthony Volpe": 25, "Ozzie Albies": 29,
-    "Brice Turang": 26, "Vinnie Pasquantino": 28, "Lars Nootbaar": 28, "Jack Suwinski": 28,
+    "Brice Turang": 26, "Vinnie Pasquantino": 28, "Lars Nootbaar": 28, "Jack Suwinski": 28, "Geraldo Perdomo": 26,
     "Jacob Young": 27, "JJ Bleday": 27, "Leody Taveras": 27, "Kerry Carpenter": 27,
     "Mike Trout": 34, "Vladimir Guerrero Jr.": 27, "Corbin Carroll": 25, "Bryce Harper": 33,
     "Jazz Chisholm Jr.": 28, "Ketel Marte": 32, "CJ Abrams": 25, "Luis Robert Jr.": 27,
@@ -722,7 +810,7 @@ PLAYER_AGES = {
     "Alex Bregman": 32, "Christian Yelich": 34, "Cody Bellinger": 30, "Josh Naylor": 28,
     "Oneil Cruz": 27, "Royce Lewis": 27, "Teoscar Hernandez": 33, "Nick Castellanos": 34,
     "Adolis Garcia": 33, "Bryan Reynolds": 31, "Isaac Paredes": 27, "Luis Arraez": 29,
-    "Nolan Arenado": 35, "Alec Bohm": 29, "Tommy Edman": 30, "Daulton Varsho": 29,
+    "Nolan Arenado": 35, "Alec Bohm": 29, "Tommy Edman": 30, "Daulton Varsho": 29, "Tyler O'Neill": 30,
     "Lawrence Butler": 25, "Austin Wells": 25, "Logan O'Hoppe": 26, "Chandler Simpson": 25, "Victor Scott II": 25,
     "Shea Langeliers": 27, "Ceddanne Rafaela": 25, "Ke'Bryan Hayes": 29, "Ryan O'Hearn": 31,
     "Jose Caballero": 28, "Ryan Ward": 27,  # AAA player, born Feb 5, 1998
@@ -801,7 +889,7 @@ ELITE_YOUNG_PLAYERS = {
     "Jackson Holliday": 1.18,     # 22yo 2B, #1 prospect pedigree, elite bat
     "Julio Rodriguez": 1.15,      # 25yo OF, superstar ceiling when healthy
     # Elite young pitchers - dynasty premium for young aces with elite stuff
-    "Paul Skenes": 1.38,          # 23yo SP, 2025 NL Cy Young winner, elite stuff, #1 pick
+    "Paul Skenes": 1.20,          # 23yo SP, 2025 NL Cy Young winner, elite stuff but only 1.5yr track record
     "Garrett Crochet": 1.30,      # 26yo SP, elite strikeout ability, ace upside
     "Tarik Skubal": 1.40,         # 29yo SP, 2025 AL Cy Young winner, consensus #11
     "Yoshinobu Yamamoto": 1.18,   # 27yo SP, 3rd in 2025 NL Cy Young, premium ace
@@ -810,11 +898,11 @@ ELITE_YOUNG_PLAYERS = {
     # 2025 Award Winners - ROY and MVP contenders
     "Cal Raleigh": 1.18,          # 28yo C, 2nd in 2025 AL MVP, 60 HR catcher (historic)
     "Nick Kurtz": 1.18,           # 24yo 1B, 2025 AL ROY winner, 36 HR rookie season
-    "Drake Baldwin": 1.12,        # 25yo C, 2025 NL ROY winner, catcher scarcity
+    "Drake Baldwin": 1.22,        # 24yo C, 2025 NL ROY winner, catcher scarcity + youth
     "Jacob Wilson": 1.10,         # 24yo SS, 2nd in 2025 AL ROY, .311 AVG
     # Tier 2: Elite young stars with consensus backing (18-22% boost)
     "James Wood": 1.22,           # 23yo OF, elite prospect pedigree, consensus top 20
-    "Wyatt Langford": 1.20,       # 25yo OF, power upside, consensus top 30
+    "Wyatt Langford": 1.08,       # 25yo OF, power upside, consensus top 30 but .755 OPS projection
     # Tier 3: Established young stars (6-10% boost)
     "CJ Abrams": 1.08,            # 25yo SS, speed/power (consensus ~47)
     "Anthony Volpe": 1.06,        # 25yo SS, premium position
@@ -831,11 +919,21 @@ ELITE_YOUNG_PLAYERS = {
 # Now only keeping very small boosts for the truly elite under-28 players
 # The age curve and base formula should handle veteran value appropriately
 PROVEN_VETERAN_STARS = {
-    # Only elite young veterans (under 28) get minimal boosts
-    "Vladimir Guerrero Jr.": 1.05, # 27yo 1B, elite bat
+    # Proven young stars - should rank above unproven young players like Wood/PCA
+    "Vladimir Guerrero Jr.": 1.16,  # 27yo, proven elite 1B, .900 OPS
+    "Ronald Acuna Jr.": 1.08,       # 28yo, former MVP, elite when healthy
+    "Fernando Tatis Jr.": 1.18,     # 27yo, proven star, 30+ HR power
+    "Cal Raleigh": 1.32,            # 29yo, elite C, 39 HR - catcher premium
+    "Kyle Tucker": 1.12,            # 29yo, proven elite OF, .861 OPS - prime years
     # Shohei Ohtani - unique two-way player, consensus #1-2 dynasty asset
-    # His two-way production is unprecedented and age penalty doesn't apply normally
-    "Shohei Ohtani": 1.45,  # 31yo but only true two-way player in baseball history
+    "Shohei Ohtani": 1.27,  # 31yo but only true two-way player in baseball history
+    # Proven veterans with elite track records - age curve is too harsh on these stars
+    "Rafael Devers": 1.21,      # 29yo, consistent .900+ OPS, prime age
+    "Jose Ramirez": 1.15,       # 33yo, 5.8 WAR, 30 HR/44 SB elite power-speed
+    "Corey Seager": 1.16,       # 32yo, elite SS, World Series MVP
+    "Bryce Harper": 1.18,       # 33yo, former MVP, still elite production
+    "Trea Turner": 1.30,        # 33yo, elite SS, 2025 NL batting title (.304)
+    "Freddie Freeman": 1.58,    # 36yo, still elite .869 OPS in 2025
 }
 
 # Pitcher handedness (L = Left, R = Right)
@@ -1298,12 +1396,19 @@ class DynastyValueCalculator:
     
     @staticmethod
     def _calculate_reliever_value(player: Player, proj: dict) -> float:
-        """Calculate reliever value with SV+HLD emphasis but scaled appropriately."""
+        """Calculate reliever value with SV+HLD emphasis but scaled appropriately.
+
+        Uses tiered discounts based on SV+HD to properly value both elite closers
+        and high-leverage setup men in SV+HD leagues:
+        - Elite (30+ SV+HD): No RP discount, +15% dynasty relief
+        - High Leverage (20-29 SV+HD): 0.92 RP discount, +8% dynasty relief
+        - Low Leverage (<20 SV+HD): 0.85 RP discount, no dynasty relief
+        """
         value = 0.0
-        
+
         # Combined SV+HLD - elite closers (35+) get full value, setup men less
         sv_hld = proj.get('SV', 0) + proj.get('HD', 0)
-        
+
         # Tiered SV+HLD scoring - only elite closers get high scores
         if sv_hld >= 35:
             sv_hld_score = 90 + (sv_hld - 35) * 2  # Elite closers: 90-100
@@ -1313,34 +1418,50 @@ class DynastyValueCalculator:
             sv_hld_score = 30 + (sv_hld - 15) * 3  # Setup men: 30-60
         else:
             sv_hld_score = sv_hld * 2  # Low leverage: 0-30
-        
+
         value += sv_hld_score * 0.35  # SV+HLD is primary RP value
-        
+
         # Strikeouts (less weight - RPs have fewer opportunities)
         k_score = min((proj['K'] / 90) * 60, 70)  # Cap at 70
         value += k_score * 0.20
-        
+
         # ERA
         era_score = max(70 - ((proj['ERA'] - 2.50) * 20), 20)
         value += era_score * 0.18
-        
+
         # WHIP
         whip_score = max(70 - ((proj['WHIP'] - 1.00) * 40), 20)
         value += whip_score * 0.15
-        
+
         # K rate bonus for high-K relievers
         k_per_ip = proj['K'] / proj['IP'] if proj['IP'] > 0 else 0
         if k_per_ip >= 1.3:
             value += 8
         elif k_per_ip >= 1.1:
             value += 4
-        
-        # Reliever discount - only elite closers should approach SP value
-        # This caps most relievers well below top starters
-        value = value * 0.85
+
+        # Tiered reliever discount based on SV+HD
+        # Elite relievers (closers and high-hold setup men) get reduced/no discount
+        if sv_hld >= 30:
+            # Elite: No RP discount
+            rp_discount = 1.0
+            dynasty_relief = 1.15  # +15% to offset harsh dynasty pitcher discount
+        elif sv_hld >= 20:
+            # High leverage: Reduced discount
+            rp_discount = 0.92
+            dynasty_relief = 1.08  # +8% dynasty relief
+        else:
+            # Low leverage: Standard discount
+            rp_discount = 0.85
+            dynasty_relief = 1.0  # No relief
+
+        value = value * rp_discount
 
         # Apply dynasty adjustments (age, prospect status) - same as SP and hitters
         value = DynastyValueCalculator._apply_dynasty_adjustments(player, value, is_hitter=False)
+
+        # Apply dynasty relief for high-leverage relievers
+        value = value * dynasty_relief
 
         # Apply unproven pitcher discount
         value = DynastyValueCalculator._apply_unproven_pitcher_discount(player, value)
@@ -1354,14 +1475,14 @@ class DynastyValueCalculator:
 
         # Apply pitcher dynasty discount - pitchers are heavily discounted in dynasty formats
         # due to injury risk, volatility, and shorter careers
-        # Young pitchers (under 25) get a reduced discount since their youth provides career runway
+        # Pitchers peak 27-31, so discount tiers are adjusted accordingly
         if not is_hitter:
             if player.age > 0 and player.age <= 24:
                 value *= 0.80  # Reduced discount for young elite pitchers (Skenes, etc.)
-            elif player.age > 0 and player.age <= 27:
-                value *= 0.65  # Moderate discount for young-prime pitchers
+            elif player.age > 0 and player.age <= 31:
+                value *= 0.65  # Moderate discount for prime-age pitchers (peak years)
             else:
-                value *= DYNASTY_PITCHER_DISCOUNT  # Full discount for 28+ pitchers
+                value *= DYNASTY_PITCHER_DISCOUNT  # Full discount for 32+ pitchers
 
         bonus_multiplier = 1.0  # Track bonuses to cap stacking
 
@@ -1369,27 +1490,49 @@ class DynastyValueCalculator:
         # Calibration against FHQ/HKB consensus shows we need moderate decline, not extreme
         # Young players have longest runway, older players decline but elite production matters
         if player.age > 0:
-            # Same curve for hitters and pitchers in dynasty
-            if player.age <= 19:
-                bonus_multiplier += 0.20  # Extreme youth premium
-            elif player.age <= 21:
-                bonus_multiplier += 0.15  # Youth premium
-            elif player.age <= 24:
-                bonus_multiplier += 0.10  # Approaching prime
-            elif player.age <= 26:
-                bonus_multiplier += 0.00  # Peak prime years (baseline)
-            elif player.age <= 28:
-                bonus_multiplier -= 0.10  # Late prime, slight decline
-            elif player.age <= 30:
-                bonus_multiplier -= 0.22  # Post-prime, moderate decline
-            elif player.age <= 32:
-                bonus_multiplier -= 0.35  # Early 30s (Judge, Ramirez still elite)
-            elif player.age <= 34:
-                bonus_multiplier -= 0.50  # Mid 30s decline (Betts, Harper)
-            elif player.age <= 36:
-                bonus_multiplier -= 0.65  # Late 30s (Freeman)
-            else:  # 37+
-                bonus_multiplier -= 0.78  # End of career
+            if is_hitter:
+                # Hitter age curve - peak 25-28, decline starts at 29
+                if player.age <= 19:
+                    bonus_multiplier += 0.20  # Extreme youth premium
+                elif player.age <= 21:
+                    bonus_multiplier += 0.15  # Youth premium
+                elif player.age <= 24:
+                    bonus_multiplier += 0.10  # Approaching prime
+                elif player.age <= 26:
+                    bonus_multiplier += 0.00  # Peak prime years (baseline)
+                elif player.age <= 28:
+                    bonus_multiplier -= 0.10  # Late prime, slight decline
+                elif player.age <= 30:
+                    bonus_multiplier -= 0.22  # Post-prime, moderate decline
+                elif player.age <= 32:
+                    bonus_multiplier -= 0.35  # Early 30s (Judge, Ramirez still elite)
+                elif player.age <= 34:
+                    bonus_multiplier -= 0.50  # Mid 30s decline (Betts, Harper)
+                elif player.age <= 36:
+                    bonus_multiplier -= 0.65  # Late 30s (Freeman)
+                else:  # 37+
+                    bonus_multiplier -= 0.78  # End of career
+            else:
+                # Pitcher age curve - peak 27-31, decline starts at 32
+                # Pitchers peak later than hitters and elite arms maintain into early 30s
+                if player.age <= 19:
+                    bonus_multiplier += 0.20  # Extreme youth premium
+                elif player.age <= 21:
+                    bonus_multiplier += 0.15  # Youth premium
+                elif player.age <= 24:
+                    bonus_multiplier += 0.10  # Young arm developing
+                elif player.age <= 27:
+                    bonus_multiplier += 0.05  # Entering prime
+                elif player.age <= 31:
+                    bonus_multiplier += 0.00  # Peak prime years (baseline) - extended for pitchers
+                elif player.age <= 33:
+                    bonus_multiplier -= 0.15  # Early 30s, slight decline
+                elif player.age <= 35:
+                    bonus_multiplier -= 0.35  # Mid 30s decline
+                elif player.age <= 37:
+                    bonus_multiplier -= 0.55  # Late 30s
+                else:  # 38+
+                    bonus_multiplier -= 0.75  # End of career
 
         # Position scarcity (for hitters) - small adjustments
         if is_hitter:
@@ -1414,11 +1557,8 @@ class DynastyValueCalculator:
             elite_boost = ELITE_YOUNG_PLAYERS[player.name]
             value *= elite_boost
 
-        # Proven veteran star boost - established players with track records of elite production
-        # These players have proven reliability that projections alone don't capture
-        if player.name in PROVEN_VETERAN_STARS:
-            vet_boost = PROVEN_VETERAN_STARS[player.name]
-            value *= vet_boost
+        # NOTE: PROVEN_VETERAN_STARS boost is now applied in calculate_player_value AFTER
+        # consensus adjustment, so it adds on top of consensus rather than being absorbed by it
 
         # Prospect adjustments - CALIBRATED against 5-source consensus
         # (MLB Pipeline, Prospects Live, CFR, harryknowsball)
@@ -1427,30 +1567,32 @@ class DynastyValueCalculator:
         if player.name in PROSPECT_RANKINGS:
             rank = PROSPECT_RANKINGS[player.name]
 
-            # Tiered prospect valuation - adjusted for risk vs proven production
+            # Tiered prospect valuation - calibrated below proven MLB players
+            # Top prospects are valuable but unproven, so valued below established stars
+            # Proven elite production > unproven potential (P#1 should be ~#40-45 overall)
             if rank <= 0 or rank > 300:
                 prospect_value = 0.5
             elif rank <= 5:
-                # Top 5: 76 at rank 1, 68 at rank 5 (STAR/ELITE - premium assets)
-                prospect_value = 76 - (rank - 1) * 2.0
+                # Top 5: 63 at rank 1, 55 at rank 5 (below proven stars)
+                prospect_value = 63 - (rank - 1) * 2.0
             elif rank <= 10:
-                # Top 10: 66 at rank 6, 60 at rank 10 (STAR)
-                prospect_value = 66 - (rank - 6) * 1.5
+                # Top 10: 53 at rank 6, 47 at rank 10
+                prospect_value = 53 - (rank - 6) * 1.2
             elif rank <= 25:
-                # 11-25: 58 at rank 11, 46 at rank 25 (STAR)
-                prospect_value = 58 - (rank - 11) * 0.857
+                # 11-25: 45 at rank 11, 33 at rank 25
+                prospect_value = 45 - (rank - 11) * 0.857
             elif rank <= 50:
-                # 26-50: 38 at rank 26, 26 at rank 50 (SOLID - reduced for risk)
-                prospect_value = 38 - (rank - 26) * 0.5
+                # 26-50: 25 at rank 26, 13 at rank 50
+                prospect_value = 25 - (rank - 26) * 0.48
             elif rank <= 100:
-                # 51-100: 25 at rank 51, 14 at rank 100 (DEPTH - reduced)
-                prospect_value = 25 - (rank - 51) * 0.224
+                # 51-100: 12 at rank 51, 5 at rank 100
+                prospect_value = 12 - (rank - 51) * 0.143
             elif rank <= 200:
-                # 101-200: 13 at rank 101, 5 at rank 200 (DEPTH)
-                prospect_value = 13 - (rank - 101) * 0.08
+                # 101-200: 5 at rank 101, 2 at rank 200
+                prospect_value = 5 - (rank - 101) * 0.03
             else:
-                # 201-300: 4.5 at rank 201, 2 at rank 300 (DEPTH)
-                prospect_value = 4.5 - (rank - 201) * 0.025
+                # 201-300: 2 at rank 201, 1 at rank 300
+                prospect_value = 2 - (rank - 201) * 0.01
 
             # Use prospect value directly - rank determines value for prospects
             value = prospect_value
@@ -1511,6 +1653,12 @@ class DynastyValueCalculator:
         # Apply consensus adjustment - pulls value toward market consensus
         final_value = DynastyValueCalculator._apply_consensus_adjustment(player.name, base_value)
 
+        # Apply PROVEN_VETERAN_STARS boost AFTER consensus adjustment
+        # This ensures the boost adds value on top of consensus rather than being absorbed by it
+        if player.name in PROVEN_VETERAN_STARS:
+            vet_boost = PROVEN_VETERAN_STARS[player.name]
+            final_value *= vet_boost
+
         return final_value
 
     @staticmethod
@@ -1529,6 +1677,11 @@ class DynastyValueCalculator:
         """
         if player_name not in CONSENSUS_RANKINGS:
             return base_value  # No consensus data, use projection value
+
+        # Skip consensus adjustment for top prospects - their value is determined by prospect rank,
+        # not projection-based consensus which undervalues them for dynasty purposes
+        if player_name in PROSPECT_RANKINGS and PROSPECT_RANKINGS[player_name] <= 100:
+            return base_value  # Use pure prospect value
 
         consensus_rank = CONSENSUS_RANKINGS[player_name]
 
